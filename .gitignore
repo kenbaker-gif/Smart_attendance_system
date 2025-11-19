@@ -1,0 +1,5 @@
+data/processed/
+data/raw_faces/
+*.jpg
+*.png
+*.jpeg
