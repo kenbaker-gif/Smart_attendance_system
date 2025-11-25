@@ -1,23 +1,32 @@
-# Use a Miniconda base image
-FROM continuumio/miniconda3
+FROM python:3.10-slim
 
-# --- 1. INSTALL MISSING SYSTEM LIBRARIES ---
-# The 'libGL.so.1' error requires this package, even when using Conda.
-RUN apt-get update && apt-get install -y libgl1-mesa-glx \
+# Install system dependencies required for dlib, cmake, face recognition, etc.
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    libopenblas-dev \
+    liblapack-dev \
+    libjpeg-dev \
+    libboost-all-dev \
+    libgtk2.0-dev \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app directory
+# Set working directory
 WORKDIR /app
 
-# 2. Install dlib AND opencv using Conda (FAST and robust for binary dependencies)
-RUN conda install -c conda-forge dlib opencv -y
+# Copy requirements.txt
+COPY requirements.txt .
 
-# 3. Install Python dependencies via pip
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
-# 4. Copy application files and necessary configuration
-COPY .env /app/.env
-COPY . /app
+# Copy the entire project
+COPY . .
 
-# The EXPOSE and CMD lines are handled by docker-compose.yml
+# Expose port (Railway uses $PORT)
+EXPOSE 8000
+
+# Command to run the app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
