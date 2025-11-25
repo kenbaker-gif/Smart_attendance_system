@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# Install system dependencies required for dlib, cmake, face recognition, etc.
+# Install system dependencies needed by face_recognition
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -9,24 +9,21 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libboost-all-dev \
     libgtk2.0-dev \
-    python3-dev \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy requirements.txt
+# === Install precompiled Dlib wheel (FAST, no compilation) ===
+RUN pip install --no-cache-dir https://files.pythonhosted.org/packages/41/ed/9cb28f8e3af1c477a7e2e6d2f629d153576f7462c3df1da7efd7d446257f/dlib-19.24.0-cp310-cp310-manylinux_2_31_x86_64.whl
+
+# Copy requirements and install the rest
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
-
-# Copy the entire project
+# Copy project
 COPY . .
 
-# Expose port (Railway uses $PORT)
 EXPOSE 8000
 
-# Command to run the app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
