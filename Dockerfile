@@ -1,23 +1,19 @@
 FROM python:3.10-slim
 
-# Install system dependencies needed by face_recognition
+# Install minimal dependencies needed by face_recognition + dlib
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
+    libgl1 \
     libopenblas-dev \
     liblapack-dev \
-    libjpeg-dev \
-    libboost-all-dev \
-    libgtk2.0-dev \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# === Install precompiled Dlib wheel (FAST, no compilation) ===
+# Install precompiled dlib wheel (no compilation, instant)
 RUN pip install --no-cache-dir https://github.com/datamllab/rlcard/releases/download/v1.0.4/dlib-19.24.0-cp310-cp310-manylinux_2_17_x86_64.whl
 
-# Copy requirements and install the rest
+# Install remaining Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
