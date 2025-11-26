@@ -7,4 +7,4 @@ face-recognition
 pillow
 opencv-python-headless
 numpy
-
+python-dotenv
