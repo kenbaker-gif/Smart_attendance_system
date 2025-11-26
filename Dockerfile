@@ -1,4 +1,3 @@
-{"id":"87321","variant":"standard","title":"Multi-stage Dockerfile for Smart Attendance App"}
 # --- STAGE 1: BUILDER (Heavy Lifting) ---
 FROM continuumio/miniconda3:latest AS builder
 
