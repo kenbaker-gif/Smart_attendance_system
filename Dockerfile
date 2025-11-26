@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # === Install precompiled Dlib wheel (FAST, no compilation) ===
-RUN pip install --no-cache-dir https://files.pythonhosted.org/packages/41/ed/9cb28f8e3af1c477a7e2e6d2f629d153576f7462c3df1da7efd7d446257f/dlib-19.24.0-cp310-cp310-manylinux_2_31_x86_64.whl
+RUN pip install --no-cache-dir https://github.com/datamllab/rlcard/releases/download/v1.0.4/dlib-19.24.0-cp310-cp310-manylinux_2_17_x86_64.whl
 
 # Copy requirements and install the rest
 COPY requirements.txt .
