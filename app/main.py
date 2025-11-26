@@ -14,5 +14,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def home():
     return FileResponse(os.path.join("static", "index.html"))
 
+# Healthcheck endpoint
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 # Include router
 app.include_router(attendance.router, prefix="/attendance", tags=["Attendance"])

@@ -1,7 +1,7 @@
-# --- STAGE 1: BUILDER (Heavy Lifting) ---
+# --- STAGE 1: BUILDER ---
 FROM continuumio/miniconda3:latest AS builder
 
-# Install minimal system dependencies for building dlib/OpenCV
+# Install minimal system dependencies
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libopenblas-dev \
@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy requirements (excluding dlib and opencv)
+# Copy requirements (excluding dlib/opencv)
 COPY requirements.txt .
 
 # Install heavy dependencies using conda
@@ -19,7 +19,7 @@ RUN conda install -c conda-forge dlib=19.24 opencv -y --no-update-deps --quiet
 # Install remaining Python packages
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Optional: clean conda caches to reduce size
+# Clean conda cache to reduce size
 RUN conda clean -afy
 
 # --- STAGE 2: FINAL (Minimal Runtime) ---
@@ -34,15 +34,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy the prebuilt conda environment from builder
+# Copy prebuilt conda environment
 COPY --from=builder /opt/conda /opt/conda
 
-# Ensure Conda binaries are in PATH
 ENV PATH="/opt/conda/bin:$PATH"
 
-# Copy application code
+# Copy app code
 COPY . .
 
-# Expose port and run
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use dynamic PORT for Railway
+ENV PORT=8000
+
+# Expose port
+EXPOSE $PORT
+
+# Start app using correct module path
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $PORT"]
