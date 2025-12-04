@@ -1,11 +1,10 @@
 streamlit
 fastapi
-uvicorn[standard]
-supabase
-insightface[onnx]
-opencv-python
-Pillow
+uvicorn
+insightface
 numpy
+Pillow
 python-dotenv
-requests
+supabase
 python-multipart
+opencv-python
