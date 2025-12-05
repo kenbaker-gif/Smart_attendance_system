@@ -39,4 +39,4 @@ COPY . .
 ENV PORT=8501
 EXPOSE $PORT
 
-CMD ["sh", "-c", "streamlit run streamlit/app.py --server.address=0.0.0.0 --server.port=$PORT"]
+CMD ["sh", "-c", "conda run -n app_env streamlit run streamlit/app.py --server.address=0.0.0.0 --server.port=$PORT"]
