@@ -1,49 +1,42 @@
-# --- STAGE 1: BUILDER (Heavy Install & Cleaning) ---
-# We use this stage to perform all installations and clean up the cache.
-FROM continuumio/miniconda3:latest AS final
-
-# Install minimal system dependencies needed for runtime
-# We must do this *after* the FROM command for the base image.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libopenblas0 \
-    liblapack3 \
-    git \
-    cmake \
-    # Clean up the apt lists immediately after install
-    && rm -rf /var/lib/apt/lists/*
+# --- STAGE 1: BUILDER (Install dependencies) ---
+FROM continuumio/miniconda3:latest AS builder
 
 WORKDIR /app
+
+# Install minimal system dependencies needed for dlib/face-recognition
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    cmake \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
 COPY requirements.txt .
 
-# 1. Install heavy dependencies (dlib, opencv) using conda
-RUN conda install -c conda-forge dlib=19.24 opencv -y --no-update-deps --quiet
+# Create a minimal environment with only necessary packages
+RUN conda create -n app_env python=3.11 -y && \
+    conda install -n app_env -c conda-forge dlib=19.24 opencv -y --quiet && \
+    /opt/conda/envs/app_env/bin/pip install --no-cache-dir -r requirements.txt && \
+    conda clean -afy
 
-# 2. Install remaining Python packages (must include 'streamlit' and 'supabase')
-RUN pip install --no-cache-dir -r requirements.txt
+# --- STAGE 2: FINAL IMAGE (Runtime only) ---
+FROM continuumio/miniconda3:latest
 
-# 3. Clean conda cache to reduce image size (CRITICAL STEP)
-# This significantly shrinks the final image before saving it.
-RUN conda clean -afy
+WORKDIR /app
 
-# --- STAGE 2: APPLICATION RUNTIME (NO SEPARATE STAGE NEEDED) ---
-# Since Stage 1 is the most efficient final image, we rename it 'final'
-# and continue. The environment is already configured.
+# Copy the environment from builder
+COPY --from=builder /opt/conda /opt/conda
 
-# Copy the application code (app.py, recognition files, etc.)
-# Do this last so code changes don't invalidate the slow dependency layer cache.
-COPY . .
-
-# Set the default port for Streamlit
-ENV PORT=8501
-
-# Expose Streamlit's default port
-EXPOSE $PORT
-
-# Set the PATH environment variable (already configured in the base image, but good practice)
+# Update PATH
 ENV PATH="/opt/conda/bin:$PATH"
 
-# CMD to run your Streamlit application script
+# Copy application code last
+COPY . .
+
+# Streamlit settings
+ENV PORT=8501
+EXPOSE $PORT
+
 CMD ["sh", "-c", "streamlit run streamlit/app.py --server.address=0.0.0.0 --server.port=$PORT"]
