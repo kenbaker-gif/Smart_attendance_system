@@ -163,5 +163,4 @@ If you need a **custom AI attendance system** or **commercial deployment**, feel
 Freelancer | AI/ML Developer  
 
 - Fiverr: https://www.fiverr.com/s/Ege84AD
-- Upwork: https://freelancerprofilenuxt.mesh.prod.platform.usw2.upwork/freelancers/~01b78d8a0108200801?mp_source=share  
 - Email: ainebyonabubaker@proton.me
