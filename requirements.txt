@@ -1,6 +1,4 @@
-streamlit
-supabase
-face-recognition
-numpy
-Pillow
+fastapi
+uvicorn[standard]
 python-dotenv
+supabase
