@@ -17,7 +17,7 @@ headers = {"Authorization": f"Bearer {ADMIN_KEY}"}
 # Fetch attendance data
 with st.spinner("Fetching attendance data..."):
     try:
-        r = requests.get(f"{API_URL}/admin/attendance_records", headers=headers)
+        r = requests.get(f"{API_URL}/admin/attendance", headers=headers)
         r.raise_for_status()
         df = pd.DataFrame(r.json())
         if df.empty:
