@@ -24,4 +24,5 @@ EXPOSE 8000
 # Adjust path depending on where your main.py is:
 # If main.py is at root folder: uvicorn main:app
 # If main.py is inside app/ folder: uvicorn app.main:app
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+
