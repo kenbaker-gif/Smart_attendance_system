@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 
 # URL of your deployed FastAPI backend
-API_URL = "https://smartattendancesystem-production-e0b7.up.railway.app"
+API_URL = "https://lovely-imagination-production.up.railway.app/"
 
 # Admin key input
 ADMIN_KEY = st.text_input("Enter Admin Key", type="password")
