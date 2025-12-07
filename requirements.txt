@@ -1,9 +1,7 @@
 fastapi
 uvicorn
+numpy
+Pillow
 python-dotenv
 supabase
-requests
 python-multipart
-pandas
-opencv-python-headless
-Pillow
