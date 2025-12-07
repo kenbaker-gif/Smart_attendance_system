@@ -6,3 +6,4 @@ requests
 python-multipart
 pandas
 opencv-python-headless
+Pillow
