@@ -3,21 +3,18 @@ FROM continuumio/miniconda3:latest AS builder
 
 WORKDIR /app
 
-# Install minimal system dependencies needed for dlib/face-recognition
+# Install minimal system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libglib2.0-0 \
-    cmake \
-    build-essential \
-    git \
+    libgl1 libglib2.0-0 cmake build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
 COPY requirements.txt .
 
-# Create a minimal environment with only necessary packages
+# Create conda environment and install dependencies
 RUN conda create -n app_env python=3.11 -y && \
     conda install -n app_env -c conda-forge dlib=19.24 opencv -y --quiet && \
+    conda install -n app_env -c conda-forge uvicorn fastapi python-dotenv requests pandas -y && \
     /opt/conda/envs/app_env/bin/pip install --no-cache-dir -r requirements.txt && \
     conda clean -afy
 
@@ -26,17 +23,16 @@ FROM continuumio/miniconda3:latest
 
 WORKDIR /app
 
-# Copy the environment from builder
+# Copy conda environment from builder
 COPY --from=builder /opt/conda /opt/conda
-
-# Update PATH
 ENV PATH="/opt/conda/bin:$PATH"
 
-# Copy application code last
+# Copy application code
 COPY . .
 
-# Streamlit settings
-ENV PORT=8000
-EXPOSE $PORT
+# Expose port (Railway provides $PORT)
+EXPOSE 8000
 
-CMD sh -c "uvicorn main:app --host 0.0.0.0 --port $PORT"
+# --- RUN FASTAPI BACKEND ---
+# Use conda run to ensure uvicorn is in the environment
+CMD sh -c "conda run -n app_env uvicorn main:app --host 0.0.0.0 --port $PORT"
