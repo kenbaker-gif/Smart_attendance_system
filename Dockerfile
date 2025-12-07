@@ -36,7 +36,7 @@ ENV PATH="/opt/conda/bin:$PATH"
 COPY . .
 
 # Streamlit settings
-ENV PORT=8501
+ENV PORT=8000
 EXPOSE $PORT
 
-CMD ["sh", "-c", "conda run -n app_env streamlit run streamlit/app.py --server.address=0.0.0.0 --server.port=$PORT"]
+CMD sh -c "uvicorn main:app --host 0.0.0.0 --port $PORT"
