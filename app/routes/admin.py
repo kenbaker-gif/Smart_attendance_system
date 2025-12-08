@@ -31,28 +31,35 @@ router = APIRouter(
     tags=["Admin & Reports"]
 )
 
-# Get all attendance records
-@router.get("/attendance", response_model=List[Dict[str, Any]])
-def get_attendance(admin: bool = Depends(verify_admin)):
-    response = supabase.table("attendance_records").select("*").execute()
-    return response.data
+@router.get("/attendance_summary")
+def attendance_summary(admin: bool = Depends(verify_admin)):
+    try:
+        response = supabase.table("attendance_records").select("*").execute()
+        rows = response.data or []
 
-# Get attendance summary
-@router.get("/attendance_summary", response_model=Dict[str, Any])
-def get_summary(admin: bool = Depends(verify_admin)):
-    response = supabase.table("attendance_records").select("*").execute()
-    rows = response.data
+        total_present = 0
+        total_absent = 0
+        by_student = {}
 
-    total_present = sum(1 for r in rows if r["status"] == "present")
-    total_absent = sum(1 for r in rows if r["status"] == "absent")
+        for r in rows:
+            verified = r.get("verified")
+            student_id = r.get("student_id", "Unknown")
 
-    by_student: Dict[str, int] = {}
-    for r in rows:
-        student = r["students"]
-        by_student[student] = by_student.get(student, 0) + (1 if r["status"] == "present" else 0)
+            if verified == "success":
+                total_present += 1
+                by_student[student_id] = by_student.get(student_id, 0) + 1
+            elif verified == "failed":
+                total_absent += 1
+            else:
+                # Skip or log rows with unexpected verified values
+                print(f"[WARN] Unexpected verified value: {verified} for student_id: {student_id}")
 
-    return {
-        "total_present": total_present,
-        "total_absent": total_absent,
-        "by_student": by_student,
-    }
+        return {
+            "total_present": total_present,
+            "total_absent": total_absent,
+            "by_student": by_student
+        }
+
+    except Exception as e:
+        print(f"[ERROR] Failed to generate summary: {e}")
+        return {"error": str(e)}
