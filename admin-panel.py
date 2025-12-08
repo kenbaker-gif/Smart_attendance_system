@@ -8,7 +8,7 @@ load_dotenv()  # Must be called before os.getenv
 # -----------------------
 # CONFIG
 # -----------------------
-USE_LOCAL = True # Set False to test Railway deployment
+USE_LOCAL = False # Set False to test Railway deployment
 API_URL = "http://localhost:8000" if USE_LOCAL else "https://vivacious-charisma-production.up.railway.app/"
 
 # ADMIN SECRET (make sure this is set in your environment)
