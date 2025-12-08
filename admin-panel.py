@@ -1,65 +1,75 @@
-# admin-panel.py
 import streamlit as st
 import requests
 import pandas as pd
+import os
+from dotenv import load_dotenv
+load_dotenv()  # Must be called before os.getenv
 
-API_URL = "https://lovely-imagination-production.up.railway.app"  # no trailing slash
+# -----------------------
+# CONFIG
+# -----------------------
+USE_LOCAL = False # Set False to test Railway deployment
+API_URL = "http://localhost:8000" if USE_LOCAL else "https://vivacious-charisma-production.up.railway.app/"
 
-st.title("🔐 Smart Attendance - Admin Panel")
-
-# Admin key input
-ADMIN_KEY = st.text_input("Enter Admin Key", type="password")
-if not ADMIN_KEY:
-    st.warning("Please enter the admin key to continue.")
+# ADMIN SECRET (make sure this is set in your environment)
+ADMIN_SECRET = os.getenv("ADMIN_SECRET")
+if not ADMIN_SECRET:
+    st.error("ADMIN_SECRET not found in environment variables!")
     st.stop()
 
-headers = {"Authorization": f"Bearer {ADMIN_KEY}"}
+headers = {"Authorization": f"Bearer {ADMIN_SECRET}"}
 
-# Attendance records
+# -----------------------
+# FETCH DATA
+# -----------------------
+st.title("📊 Attendance Admin Panel")
+
+# Healthcheck
+try:
+    health_r = requests.get(f"{API_URL}/health")
+    health_r.raise_for_status()
+    st.success("API Health: OK ✅")
+except Exception as e:
+    st.error(f"API Healthcheck Failed: {e}")
+    st.stop()
+
+# Attendance Records
 st.subheader("Attendance Records")
 try:
     r = requests.get(f"{API_URL}/admin/attendance", headers=headers)
-    if r.status_code == 403:
-        st.error("❌ Invalid Admin Key")
-        st.stop()
     r.raise_for_status()
-    data = r.json()
-    if not data:
-        st.info("No attendance records available.")
-        st.stop()
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(r.json())
+    if df.empty:
+        st.info("No attendance records found.")
+    else:
+        st.dataframe(df)
 except Exception as e:
-    st.error(f"❌ Failed to fetch data: {e}")
+    st.error(f"Failed to fetch attendance: {e}")
     st.stop()
 
-st.dataframe(df, use_container_width=True)
-
-# Summary
-st.subheader("📊 Attendance Summary")
+# Summary Stats
+st.subheader("Attendance Summary")
 try:
     summary_r = requests.get(f"{API_URL}/admin/attendance_summary", headers=headers)
     summary_r.raise_for_status()
     summary = summary_r.json()
+
+    st.write(f"**Total Present:** {summary.get('total_present', 0)}")
+    st.write(f"**Total Absent:** {summary.get('total_absent', 0)}")
+
+    by_student = summary.get("by_student", {})
+    if by_student:
+        st.write("**Attendance by Student:**")
+        by_student_df = pd.DataFrame(list(by_student.items()), columns=["Student ID", "Present Count"])
+        st.bar_chart(by_student_df.set_index("Student ID"))
+    else:
+        st.info("No student data to display.")
+
 except Exception as e:
-    st.error(f"❌ Failed to fetch summary: {e}")
+    st.error(f"Failed to fetch summary: {e}")
     st.stop()
 
-st.write(f"**Total Present:** {summary.get('total_present', 0)}")
-st.write(f"**Total Absent:** {summary.get('total_absent', 0)}")
-
-# Attendance by student
-st.subheader("📈 Attendance by Student")
-by_student = summary.get("by_student", {})
-if by_student:
-    by_student_df = pd.DataFrame(list(by_student.items()), columns=["Student", "Present Count"])
-    st.bar_chart(by_student_df.set_index("Student"))
-else:
-    st.info("No student statistics available.")
-
-# Download CSV
-st.download_button(
-    "Download Attendance CSV",
-    df.to_csv(index=False).encode("utf-8"),
-    "attendance_report.csv",
-    "text/csv"
-)
+# Optional: Export CSV
+if not df.empty:
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button("Download CSV", csv, "attendance_report.csv", "text/csv")
