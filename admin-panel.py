@@ -1,75 +1,81 @@
 import streamlit as st
-import requests
 import pandas as pd
-import os
-from dotenv import load_dotenv
-load_dotenv()  # Must be called before os.getenv
+from app import dbmodule
 
-# -----------------------
-# CONFIG
-# -----------------------
-USE_LOCAL = False # Set False to test Railway deployment
-API_URL = "http://localhost:8000" if USE_LOCAL else "https://vivacious-charisma-production.up.railway.app/"
-
-# ADMIN SECRET (make sure this is set in your environment)
-ADMIN_SECRET = os.getenv("ADMIN_SECRET")
-if not ADMIN_SECRET:
-    st.error("ADMIN_SECRET not found in environment variables!")
-    st.stop()
-
-headers = {"Authorization": f"Bearer {ADMIN_SECRET}"}
-
-# -----------------------
-# FETCH DATA
-# -----------------------
+st.set_page_config(page_title="📊 Attendance Admin Panel", layout="wide")
 st.title("📊 Attendance Admin Panel")
 
-# Healthcheck
-try:
-    health_r = requests.get(f"{API_URL}/health")
-    health_r.raise_for_status()
-    st.success("API Health: OK ✅")
-except Exception as e:
-    st.error(f"API Healthcheck Failed: {e}")
-    st.stop()
+def is_verified(val):
+    """Return True if value indicates successful verification."""
+    if not val:
+        return False
+    return str(val).strip().lower() == "success"
 
-# Attendance Records
-st.subheader("Attendance Records")
+
+# -----------------------
+# Fetch all attendance records
+# -----------------------
+st.subheader("All Attendance Records")
 try:
-    r = requests.get(f"{API_URL}/admin/attendance", headers=headers)
-    r.raise_for_status()
-    df = pd.DataFrame(r.json())
-    if df.empty:
+    all_records = dbmodule.get_all_attendance()
+    if all_records:
+        df_all = pd.DataFrame(all_records)
+        st.dataframe(df_all)
+
+        # Optional CSV export
+        csv_all = df_all.to_csv(index=False).encode("utf-8")
+        st.download_button("Download All Records CSV", csv_all, "attendance_all.csv", "text/csv")
+    else:
         st.info("No attendance records found.")
-    else:
-        st.dataframe(df)
 except Exception as e:
-    st.error(f"Failed to fetch attendance: {e}")
-    st.stop()
+    st.error(f"Failed to fetch attendance records: {e}")
 
-# Summary Stats
-st.subheader("Attendance Summary")
-try:
-    summary_r = requests.get(f"{API_URL}/admin/attendance_summary", headers=headers)
-    summary_r.raise_for_status()
-    summary = summary_r.json()
+# -----------------------
+# Fetch attendance for a specific student
+# -----------------------
+st.subheader("Search Attendance by Student ID")
+student_id_input = st.text_input("Enter Student ID:")
 
-    st.write(f"**Total Present:** {summary.get('total_present', 0)}")
-    st.write(f"**Total Absent:** {summary.get('total_absent', 0)}")
+if st.button("Fetch Student Records") and student_id_input:
+    try:
+        student_records = dbmodule.get_attendance_by_student(student_id_input)
+        if student_records:
+            df_student = pd.DataFrame(student_records)
+            st.dataframe(df_student)
 
-    by_student = summary.get("by_student", {})
-    if by_student:
-        st.write("**Attendance by Student:**")
-        by_student_df = pd.DataFrame(list(by_student.items()), columns=["Student ID", "Present Count"])
-        st.bar_chart(by_student_df.set_index("Student ID"))
-    else:
-        st.info("No student data to display.")
+            # CSV export for specific student
+            csv_student = df_student.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Download Student Records CSV",
+                csv_student,
+                f"attendance_{student_id_input}.csv",
+                "text/csv"
+            )
+        else:
+            st.info("No records found for this student.")
+    except Exception as e:
+        st.error(f"Failed to fetch student records: {e}")
 
-except Exception as e:
-    st.error(f"Failed to fetch summary: {e}")
-    st.stop()
+# Count verified/unverified
+total_verified = sum(1 for r in all_records if is_verified(r.get("verified")))
+total_unverified = sum(1 for r in all_records if not is_verified(r.get("verified")))
 
-# Optional: Export CSV
-if not df.empty:
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("Download CSV", csv, "attendance_report.csv", "text/csv")
+st.write(f"**Total Verified (Success):** {total_verified}")
+st.write(f"**Total Unverified (Failure):** {total_unverified}")
+
+# Verified per student
+by_student = {}
+for r in all_records:
+    sid = str(r.get("student_id", "Unknown")).strip()
+    if is_verified(r.get("verified")):
+        by_student[sid] = by_student.get(sid, 0) + 1
+
+if by_student:
+    st.write("**Verified Students Count per Student ID:**")
+    by_student_df = pd.DataFrame(
+        list(by_student.items()),
+        columns=["Student ID", "Verified Count"]
+    )
+    st.bar_chart(by_student_df.set_index("Student ID"))
+else:
+    st.info("No verified student attendance data to display.")
