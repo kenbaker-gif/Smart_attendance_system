@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from app import dbmodule
+from app import dbmodule # Retain this for dbmodule.get_all_attendance()
+# REMOVED: from app.dbmodule import get_all_attendance <-- Not needed
 
 st.set_page_config(page_title="📊 Attendance Admin Panel", layout="wide")
 st.title("📊 Attendance Admin Panel")
@@ -11,13 +12,20 @@ def is_verified(val):
         return False
     return str(val).strip().lower() == "success"
 
+# ----------------------------------------------
+# STEP 1: INITIALIZE all_records (FIX for NameError)
+# This ensures it's defined even if the DB connection fails.
+# ----------------------------------------------
+all_records = []
 
 # -----------------------
 # Fetch all attendance records
 # -----------------------
 st.subheader("All Attendance Records")
 try:
+    # Fetch data and assign it to the initialized variable
     all_records = dbmodule.get_all_attendance()
+    
     if all_records:
         df_all = pd.DataFrame(all_records)
         st.dataframe(df_all)
@@ -30,8 +38,9 @@ try:
 except Exception as e:
     st.error(f"Failed to fetch attendance records: {e}")
 
+
 # -----------------------
-# Fetch attendance for a specific student
+# Fetch attendance for a specific student (Search block is fine)
 # -----------------------
 st.subheader("Search Attendance by Student ID")
 student_id_input = st.text_input("Enter Student ID:")
@@ -55,6 +64,12 @@ if st.button("Fetch Student Records") and student_id_input:
             st.info("No records found for this student.")
     except Exception as e:
         st.error(f"Failed to fetch student records: {e}")
+
+# ----------------------------------------------------------------------------------
+# STATISTICS SECTION
+# all_records is now guaranteed to be either the fetched list or an empty list []
+# REMOVED: all_records = get_all_attendance()
+# ----------------------------------------------------------------------------------
 
 # Count verified/unverified
 total_verified = sum(1 for r in all_records if is_verified(r.get("verified")))
