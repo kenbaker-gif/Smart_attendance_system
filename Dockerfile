@@ -32,7 +32,7 @@ COPY --from=builder /opt/conda/envs/student_env /opt/conda/envs/student_env
 
 # Set environment variables
 ENV PATH="/opt/conda/envs/student_env/bin:$PATH"
-ENV PORT=8501
+ENV PORT=8502
 
 COPY . .
 
