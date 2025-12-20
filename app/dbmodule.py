@@ -51,9 +51,9 @@ def get_attendance_by_student(student_id):
         {
             "id": r[0],
             "student_id": str(r[1]),
-            "status": str(r[2]).strip() if r[2] is not None else "",
-            "created_at": str(r[3]),
-            "verified": r[4]
+            "timestamp": str(r[2]).strip() if r[2] is not None else "",
+            "confidence": str(r[3]),
+            "method": r[4]
         }
         for r in rows
     ]
