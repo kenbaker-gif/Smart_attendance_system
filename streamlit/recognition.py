@@ -39,19 +39,43 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 # -----------------------------
-# InsightFace
+# InsightFace (lazy init)
 # -----------------------------
-try:
-    from insightface.app import FaceAnalysis
-except ModuleNotFoundError:
-    print("❌ ERROR: insightface not found. Install: pip install insightface[onnx]")
-    raise SystemExit(1)
+# Defer importing/initialization to runtime to avoid heavy memory usage at module import
+_app = None
 
-print("🔍 Initializing InsightFace (buffalo_s, CPU)...")
-# Use smaller detection size to save RAM
-app = FaceAnalysis(name="buffalo_s", providers=["CPUExecutionProvider"])
-app.prepare(ctx_id=-1, det_size=(320, 320))
-print("✅ InsightFace ready.")
+def get_insightface(name: str = "buffalo_s", det_size=(320, 320)):
+    """Lazily initialize and return a singleton FaceAnalysis instance."""
+    global _app
+    if _app is not None:
+        return _app
+    # If running inside the Streamlit app, try to reuse its cached 'app' instance
+    try:
+        import streamlit.app as streamlit_app
+        # Prefer calling the app's getter if available (allows requesting smaller det_size)
+        getter = getattr(streamlit_app, "get_insightface", None)
+        if callable(getter):
+            _app = getter(det_size=det_size)
+            return _app
+        existing = getattr(streamlit_app, "app", None)
+        if existing is not None:
+            _app = existing
+            return _app
+    except Exception:
+        # Ignore any import/circular import issues and fall back to local init
+        pass
+
+    try:
+        from insightface.app import FaceAnalysis
+    except ModuleNotFoundError:
+        print("❌ ERROR: insightface not found. Install: pip install insightface[onnx]")
+        raise SystemExit(1)
+
+    print(f"🔍 Initializing InsightFace ({name}, CPU)...")
+    _app = FaceAnalysis(name=name, providers=["CPUExecutionProvider"])
+    _app.prepare(ctx_id=-1, det_size=det_size)
+    print("✅ InsightFace ready.")
+    return _app
 
 # -----------------------------
 # Paths
@@ -80,7 +104,7 @@ def _generate_face_encoding_from_image(path: Path) -> Optional[np.ndarray]:
         # Resize to save memory
         img_bgr = cv2.resize(img_bgr, (320, 320))
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        faces = app.get(img_rgb)
+        faces = get_insightface().get(img_rgb)
         if not faces:
             return None
         face = _largest_face(faces)

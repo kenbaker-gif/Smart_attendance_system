@@ -84,7 +84,7 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 # -----------------------------
-# InsightFace setup
+# InsightFace setup (lazy)
 # -----------------------------
 try:
     from insightface.app import FaceAnalysis
@@ -97,15 +97,44 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-@st.cache_resource(show_spinner=False)
-def init_insightface():
-    logger.info(f"Initializing InsightFace: {INSIGHTFACE_MODEL_NAME} (CPU)")
-    app = FaceAnalysis(name=INSIGHTFACE_MODEL_NAME, providers=["CPUExecutionProvider"])
-    app.prepare(ctx_id=-1, det_size=(640, 640))
-    logger.info("InsightFace ready.")
-    return app
+# Module-level placeholders. `app` is intentionally set to None so importing
+# this module does not initialize the heavy model. Call `get_insightface()`
+# at runtime to obtain the singleton instance (cached by Streamlit).
+_app = None
+app = None
 
-app = init_insightface()
+@st.cache_resource(show_spinner=False)
+def init_insightface(name: str = INSIGHTFACE_MODEL_NAME, det_size=(640, 640)):
+    logger.info(f"Initializing InsightFace: {name} (CPU)")
+    logger.debug(f"InsightFace det_size={det_size}")
+    _local = FaceAnalysis(name=name, providers=["CPUExecutionProvider"])
+    _local.prepare(ctx_id=-1, det_size=det_size)
+    logger.info("InsightFace ready.")
+    return _local
+
+def get_insightface(det_size=(640, 640), name: str = INSIGHTFACE_MODEL_NAME):
+    """Return the singleton InsightFace `FaceAnalysis` instance.
+
+    This defers heavy initialization until needed and reuses the cached
+    instance returned by `init_insightface()` (Streamlit's `st.cache_resource`).
+    Other modules can request a smaller `det_size` by passing the
+    preferred value; if the instance already exists it will be reused.
+    """
+    global _app, app
+    logger.debug(f"get_insightface called with det_size={det_size} name={name}")
+    # Warn about large detection sizes which can increase memory usage
+    try:
+        w, h = det_size
+        if w * h > 640 * 640:
+            logger.warning("Requested large det_size may increase memory usage: %s", det_size)
+    except Exception:
+        pass
+
+    if _app is not None:
+        return _app
+    _app = init_insightface(name=name, det_size=det_size)
+    app = _app
+    return _app
 
 # -----------------------------
 # Utilities
@@ -147,7 +176,7 @@ def _generate_face_encoding_from_image(path: Path) -> Optional[np.ndarray]:
             logger.warning(f"Failed to read image {path}")
             return None
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        faces = app.get(img_rgb)
+        faces = get_insightface().get(img_rgb)
         if not faces:
             logger.info(f"No face detected in {path.name}")
             return None
