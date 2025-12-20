@@ -469,5 +469,46 @@ def main():
             st.cache_resource.clear()
             st.rerun()
 
+        if st.button("🧪 Generate Encodings Now (debug)"):
+            with st.spinner("Scanning images and generating encodings..."):
+                # List student dirs
+                try:
+                    if not RAW_FACES_DIR.exists():
+                        st.warning(f"Raw faces dir not found: {RAW_FACES_DIR}")
+                        student_dirs = []
+                    else:
+                        student_dirs = sorted([p for p in RAW_FACES_DIR.iterdir() if p.is_dir()])
+                        st.write("Found student directories:", [p.name for p in student_dirs])
+
+                    # Show sample images from up to 5 student folders
+                    for p in student_dirs[:5]:
+                        imgs = _get_image_paths(p)
+                        st.write(f"{p.name}: {len(imgs)} images")
+                        if imgs:
+                            try:
+                                st.image(str(imgs[0]), width=120, caption=f"{p.name}/{imgs[0].name}")
+                            except Exception as e:
+                                st.write("Could not display sample image:", e)
+
+                    ok = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
+                    if ok:
+                        st.success("Encodings generated and saved.")
+                    else:
+                        st.error("Encodings generation failed (no encodings produced). Check logs for details.")
+
+                    # Reload and show basic stats
+                    load_encodings.clear()
+                    known_encodings2, known_ids2, encoding_dim2 = load_encodings()
+                    st.write("Known encodings shape:", known_encodings2.shape if hasattr(known_encodings2, 'shape') else str(type(known_encodings2)))
+                    st.write("Known ids count:", len(known_ids2))
+                    st.write("Encodings path exists:", ENCODINGS_PATH.exists())
+                    if ENCODINGS_PATH.exists():
+                        try:
+                            st.write("Encodings size (bytes):", ENCODINGS_PATH.stat().st_size)
+                        except Exception as _e:
+                            st.write("Could not stat encodings file:", _e)
+                except Exception as e:
+                    st.exception(e)
+
 if __name__ == "__main__":
     main()
