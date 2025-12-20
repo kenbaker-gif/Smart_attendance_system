@@ -28,6 +28,9 @@ RAW_FACES_DIR = DATA_DIR / "raw_faces"
 ENCODINGS_PATH = DATA_DIR / "encodings_insightface.pkl"
 TEMP_CAPTURE_PATH = DATA_DIR / "tmp_capture.jpg"
 SETTINGS_PATH = DATA_DIR / "settings.json"
+# Remote artifact configuration (optional)
+ENCODINGS_REMOTE_PATH = os.getenv("ENCODINGS_REMOTE_PATH", "encodings/encodings_insightface.pkl")
+ENCODINGS_REMOTE_TYPE = os.getenv("ENCODINGS_REMOTE_TYPE", "supabase")  # future: support s3, etc.
 
 # Default for auto-generation can be overridden with env var AUTO_GENERATE_ENCODINGS
 AUTO_GENERATE_ENV = os.getenv("AUTO_GENERATE_ENCODINGS", "false").lower() == "true"
@@ -351,30 +354,51 @@ def load_encodings():
     auto_generate = AUTO_GENERATE_ENV or (auto_gen_setting is True)
 
     if not ENCODINGS_PATH.exists():
-        if auto_generate:
-            st.info("Encodings missing. Auto-generating from images...")
-            ok = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
-            if not ok or not ENCODINGS_PATH.exists():
+        # Try to fetch encodings from the configured remote (supabase currently)
+        if ENCODINGS_REMOTE_TYPE == "supabase" and USE_SUPABASE and supabase is not None:
+            try:
+                remote_path = ENCODINGS_REMOTE_PATH
+                res = supabase.storage.from_(SUPABASE_BUCKET).download(remote_path)
+                if res:
+                    try:
+                        data_bytes = res if isinstance(res, (bytes, bytearray)) else res.get("data") or res.get("body")
+                        if data_bytes:
+                            ENCODINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+                            with open(ENCODINGS_PATH, "wb") as fh:
+                                fh.write(data_bytes if isinstance(data_bytes, (bytes, bytearray)) else data_bytes.encode())
+                            logger.info("Downloaded encodings from Supabase.")
+                    except Exception:
+                        logger.debug("Failed to write encodings downloaded from Supabase.")
+            except Exception as e:
+                logger.debug(f"Could not download encodings from Supabase: {e}")
+        else:
+            logger.debug(f"Skipping remote encodings download: ENCODINGS_REMOTE_TYPE={ENCODINGS_REMOTE_TYPE}, USE_SUPABASE={USE_SUPABASE}")
+
+        if not ENCODINGS_PATH.exists():
+            if auto_generate:
+                st.info("Encodings missing. Auto-generating from images...")
+                ok = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
+                if not ok or not ENCODINGS_PATH.exists():
+                    msg = (
+                        "No encodings found after auto-generation. Ensure that `streamlit/data/raw_faces` contains "
+                        "student image folders (10-digit student IDs) or configure Supabase via env vars."
+                    )
+                    logger.error(msg)
+                    try:
+                        st.warning(msg)
+                    except Exception:
+                        pass
+                    return np.array([]), [], 0
+            else:
                 msg = (
-                    "No encodings found after auto-generation. Ensure that `streamlit/data/raw_faces` contains "
-                    "student image folders (10-digit student IDs) or configure Supabase via env vars."
+                    "Encodings are missing. Use the Admin Panel to generate encodings or enable auto-generation."
                 )
-                logger.error(msg)
+                logger.warning(msg)
                 try:
-                    st.warning(msg)
+                    st.info(msg)
                 except Exception:
                     pass
                 return np.array([]), [], 0
-        else:
-            msg = (
-                "Encodings are missing. Use the Admin Panel to generate encodings or enable auto-generation."
-            )
-            logger.warning(msg)
-            try:
-                st.info(msg)
-            except Exception:
-                pass
-            return np.array([]), [], 0
 
     try:
         with open(ENCODINGS_PATH, "rb") as fh:

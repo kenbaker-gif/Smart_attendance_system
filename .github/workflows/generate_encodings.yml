@@ -1,0 +1,56 @@
+name: Generate Encodings
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+
+jobs:
+  generate-encodings:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system deps (for OpenCV/onnx)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-0 libsm6 libxrender1 libxext6 libgl1 ffmpeg
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run pregenerate encodings
+        # Optional env vars: set SUPABASE_URL / SUPABASE_KEY / SUPABASE_BUCKET in repo secrets if you want the run to download images
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_BUCKET: ${{ secrets.SUPABASE_BUCKET }}
+          USE_SUPABASE: ${{ secrets.USE_SUPABASE }}
+        run: |
+          python scripts/pregenerate_encodings.py
+
+      - name: Upload encodings artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: encodings
+          path: streamlit/data/encodings_insightface.pkl
+
+      - name: Upload encodings to Supabase (optional)
+        if: ${{ secrets.SUPABASE_URL && secrets.SUPABASE_KEY && secrets.SUPABASE_BUCKET }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_BUCKET: ${{ secrets.SUPABASE_BUCKET }}
+          ENCODINGS_REMOTE_PATH: ${{ secrets.ENCODINGS_REMOTE_PATH }}
+        run: |
+          python scripts/upload_encodings_to_supabase.py
