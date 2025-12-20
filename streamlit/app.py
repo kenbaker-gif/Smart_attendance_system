@@ -434,17 +434,24 @@ def main():
         if USE_SUPABASE:
             if st.button("⬇️ Download from Supabase and Generate (clear local)"):
                 st.info("Downloading images from Supabase (clearing local images)...")
-                ok = download_all_supabase_images(SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET, str(RAW_FACES_DIR), clear_local=True)
-                if ok:
-                    st.info("Download complete. Generating encodings...")
-                    ok2 = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
-                    if ok2:
-                        load_encodings.clear()
-                        st.success("Encodings generated from Supabase images.")
+                try:
+                    ok = download_all_supabase_images(SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET, str(RAW_FACES_DIR), clear_local=True)
+                    if ok:
+                        st.info("Download complete. Generating encodings...")
+                        ok2 = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
+                        if ok2:
+                            load_encodings.clear()
+                            st.success("Encodings generated from Supabase images.")
+                        else:
+                            st.error("Failed to generate encodings after Supabase download.")
                     else:
-                        st.error("Failed to generate encodings after Supabase download.")
-                else:
-                    st.error("Supabase download failed. Check logs and credentials.")
+                        st.error("Supabase download failed. Check logs and credentials.")
+                except Exception as e:
+                    logger.exception("Supabase download and generate failed.")
+                    try:
+                        st.error(f"Supabase download failed: {e}")
+                    except Exception:
+                        pass
                 st.experimental_rerun()
 
         # Quick retrain shortcut (keeps existing behavior)
