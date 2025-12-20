@@ -46,11 +46,15 @@ jobs:
           path: streamlit/data/encodings_insightface.pkl
 
       - name: Upload encodings to Supabase (optional)
-        if: ${{ secrets.SUPABASE_URL && secrets.SUPABASE_KEY && secrets.SUPABASE_BUCKET }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_BUCKET: ${{ secrets.SUPABASE_BUCKET }}
           ENCODINGS_REMOTE_PATH: ${{ secrets.ENCODINGS_REMOTE_PATH }}
         run: |
+          # Skip upload if required Supabase secrets are not configured
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ] || [ -z "$SUPABASE_BUCKET" ]; then
+            echo "Supabase secrets not set; skipping upload step."
+            exit 0
+          fi
           python scripts/upload_encodings_to_supabase.py
