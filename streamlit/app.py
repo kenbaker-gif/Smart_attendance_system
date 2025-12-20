@@ -96,13 +96,32 @@ if USE_SUPABASE:
         print(f"❌ Supabase init failed: {e}")
         USE_SUPABASE = False
 
-    # Safe import of supabase_utils
-    try:
-        from app.utils.supabase_utils import download_all_supabase_images
-    except Exception as e:
-        print(f"⚠ Could not import supabase_utils. Supabase downloads disabled: {e}")
-        download_all_supabase_images = None
-        # Disable Supabase usage to avoid exposing a non-functional UI path
+    # Safe import of supabase_utils (supports non-package layouts via a file-path fallback)
+    def _load_supabase_utils():
+        try:
+            from app.utils.supabase_utils import download_all_supabase_images as fn
+            print("✅ Supabase utils imported from package")
+            return fn
+        except Exception as e:
+            # Fallback: load by file path (when 'app' is not an installed package)
+            try:
+                import importlib.util
+                supabase_utils_path = PROJECT_ROOT.parent / "app" / "utils" / "supabase_utils.py"
+                if supabase_utils_path.exists():
+                    spec = importlib.util.spec_from_file_location("project_supabase_utils", str(supabase_utils_path))
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                    fn = getattr(mod, "download_all_supabase_images", None)
+                    if fn:
+                        print("✅ Supabase utils imported via file path fallback")
+                        return fn
+            except Exception as e2:
+                print(f"⚠ Supabase utils fallback import failed: {e2}")
+            print(f"⚠ Could not import supabase_utils. Supabase downloads disabled: {e}")
+            return None
+
+    download_all_supabase_images = _load_supabase_utils()
+    if download_all_supabase_images is None:
         USE_SUPABASE = False
 
 # -----------------------------
@@ -122,6 +141,29 @@ file_handler.setFormatter(formatter)
 console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
+
+# -----------------------------
+# Helpers
+# -----------------------------
+
+def safe_rerun():
+    """Attempt to re-run the Streamlit script gracefully.
+
+    If Streamlit's experimental rerun is unavailable, notify the user
+    to manually refresh the page as a fallback.
+    """
+    try:
+        if hasattr(st, "experimental_rerun"):
+            st.experimental_rerun()
+            return True
+    except Exception as e:
+        logger.debug(f"safe_rerun: experimental_rerun failed: {e}")
+    # Fallback: show a toast telling the user to reload the page
+    try:
+        st.toast("Please refresh the page to apply changes.", icon="ℹ️")
+    except Exception:
+        pass
+    return False
 
 # -----------------------------
 # InsightFace setup (lazy)
@@ -430,7 +472,7 @@ def main():
                 st.success("Encodings generated successfully.")
             else:
                 st.error("Failed to generate encodings. Check logs.")
-            st.experimental_rerun()
+            safe_rerun()
 
         # Generate using Supabase (downloads then generates)
         if USE_SUPABASE:
@@ -457,7 +499,7 @@ def main():
                             st.error(f"Supabase download failed: {e}")
                         except Exception:
                             pass
-                    st.rerun()
+                    safe_rerun()
 
         # Quick retrain shortcut (keeps existing behavior)
         if st.button("♻️ Retrain Encodings (force)"):
@@ -465,7 +507,7 @@ def main():
             load_encodings.clear()
             init_insightface.clear()
             st.cache_resource.clear()
-            st.experimental_rerun()
+            safe_rerun()
 
 if __name__ == "__main__":
     main()
