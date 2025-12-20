@@ -36,45 +36,27 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
 print(f"📡 USE_SUPABASE={USE_SUPABASE}, SUPABASE_URL_set={bool(SUPABASE_URL)}, SUPABASE_KEY_set={bool(SUPABASE_KEY)}, SUPABASE_BUCKET_set={bool(SUPABASE_BUCKET)}")
 
-# If Supabase is enabled, attempt to list top objects for debugging; do not fail on errors.
-if USE_SUPABASE and SUPABASE_URL and SUPABASE_KEY and SUPABASE_BUCKET:
-    try:
-        from supabase import create_client
-        client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        storage = client.storage.from_(SUPABASE_BUCKET)
-        all_files_raw = storage.list("", options={"limit": 1000, "deep": True})
-        # Try to normalize response
-        sample_names = []
-        if isinstance(all_files_raw, dict):
-            data = all_files_raw.get("data") or all_files_raw.get("files") or all_files_raw.get("list")
-            if isinstance(data, list):
-                for e in data[:20]:
-                    name = e.get("name") or e.get("id") or str(e)
-                    sample_names.append(name)
-        elif isinstance(all_files_raw, list):
-            for e in all_files_raw[:20]:
-                name = e.get("name") or e.get("id") or str(e)
-                sample_names.append(name)
-        print(f"🔍 Supabase bucket sample (up to 20 objects): {sample_names}")
-    except Exception as e:
-        print(f"⚠ Could not list Supabase bucket for debug: {e}")
+# ... (after your diagnostic print statements)
 
-# If InsightFace fails to initialize, we can't proceed
+# 1. NEW STEP: Download the images if Supabase is enabled
+if USE_SUPABASE:
+    print("📥 Attempting to sync faces from Supabase...")
+    try:
+        # Check app.py for the specific download function name
+        # It's likely called sync_faces(), download_faces(), or similar
+        app.download_faces_from_supabase() 
+        print("✅ Sync complete.")
+    except AttributeError:
+        print("❌ Error: Could not find a download function in app.py. Check function name.")
+    except Exception as e:
+        print(f"❌ Download failed: {e}")
+
+# 2. Proceed with InsightFace initialization
 try:
     app.get_insightface(det_size=det_size)
 except Exception as e:
     print(f"❌ InsightFace initialization failed: {e}")
     sys.exit(3)
 
+# 3. Generate encodings
 ok = app.generate_encodings(app.RAW_FACES_DIR, app.ENCODINGS_PATH)
-if not ok:
-    print("❌ Failed to generate encodings. Check that `streamlit/data/raw_faces` contains student folders or configure Supabase env vars.")
-    sys.exit(4)
-
-if app.ENCODINGS_PATH.exists():
-    size = app.ENCODINGS_PATH.stat().st_size
-    print(f"✅ Encodings generated: {app.ENCODINGS_PATH} ({size} bytes)")
-    sys.exit(0)
-else:
-    print("❌ Encodings file not found after generation.")
-    sys.exit(5)
