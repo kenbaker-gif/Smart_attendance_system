@@ -284,6 +284,41 @@ def main():
     st.set_page_config(page_title="Smart Attendance", layout="centered")
     st.title("📸 Smart Attendance System (InsightFace)")
 
+    # --- Client-side camera / iframe diagnostic ---
+    html(
+        """
+        <div id="st-camera-check" style="font-family: sans-serif; padding: 6px;">
+          <div id="st-camera-default">Detecting camera status... If this stays visible, open the app in a new tab and check the browser console for getUserMedia errors.</div>
+          <script>
+            (function() {
+              const out = document.getElementById('st-camera-check');
+              const defaultEl = document.getElementById('st-camera-default');
+              const inIframe = window.top !== window.self;
+              const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+              let content = `<div><strong>In iframe:</strong> ${inIframe}</div><div><strong>Media devices:</strong> ${hasMedia}</div>`;
+              if (!hasMedia) {
+                content += '<div style="color:orange"><strong>Warning:</strong> Camera API unavailable. Open this app directly (not in dashboard preview) and use HTTPS.</div>';
+              } else if (inIframe) {
+                content += '<div style="color:orange"><strong>Warning:</strong> The app appears to be embedded in an iframe; camera access may be blocked. Open the app in a new tab to enable the camera.</div>';
+              } else {
+                content += '<div style="color:green">Camera API and context look OK — allow camera access when prompted.</div>';
+              }
+              if (navigator.permissions) {
+                navigator.permissions.query({ name: 'camera' }).then(p => {
+                  content += `<div><strong>Camera permission state:</strong> ${p.state}</div>`;
+                  out.innerHTML = content;
+                }).catch(()=>{ out.innerHTML = content; });
+              } else {
+                out.innerHTML = content;
+              }
+            })();
+          </script>
+        </div>
+        """,
+        height=140,
+    )
+    st.warning("If the camera area is blank, open this app in a new tab (not the Railway dashboard preview), ensure the URL is HTTPS, and allow camera permission in your browser.")
+
     known_encodings, known_ids, encoding_dim = load_encodings()
     threshold = DEFAULT_THRESHOLD
 
