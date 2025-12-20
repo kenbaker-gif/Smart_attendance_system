@@ -288,6 +288,33 @@ def main():
 
     st.info(f"System Ready: {len(set(known_ids))} students loaded. (Model: {INSIGHTFACE_MODEL_NAME}, Threshold: {threshold})")
 
+    # --- Runtime diagnostics (visible in UI) ---
+    with st.expander("🧪 Runtime Diagnostics"):
+        try:
+            st.write("Encodings file exists:", ENCODINGS_PATH.exists())
+            if ENCODINGS_PATH.exists():
+                try:
+                    st.write("Encodings file size (bytes):", ENCODINGS_PATH.stat().st_size)
+                except Exception as _e:
+                    st.write("Could not stat encodings file:", _e)
+        except Exception as _e:
+            st.write("Failed to inspect encodings file:", _e)
+
+        try:
+            st.write("Known encodings shape:", known_encodings.shape if hasattr(known_encodings, 'shape') else str(type(known_encodings)))
+            st.write("Known ids count:", len(known_ids))
+        except Exception as _e:
+            st.write("Failed to inspect known encodings:", _e)
+
+        try:
+            st.write("Raw faces dir exists:", RAW_FACES_DIR.exists())
+            st.write("Raw faces subdirs:", [p.name for p in RAW_FACES_DIR.iterdir() if p.is_dir()])
+        except Exception as _e:
+            st.write("Could not list RAW_FACES_DIR:", _e)
+
+        st.write("Supabase enabled:", USE_SUPABASE)
+        st.write("Supabase client initialized:", supabase is not None)
+
     student_id_input = st.text_input("Enter Student ID", placeholder="e.g., 2400102415").strip()
     camera_input = st.camera_input("Capture Image")
 
@@ -300,7 +327,22 @@ def main():
         image.save(TEMP_CAPTURE_PATH)
         uploaded_embedding = _generate_face_encoding_from_image(TEMP_CAPTURE_PATH)
         if TEMP_CAPTURE_PATH.exists():
-            os.remove(TEMP_CAPTURE_PATH)
+            try:
+                os.remove(TEMP_CAPTURE_PATH)
+            except Exception:
+                pass
+
+        # Provide user feedback if no embedding could be extracted
+        if uploaded_embedding is None:
+            st.warning("No face encoding could be extracted from the captured image. This can happen if no face was detected, or the image quality is low.")
+            logger.info("Camera capture processed but no embedding was produced.")
+        else:
+            # show a minimal debug summary so we can see runtime behavior on the deployed app
+            try:
+                st.write(f"Captured embedding shape: {uploaded_embedding.shape}")
+            except Exception:
+                st.write("Captured embedding produced (shape unavailable)")
+            logger.info("Camera capture produced an embedding.")
 
     if uploaded_embedding is not None and st.button("✅ Verify Identity"):
         if not student_id_input:
