@@ -99,9 +99,11 @@ if USE_SUPABASE:
     # Safe import of supabase_utils
     try:
         from app.utils.supabase_utils import download_all_supabase_images
-    except ImportError:
-        print("⚠ Could not import supabase_utils. Supabase downloads disabled.")
+    except Exception as e:
+        print(f"⚠ Could not import supabase_utils. Supabase downloads disabled: {e}")
         download_all_supabase_images = None
+        # Disable Supabase usage to avoid exposing a non-functional UI path
+        USE_SUPABASE = False
 
 # -----------------------------
 # Logging
@@ -432,27 +434,30 @@ def main():
 
         # Generate using Supabase (downloads then generates)
         if USE_SUPABASE:
-            if st.button("⬇️ Download from Supabase and Generate (clear local)"):
-                st.info("Downloading images from Supabase (clearing local images)...")
-                try:
-                    ok = download_all_supabase_images(SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET, str(RAW_FACES_DIR), clear_local=True)
-                    if ok:
-                        st.info("Download complete. Generating encodings...")
-                        ok2 = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
-                        if ok2:
-                            load_encodings.clear()
-                            st.success("Encodings generated from Supabase images.")
-                        else:
-                            st.error("Failed to generate encodings after Supabase download.")
-                    else:
-                        st.error("Supabase download failed. Check logs and credentials.")
-                except Exception as e:
-                    logger.exception("Supabase download and generate failed.")
+            if not callable(download_all_supabase_images):
+                st.error("Supabase downloads are disabled or not available. Check server logs and ensure `app/utils/supabase_utils.py` and the `supabase` package are installed.")
+            else:
+                if st.button("⬇️ Download from Supabase and Generate (clear local)"):
+                    st.info("Downloading images from Supabase (clearing local images)...")
                     try:
-                        st.error(f"Supabase download failed: {e}")
-                    except Exception:
-                        pass
-                st.experimental_rerun()
+                        ok = download_all_supabase_images(SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET, str(RAW_FACES_DIR), clear_local=True)
+                        if ok:
+                            st.info("Download complete. Generating encodings...")
+                            ok2 = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
+                            if ok2:
+                                load_encodings.clear()
+                                st.success("Encodings generated from Supabase images.")
+                            else:
+                                st.error("Failed to generate encodings after Supabase download.")
+                        else:
+                            st.error("Supabase download failed. Check logs and credentials.")
+                    except Exception as e:
+                        logger.exception("Supabase download and generate failed.")
+                        try:
+                            st.error(f"Supabase download failed: {e}")
+                        except Exception:
+                            pass
+                    st.experimental_rerun()
 
         # Quick retrain shortcut (keeps existing behavior)
         if st.button("♻️ Retrain Encodings (force)"):
