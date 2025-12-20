@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - Insightface  # allow running the workflow from the feature branch for manual triggering
 
 jobs:
   generate-encodings:
