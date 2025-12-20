@@ -151,5 +151,28 @@ def download_all_supabase_images(
         print("⚠ No objects were found in the Supabase bucket. Confirm the bucket name and that it contains image files.")
     elif download_count == 0:
         print("⚠ No image files matching the expected patterns were downloaded. Check naming conventions (student ID in filename or path).")
+        # Provide extra diagnostic context to help CI/debugging: show samples of the objects that were present and why they were skipped.
+        try:
+            non_images = []
+            no_student_id = []
+            for file_entry in all_files[:200]:
+                remote_path = file_entry.get("id") or file_entry.get("name")
+                if not remote_path:
+                    continue
+                fn = Path(str(remote_path)).name
+                if Path(fn).suffix.lower() not in (".jpg", ".jpeg", ".png"):
+                    non_images.append(str(remote_path))
+                    continue
+                import re
+                if not re.search(r"(\d{10})", str(remote_path)) and not (len(fn) >= 10 and fn[:10].isdigit()):
+                    no_student_id.append(str(remote_path))
+            if non_images:
+                print("🔎 Sample non-image objects (up to 10):", non_images[:10])
+            if no_student_id:
+                print("🔎 Sample image objects without 10-digit student id (up to 10):", no_student_id[:10])
+            if not non_images and not no_student_id:
+                print("🔎 Objects were found but none could be downloaded or contained data; enable additional debugging to inspect responses.")
+        except Exception:
+            pass
 
     return download_count > 0
