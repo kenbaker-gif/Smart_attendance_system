@@ -206,31 +206,54 @@ def _generate_face_encoding_from_image(path: Path) -> Optional[np.ndarray]:
 # -----------------------------
 def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENCODINGS_PATH) -> bool:
     images_dir.mkdir(parents=True, exist_ok=True)
+
+    # 🔥 FORCE MODEL INITIALIZATION
+    insight_app = get_insightface_app()
+    if insight_app is None:
+        logger.error("❌ InsightFace failed to initialize. Cannot generate encodings.")
+        return False
+
     if USE_SUPABASE and download_all_supabase_images and SUPABASE_URL and SUPABASE_KEY and SUPABASE_BUCKET:
         logger.info("📦 Downloading images from Supabase...")
-        ok = download_all_supabase_images(SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET, str(images_dir), clear_local=False)
-        logger.info("✅ Supabase download complete." if ok else "⚠️ Download failed or empty.")
+        ok = download_all_supabase_images(
+            SUPABASE_URL,
+            SUPABASE_KEY,
+            SUPABASE_BUCKET,
+            str(images_dir),
+            clear_local=False
+        )
+        logger.info("✅ Supabase download complete." if ok else "⚠️ Supabase download failed or empty.")
+
+    student_dirs = sorted([p for p in images_dir.iterdir() if p.is_dir()])
+    if not student_dirs:
+        logger.error("❌ No student directories found in RAW_FACES_DIR.")
+        return False
 
     encodings, ids = [], []
-    student_dirs = sorted([p for p in images_dir.iterdir() if p.is_dir()])
-    logger.info(f"Found {len(student_dirs)} student folders to process.")
 
     for student_dir in student_dirs:
         student_id = student_dir.name
         image_paths = _get_image_paths(student_dir)
+
         if not image_paths:
-            logger.info(f"No images for {student_id}, skipping.")
+            logger.warning(f"⚠️ No images found for {student_id}")
             continue
-        logger.info(f"Processing {student_id} ({len(image_paths)} images)...")
+
+        logger.info(f"Processing {student_id} ({len(image_paths)} images)")
+        failed = 0
+
         for img_path in image_paths:
             emb = _generate_face_encoding_from_image(img_path)
             if emb is None:
+                failed += 1
                 continue
             encodings.append(emb)
             ids.append(student_id)
 
+        logger.info(f"{student_id}: {len(image_paths) - failed} success, {failed} failed")
+
     if not encodings:
-        logger.error("No encodings generated.")
+        logger.error("❌ No encodings generated from any images.")
         return False
 
     try:
@@ -238,10 +261,14 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
         arr = normalize_encodings(np.array(encodings, dtype=np.float32))
         with open(output_path, "wb") as fh:
             pickle.dump({"encodings": arr, "ids": np.array(ids)}, fh)
-        logger.info(f"Saved {len(encodings)} encodings for {len(set(ids))} students → {output_path}")
+
+        logger.info(
+            f"✅ Saved {len(encodings)} encodings for {len(set(ids))} students → {output_path}"
+        )
         return True
+
     except Exception as e:
-        logger.exception(f"Failed to save encodings: {e}")
+        logger.exception(f"❌ Failed to save encodings: {e}")
         return False
 
 # -----------------------------
@@ -318,46 +345,6 @@ def add_attendance_record(student_id: str, confidence: float, model: str, status
 def main():
     st.set_page_config(page_title="Smart Attendance", layout="centered")
     st.title("📸 Smart Attendance System (InsightFace)")
-
-    # --- Client-side camera / iframe diagnostic ---
-    html(
-        """
-        <div id="st-camera-check" style="font-family: sans-serif; padding: 6px;">
-          <div id="st-camera-default">Detecting camera status... If this stays visible, open the app in a new tab and check the browser console for getUserMedia errors.</div>
-          <script>
-            (function() {
-              const out = document.getElementById('st-camera-check');
-              const defaultEl = document.getElementById('st-camera-default');
-              const inIframe = window.top !== window.self;
-              const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-              let content = `<div><strong>In iframe:</strong> ${inIframe}</div><div><strong>Media devices:</strong> ${hasMedia}</div>`;
-              if (!hasMedia) {
-                content += '<div style="color:orange"><strong>Warning:</strong> Camera API unavailable. Open this app directly (not in dashboard preview) and use HTTPS.</div>';
-              } else if (inIframe) {
-                content += '<div style="color:orange"><strong>Warning:</strong> The app appears to be embedded in an iframe; camera access may be blocked. Open the app in a new tab to enable the camera.</div>';
-              } else {
-                content += '<div style="color:green">Camera API and context look OK — allow camera access when prompted.</div>';
-              }
-              if (navigator.permissions) {
-                navigator.permissions.query({ name: 'camera' }).then(p => {
-                  content += `<div><strong>Camera permission state:</strong> ${p.state}</div>`;
-                  out.innerHTML = content;
-                }).catch(()=>{ out.innerHTML = content; });
-              } else {
-                out.innerHTML = content;
-              }
-            })();
-          </script>
-        </div>
-        """,
-        height=140,
-    )
-    st.warning("If the camera area is blank, open this app in a new tab (not the Railway dashboard preview), ensure the URL is HTTPS, and allow camera permission in your browser.")
-
-    known_encodings, known_ids, encoding_dim = load_encodings()
-    threshold = DEFAULT_THRESHOLD
-
-    st.info(f"System Ready: {len(set(known_ids))} students loaded. (Model: {INSIGHTFACE_MODEL_NAME}, Threshold: {threshold})")
 
     # --- Runtime diagnostics (visible in UI) ---
     with st.expander("🧪 Runtime Diagnostics"):
