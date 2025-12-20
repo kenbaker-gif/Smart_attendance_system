@@ -29,34 +29,36 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Ensure critical ML and cloud libraries are present
           pip install onnxruntime opencv-python-headless supabase insightface
 
       - name: Run pregenerate encodings
         env:
-          # We force USE_SUPABASE to true here to ensure the script attempts a download
           USE_SUPABASE: "true"
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_BUCKET: ${{ secrets.SUPABASE_BUCKET }}
+          # Set PYTHONPATH so python can find the 'app' module if needed
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          # Create directory explicitly just in case
-          mkdir -p streamlit/data/raw_faces
-          python scripts/pregenerate_encodings.py
+          # Use the new --generate flag in your unified app.py
+          python app.py --generate
 
       - name: 🔍 Diagnostic - Why did it fail?
         if: always()
         run: |
           echo "=== CHECKING DIRECTORY STRUCTURE ==="
-          if [ -d "streamlit/data/raw_faces" ]; then
+          # Checking 'data/raw_faces' as defined in your app.py PROJECT_ROOT logic
+          if [ -d "data/raw_faces" ]; then
             echo "✅ raw_faces directory exists."
             echo "Contents of raw_faces (recursive):"
-            ls -R streamlit/data/raw_faces
+            ls -R data/raw_faces
           else
-            echo "❌ ERROR: streamlit/data/raw_faces does not exist."
+            echo "❌ ERROR: data/raw_faces does not exist."
           fi
           
           echo "=== CHECKING FOR OUTPUT PICKLE ==="
-          if [ -f "streamlit/data/encodings_insightface.pkl" ]; then
+          if [ -f "data/encodings_insightface.pkl" ]; then
             echo "✅ Encodings file was created."
           else
             echo "❌ ERROR: encodings_insightface.pkl was NOT created."
@@ -67,18 +69,19 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: encodings
-          path: streamlit/data/encodings_insightface.pkl
+          path: data/encodings_insightface.pkl
 
-      - name: Upload encodings to Supabase (optional)
+      - name: Upload encodings to Supabase
         if: success()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_BUCKET: ${{ secrets.SUPABASE_BUCKET }}
-          ENCODINGS_REMOTE_PATH: ${{ secrets.ENCODINGS_REMOTE_PATH }}
+          ENCODINGS_REMOTE_PATH: "encodings/encodings_insightface.pkl"
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ] || [ -z "$SUPABASE_BUCKET" ]; then
             echo "Secrets not set; skipping upload."
             exit 0
           fi
+          # Ensure this script points to data/encodings_insightface.pkl
           python scripts/upload_encodings_to_supabase.py

@@ -29,7 +29,8 @@ def download_all_supabase_images(
     clear_local: bool = True,
 ) -> bool:
     """
-    Downloads images from Supabase using the structure: StudentID/Image.jpg
+    Production version of the recursive downloader.
+    Maps: Supabase Bucket/StudentID/1.jpg -> local_dir/StudentID/1.jpg
     """
     local_path = Path(local_images_dir)
     
@@ -40,38 +41,36 @@ def download_all_supabase_images(
         print(f"❌ Supabase Client Error: {e}")
         return False
 
-    # 1. Prepare local directory
+    # Prepare local directory
     if clear_local and local_path.exists():
         shutil.rmtree(local_path)
     local_path.mkdir(parents=True, exist_ok=True)
 
     download_count = 0
-    downloaded_ids = []
 
     try:
-        # 2. List the root to find Student ID folders
+        # Step 1: List root to find student folders (e.g., 2400102415)
+        print(f"📂 Scanning bucket root: {supabase_bucket}")
         root_items = _normalize_list_response(storage_api.list("", options={"limit": 1000}))
         
-        # Filter out hidden files like .emptyFolderPlaceholder
         folder_names = [item['name'] for item in root_items if not item['name'].startswith('.')]
 
         for student_id in folder_names:
-            # 3. List inside each Student ID folder
+            # Step 2: List contents of each folder to find images
             sub_items = _normalize_list_response(storage_api.list(student_id))
             
             for file_entry in sub_items:
                 file_name = file_entry.get("name")
                 
-                # Only grab image files
                 if file_name and Path(file_name).suffix.lower() in (".jpg", ".jpeg", ".png"):
                     remote_path = f"{student_id}/{file_name}"
                     
-                    # Create local structure: raw_faces/2400102415/1.jpg
+                    # Create local path: local_dir/2400102415/1.jpg
                     local_student_dir = local_path / student_id
                     local_student_dir.mkdir(parents=True, exist_ok=True)
                     local_file_path = local_student_dir / file_name
 
-                    # 4. Perform Download
+                    # Step 3: Download
                     res = storage_api.download(remote_path)
                     data = _download_bytes_from_response(res)
                     
@@ -79,12 +78,11 @@ def download_all_supabase_images(
                         with open(local_file_path, "wb") as f:
                             f.write(data)
                         download_count += 1
-                        if student_id not in downloaded_ids:
-                            downloaded_ids.append(student_id)
+                        print(f"   ✅ Saved: {student_id}/{file_name}")
 
-        print(f"✅ Successfully downloaded {download_count} images for {len(downloaded_ids)} students.")
+        print(f"✨ Successfully downloaded {download_count} images.")
         return download_count > 0
 
     except Exception as e:
-        print(f"❌ Critical error during download: {e}")
+        print(f"❌ Download failed: {e}")
         return False
