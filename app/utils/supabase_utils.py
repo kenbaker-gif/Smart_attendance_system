@@ -73,22 +73,45 @@ def download_all_supabase_images(
         print(f"❌ Failed to list Supabase bucket: {e}")
         return False
 
+    # Debug: report how many objects we found
+    try:
+        print(f"🔍 Supabase list returned {len(all_files)} objects (showing up to 5): {all_files[:5]}")
+    except Exception:
+        pass
+
     download_count = 0
 
     for file_entry in all_files:
         remote_path = file_entry.get("id") or file_entry.get("name")
-        if not remote_path or remote_path.endswith("/"):
+        if not remote_path or str(remote_path).endswith("/"):
             continue
 
-        filename = Path(remote_path).name
+        filename = Path(str(remote_path)).name
         if Path(filename).suffix.lower() not in (".jpg", ".jpeg", ".png"):
             continue
 
+        # Extract a 10-digit student id from the full remote path if possible
+        student_id = None
         try:
-            student_id = filename[:10]
-            if not (len(student_id) == 10 and student_id.isdigit()):
-                continue
-        except IndexError:
+            import re
+            m = re.search(r"(\d{10})", str(remote_path))
+            if m:
+                student_id = m.group(1)
+        except Exception:
+            student_id = None
+
+        if not student_id:
+            # Fallback: try filename prefix
+            try:
+                candidate = filename[:10]
+                if len(candidate) == 10 and candidate.isdigit():
+                    student_id = candidate
+            except Exception:
+                pass
+
+        if not student_id:
+            # Could not infer student id from path/filename -> skip but log for debugging
+            print(f"⚠ Skipping {remote_path}: could not infer 10-digit student id from path or filename")
             continue
 
         local_file_path = local_path / student_id / filename
@@ -101,8 +124,15 @@ def download_all_supabase_images(
                 with open(local_file_path, "wb") as f:
                     f.write(file_data)
                 download_count += 1
+            else:
+                print(f"⚠ No data returned for {remote_path}")
         except Exception as e:
             print(f"❌ Error downloading {remote_path}: {e}")
 
     print(f"✅ Downloaded {download_count} files to {local_images_dir}")
+    if download_count == 0 and len(all_files) == 0:
+        print("⚠ No objects were found in the Supabase bucket. Confirm the bucket name and that it contains image files.")
+    elif download_count == 0:
+        print("⚠ No image files matching the expected patterns were downloaded. Check naming conventions (student ID in filename or path).")
+
     return download_count > 0
