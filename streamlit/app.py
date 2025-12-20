@@ -183,6 +183,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 # this module does not initialize the heavy model. Call `get_insightface()`
 # at runtime to obtain the singleton instance (cached by Streamlit).
 _app = None
+_app_det_size = None
 app = None
 
 @st.cache_resource(show_spinner=False)
@@ -202,8 +203,8 @@ def get_insightface(det_size=(640, 640), name: str = INSIGHTFACE_MODEL_NAME):
     Other modules can request a smaller `det_size` by passing the
     preferred value; if the instance already exists it will be reused.
     """
-    global _app, app
-    logger.debug(f"get_insightface called with det_size={det_size} name={name}")
+    global _app, app, _app_det_size
+
     # Warn about large detection sizes which can increase memory usage
     try:
         w, h = det_size
@@ -213,8 +214,13 @@ def get_insightface(det_size=(640, 640), name: str = INSIGHTFACE_MODEL_NAME):
         pass
 
     if _app is not None:
+        # Reuse cached instance (no noisy per-call debug message)
         return _app
+
+    # Only log when we're about to initialize (reduces repeated noise in logs)
+    logger.debug(f"Initializing/creating InsightFace with det_size={det_size} name={name}")
     _app = init_insightface(name=name, det_size=det_size)
+    _app_det_size = det_size
     app = _app
     return _app
 
@@ -286,6 +292,23 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
 
     encodings, ids = [], []
     student_dirs = sorted([p for p in images_dir.iterdir() if p.is_dir()])
+
+    if not student_dirs:
+        logger.error("No student folders found in images_dir.")
+        try:
+            logger.debug(f"Checked images_dir: {images_dir.resolve()}")
+        except Exception:
+            pass
+        return False
+
+    # Initialize InsightFace with a smaller detection window for batch encoding generation
+    # to reduce memory usage on constrained hosts.
+    try:
+        get_insightface(det_size=(320, 320))
+    except Exception as e:
+        logger.exception(f"Failed to initialize InsightFace for encoding generation: {e}")
+        return False
+
     for student_dir in student_dirs:
         student_id = student_dir.name
         image_paths = _get_image_paths(student_dir)
