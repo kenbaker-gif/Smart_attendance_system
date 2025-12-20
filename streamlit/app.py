@@ -27,6 +27,43 @@ DATA_DIR = PROJECT_ROOT / "data"
 RAW_FACES_DIR = DATA_DIR / "raw_faces"
 ENCODINGS_PATH = DATA_DIR / "encodings_insightface.pkl"
 TEMP_CAPTURE_PATH = DATA_DIR / "tmp_capture.jpg"
+SETTINGS_PATH = DATA_DIR / "settings.json"
+
+# Default for auto-generation can be overridden with env var AUTO_GENERATE_ENCODINGS
+AUTO_GENERATE_ENV = os.getenv("AUTO_GENERATE_ENCODINGS", "false").lower() == "true"
+
+def _read_settings():
+    try:
+        import json
+        if SETTINGS_PATH.exists():
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as fh:
+                return json.load(fh)
+    except Exception:
+        logger.debug("Failed to read settings.json")
+    return {}
+
+
+def _write_settings(settings: dict):
+    try:
+        import json
+        SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as fh:
+            json.dump(settings, fh)
+        return True
+    except Exception as e:
+        logger.exception(f"Failed to write settings: {e}")
+        return False
+
+
+def _get_setting(key: str, default=None):
+    s = _read_settings()
+    return s.get(key, default)
+
+
+def _set_setting(key: str, value):
+    s = _read_settings()
+    s[key] = value
+    return _write_settings(s)
 
 INSIGHTFACE_MODEL_NAME = "buffalo_s"
 DEFAULT_THRESHOLD = float(os.getenv("THRESHOLD", "0.50"))
@@ -216,6 +253,17 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
 
     if not encodings:
         logger.error("No encodings generated.")
+        # Log available image folders/files for diagnostics
+        try:
+            student_dirs = sorted([p for p in images_dir.iterdir() if p.is_dir()])
+            logger.debug(f"Student folders: {[d.name for d in student_dirs]}")
+            sample_files = []
+            for d in student_dirs[:5]:
+                files = [str(p.name) for p in _get_image_paths(d)][:5]
+                sample_files.append({d.name: files})
+            logger.debug(f"Sample files per folder (up to 5): {sample_files}")
+        except Exception:
+            logger.debug("Could not list image directories for diagnostics.")
         return False
 
     try:
@@ -231,9 +279,36 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
 
 @st.cache_resource
 def load_encodings():
+    # Determine whether we should auto-generate encodings when missing.
+    auto_gen_setting = _get_setting("auto_generate_encodings", None)
+    auto_generate = AUTO_GENERATE_ENV or (auto_gen_setting is True)
+
     if not ENCODINGS_PATH.exists():
-        st.info("Encodings missing. Generating from images...")
-        generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
+        if auto_generate:
+            st.info("Encodings missing. Auto-generating from images...")
+            ok = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
+            if not ok or not ENCODINGS_PATH.exists():
+                msg = (
+                    "No encodings found after auto-generation. Ensure that `streamlit/data/raw_faces` contains "
+                    "student image folders (10-digit student IDs) or configure Supabase via env vars."
+                )
+                logger.error(msg)
+                try:
+                    st.warning(msg)
+                except Exception:
+                    pass
+                return np.array([]), [], 0
+        else:
+            msg = (
+                "Encodings are missing. Use the Admin Panel to generate encodings or enable auto-generation."
+            )
+            logger.warning(msg)
+            try:
+                st.info(msg)
+            except Exception:
+                pass
+            return np.array([]), [], 0
+
     try:
         with open(ENCODINGS_PATH, "rb") as fh:
             data = pickle.load(fh)
@@ -242,6 +317,10 @@ def load_encodings():
         return known_encodings, known_ids, known_encodings.shape[1] if known_encodings.size > 0 else 0
     except Exception as e:
         logger.exception("Failed to load encodings.")
+        try:
+            st.error("Failed to load encodings. See logs for details.")
+        except Exception:
+            pass
         return np.array([]), [], 0
 
 # -----------------------------
@@ -332,12 +411,49 @@ def main():
         st.metric("Encoding Dim", encoding_dim)
         st.metric("Threshold", threshold)
         st.metric("Supabase Sync", "Enabled" if USE_SUPABASE else "Disabled")
-        if st.button("🔄 Retrain Encodings"):
-            st.info("Regenerating encodings...")
+
+        # Persistent auto-generation toggle
+        auto_gen_setting = _get_setting("auto_generate_encodings", False)
+        auto_gen = st.checkbox("Auto-generate encodings when missing (persisted)", value=auto_gen_setting)
+        if auto_gen != auto_gen_setting:
+            _set_setting("auto_generate_encodings", bool(auto_gen))
+            st.success(f"Auto-generate set to {auto_gen}.")
+
+        # Generate using local images
+        if st.button("🔄 Generate Encodings Now (local images)"):
+            st.info("Generating encodings from local images...")
+            ok = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
+            if ok:
+                load_encodings.clear()
+                st.success("Encodings generated successfully.")
+            else:
+                st.error("Failed to generate encodings. Check logs.")
+            st.experimental_rerun()
+
+        # Generate using Supabase (downloads then generates)
+        if USE_SUPABASE:
+            if st.button("⬇️ Download from Supabase and Generate (clear local)"):
+                st.info("Downloading images from Supabase (clearing local images)...")
+                ok = download_all_supabase_images(SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET, str(RAW_FACES_DIR), clear_local=True)
+                if ok:
+                    st.info("Download complete. Generating encodings...")
+                    ok2 = generate_encodings(RAW_FACES_DIR, ENCODINGS_PATH)
+                    if ok2:
+                        load_encodings.clear()
+                        st.success("Encodings generated from Supabase images.")
+                    else:
+                        st.error("Failed to generate encodings after Supabase download.")
+                else:
+                    st.error("Supabase download failed. Check logs and credentials.")
+                st.experimental_rerun()
+
+        # Quick retrain shortcut (keeps existing behavior)
+        if st.button("♻️ Retrain Encodings (force)"):
+            st.info("Regenerating encodings from available images...")
             load_encodings.clear()
             init_insightface.clear()
             st.cache_resource.clear()
-            st.rerun()
+            st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
