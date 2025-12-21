@@ -48,7 +48,7 @@ if not logger.handlers:
 # -----------------------------
 # Supabase & State
 # -----------------------------
-USE_SUPABASE = os.getenv("USE_SUPABASE", "false").lower() == "true"
+USE_SUPABASE = os.getenv("USE_SUPABASE", "").lower() == "true"
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "")
