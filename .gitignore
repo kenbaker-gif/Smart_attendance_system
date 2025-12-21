@@ -1,15 +1,53 @@
-data/processed/
-data/raw_faces/
+# --------------------
+# Global data
+# --------------------
+data/
+
+# --------------------
+# Images
+# --------------------
 *.jpg
-*.png
 *.jpeg
-debug
-debug2
-streamlit/
+*.png
+
+# --------------------
+# Debug & logs
+# --------------------
+debug/
+debug2/
+logs/
+
+# --------------------
+# Streamlit
+# --------------------
+streamlit/*
+!streamlit/app.py
+!streamlit/recognition.py
+
+streamlit/data/
+streamlit/logs/
+streamlit/.streamlit/
+streamlit/__pycache__/
+streamlit/*.pyc
+
+# --------------------
+# Tests
+# --------------------
 *.test.py
+
+# --------------------
+# Environment secrets
+# --------------------
 .env
-logs
+
+# --------------------
+# Python cache
+# --------------------
 **/__pycache__/
 **/*.pyc
+
+# --------------------
+# OS junk
+# --------------------
 .DS_Store
 Thumbs.db
