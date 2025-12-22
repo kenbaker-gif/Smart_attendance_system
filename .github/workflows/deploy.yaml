@@ -14,28 +14,32 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
 
-      - name: Create .env and Sync
+      - name: Sync Variables and Deploy
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          # 1. Create a temporary .env file with all secrets
-          cat <<EOF > .env
-          DB_USER="${{ secrets.DB_USER }}"
-          DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
-          DB_HOST="${{ secrets.DB_HOST }}"
-          DB_PORT="${{ secrets.DB_PORT }}"
-          DB_NAME="${{ secrets.DB_NAME }}"
-          DB_OPTIONS="${{ secrets.DB_OPTIONS }}"
-          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
-          SUPABASE_KEY="${{ secrets.SUPABASE_KEY }}"
-          SUPABASE_BUCKET="${{ secrets.SUPABASE_BUCKET }}"
-          USE_SUPABASE="${{ secrets.USE_SUPABASE }}"
-          ADMIN_SECRET="${{ secrets.ADMIN_SECRET }}"
-          EOF
+          # 1. Define variables in a bash array
+          variables=(
+            "DB_USER=${{ secrets.DB_USER }}"
+            "DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
+            "DB_HOST=${{ secrets.DB_HOST }}"
+            "DB_PORT=${{ secrets.DB_PORT }}"
+            "DB_NAME=${{ secrets.DB_NAME }}"
+            "DB_OPTIONS=${{ secrets.DB_OPTIONS }}"
+            "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+            "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}"
+            "SUPABASE_BUCKET=${{ secrets.SUPABASE_BUCKET }}"
+            "USE_SUPABASE=${{ secrets.USE_SUPABASE }}"
+            "ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}"
+          )
 
-          # 2. Use Railway's bulk import feature (it reads the .env file in the current dir)
-          # Replace "admin-panel" with your actual service name if different
-          railway variables --set < .env
+          # 2. Loop through and set each one individually
+          # This avoids the "unexpected argument" parser error
+          for var in "${variables[@]}"; do
+            echo "Syncing: ${var%%=*}" # Prints only the Key name for security
+            railway variables --set "$var"
+          done
 
-          # 3. Deploy
+          # 3. Final Deploy
+          echo "🚀 Starting Deployment..."
           railway up --detach
