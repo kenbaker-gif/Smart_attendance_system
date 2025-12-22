@@ -1,12 +1,15 @@
 name: Deploy to Railway
 on:
   push:
-    branches: [ main, master, fix/admin-panel ]
+    branches: [ fix/admin-panel ]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Move ENV here so it's global for the whole job
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -14,11 +17,8 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
 
-      - name: Sync Variables and Deploy
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Sync Variables
         run: |
-          # 1. Define variables in a bash array
           variables=(
             "DB_USER=${{ secrets.DB_USER }}"
             "DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
@@ -33,13 +33,12 @@ jobs:
             "ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}"
           )
 
-          # 2. Loop through and set each one individually
-          # This avoids the "unexpected argument" parser error
           for var in "${variables[@]}"; do
-            echo "Syncing: ${var%%=*}" # Prints only the Key name for security
+            # This logic strips the value for the log so your secrets stay safe
+            key=$(echo $var | cut -d'=' -f1)
+            echo "Syncing: $key"
             railway variables --set "$var"
           done
 
-          # 3. Final Deploy
-          echo "🚀 Starting Deployment..."
-          railway up --detach
+      - name: Deploy
+        run: railway up --detach
