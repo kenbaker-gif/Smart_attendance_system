@@ -2,7 +2,7 @@ name: Sync Student Data to Railway
 
 on:
   push:
-    branches: [ fix/admin-panel ] # Triggers when you push to your current branch
+    branches: [ fix/admin-panel ]
 
 jobs:
   sync-and-deploy:
@@ -14,27 +14,23 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
 
-      - name: Sync Student Variable
+      - name: Link and Sync Variable
         shell: bash
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          # The specific student path from your instructions
+          # 1. Link the CLI to your project ID first
+          railway link 0ac7a236-07f1-47e9-8c8a-f5311963590c
+          
+          # 2. Set the variable (Now it knows which project because of the link)
+          # We use --service to ensure it hits the right one of your 3 services
           STUDENT_VAR="STUDENT_2400102415_IMAGE=2400102415/1.jpg"
           
-          echo "Linking to project and setting variable..."
-          
-          # We use explicit IDs to ensure zero 'Project not found' errors
-          railway variables --set "$STUDENT_VAR" \
-            --project "0ac7a236-07f1-47e9-8c8a-f5311963590c" \
-            --service "Smart_attendance_system" \
-            --environment "55e579a4-5ba5-4885-95c5-fe013672ced3"
+          railway variables --set "$STUDENT_VAR" --service "Smart_attendance_system"
 
       - name: Deploy Service
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway up \
-            --project "0ac7a236-07f1-47e9-8c8a-f5311963590c" \
-            --service "Smart_attendance_system" \
-            --detach
+          # Use the service name directly for the deployment
+          railway up --service "Smart_attendance_system" --detach
