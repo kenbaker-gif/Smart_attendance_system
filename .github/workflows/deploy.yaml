@@ -1,7 +1,7 @@
 name: Deploy to Railway
 on:
   push:
-    branches: [ fix/admin-panel ]
+    branches: [ main, master, fix/admin-panel ]
   workflow_dispatch:
 
 jobs:
@@ -17,21 +17,22 @@ jobs:
       - name: Sync Variables and Deploy
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # Map secrets to env vars to avoid shell escaping issues
+          VARS: >
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_OPTIONS=${{ secrets.DB_OPTIONS }}
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+            SUPABASE_BUCKET=${{ secrets.SUPABASE_BUCKET }}
+            USE_SUPABASE=${{ secrets.USE_SUPABASE }}
+            ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}
         run: |
-          # We use the set command with all variables in a single string 
-          # to ensure the CLI parses them as one instruction.
-          railway variables --set \
-            DB_USER="${{ secrets.DB_USER }}" \
-            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            DB_HOST="${{ secrets.DB_HOST }}" \
-            DB_PORT="${{ secrets.DB_PORT }}" \
-            DB_NAME="${{ secrets.DB_NAME }}" \
-            DB_OPTIONS="${{ secrets.DB_OPTIONS }}" \
-            SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
-            SUPABASE_KEY="${{ secrets.SUPABASE_KEY }}" \
-            SUPABASE_BUCKET="${{ secrets.SUPABASE_BUCKET }}" \
-            USE_SUPABASE="${{ secrets.USE_SUPABASE }}" \
-            ADMIN_SECRET="${{ secrets.ADMIN_SECRET }}"
-
-          # Trigger the build and deployment
+          # Use the $VARS variable which now contains a clean space-separated list
+          railway variables --set $VARS
+          
+          # Trigger the build
           railway up --detach
