@@ -7,7 +7,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Move ENV here so it's global for the whole job
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
@@ -34,11 +33,11 @@ jobs:
           )
 
           for var in "${variables[@]}"; do
-            # This logic strips the value for the log so your secrets stay safe
             key=$(echo $var | cut -d'=' -f1)
-            echo "Syncing: $key"
-            railway variables --set "$var"
+            echo "Syncing $key to Smart_attendance_system..."
+            # Using your exact service name from 'railway status'
+            railway variables --set "$var" --service "Smart_attendance_system"
           done
 
       - name: Deploy
-        run: railway up --detach
+        run: railway up --service "Smart_attendance_system" --detach
