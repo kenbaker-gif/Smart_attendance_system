@@ -7,11 +7,6 @@ on:
 jobs:
   sync-and-deploy:
     runs-on: ubuntu-latest
-    env:
-      # These 3 variables together provide 'Total Confidence' to the CLI
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_PROJECT_ID: 0ac7a236-07f1-47e9-8c8a-f5311963590c
-      RAILWAY_SERVICE_ID: d15cd597-9588-4823-8b82-d30b7f91f378
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -21,12 +16,20 @@ jobs:
 
       - name: Sync Student Variable
         shell: bash
+        env:
+          # Use your PROJECT TOKEN (Settings > Tokens)
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          # No flags or 'link' command needed! 
-          # The CLI sees the IDs in the 'env' block above.
+          # 1. We define the student variable
           STUDENT_VAR="STUDENT_2400102415_IMAGE=2400102415/1.jpg"
-          railway variables --set "$STUDENT_VAR"
+          
+          # 2. We use the --service flag with the name from your status/JSON
+          # This tells the CLI which of your 3 services to update.
+          railway variables --set "$STUDENT_VAR" --service "Smart_attendance_system"
 
       - name: Deploy Service
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway up --detach
+          # 3. We use the --service flag here too
+          railway up --service "Smart_attendance_system" --detach
