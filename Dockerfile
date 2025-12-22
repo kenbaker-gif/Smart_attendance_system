@@ -20,4 +20,4 @@ EXPOSE 8501
 
 # --- STREAMLIT RUN COMMAND ---
 # Point this exactly to your new admin file
-CMD ["sh", "-c", "streamlit run admin_app.py --server.port $PORT --server.address 0.0.0.0"]
+CMD ["sh", "-c", "streamlit run admin-panel.py --server.port $PORT --server.address 0.0.0.0"]
