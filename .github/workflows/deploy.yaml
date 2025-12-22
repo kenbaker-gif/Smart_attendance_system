@@ -1,14 +1,12 @@
-name: Deploy to Railway
+name: Sync Student Data to Railway
+
 on:
   push:
-    branches: [ fix/admin-panel ]
-  workflow_dispatch:
+    branches: [ fix/admin-panel ] # Triggers when you push to your current branch
 
 jobs:
-  deploy:
+  sync-and-deploy:
     runs-on: ubuntu-latest
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -16,28 +14,27 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
 
-      - name: Sync Variables
+      - name: Sync Student Variable
+        shell: bash
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          variables=(
-            "DB_USER=${{ secrets.DB_USER }}"
-            "DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
-            "DB_HOST=${{ secrets.DB_HOST }}"
-            "DB_PORT=${{ secrets.DB_PORT }}"
-            "DB_NAME=${{ secrets.DB_NAME }}"
-            "DB_OPTIONS=${{ secrets.DB_OPTIONS }}"
-            "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
-            "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}"
-            "SUPABASE_BUCKET=${{ secrets.SUPABASE_BUCKET }}"
-            "USE_SUPABASE=${{ secrets.USE_SUPABASE }}"
-            "ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}"
-          )
+          # The specific student path from your instructions
+          STUDENT_VAR="STUDENT_2400102415_IMAGE=2400102415/1.jpg"
+          
+          echo "Linking to project and setting variable..."
+          
+          # We use explicit IDs to ensure zero 'Project not found' errors
+          railway variables --set "$STUDENT_VAR" \
+            --project "0ac7a236-07f1-47e9-8c8a-f5311963590c" \
+            --service "Smart_attendance_system" \
+            --environment "55e579a4-5ba5-4885-95c5-fe013672ced3"
 
-          for var in "${variables[@]}"; do
-            key=$(echo $var | cut -d'=' -f1)
-            echo "Syncing $key to Smart_attendance_system..."
-            # Using your exact service name from 'railway status'
-            railway variables --set "$var" --service "Smart_attendance_system"
-          done
-
-      - name: Deploy
-        run: railway up --service "Smart_attendance_system" --detach
+      - name: Deploy Service
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up \
+            --project "0ac7a236-07f1-47e9-8c8a-f5311963590c" \
+            --service "Smart_attendance_system" \
+            --detach
