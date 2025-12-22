@@ -1,11 +1,11 @@
-name: Sync Student Data to Railway
+name: Sync Production Environment
 
 on:
   push:
     branches: [ fix/admin-panel ]
 
 jobs:
-  sync-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -14,22 +14,26 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
 
-      - name: Sync Student Variable
+      - name: Push All Secrets to Railway
         shell: bash
         env:
-          # Use your PROJECT TOKEN (Settings > Tokens)
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          # 1. We define the student variable
-          STUDENT_VAR="STUDENT_2400102415_IMAGE=2400102415/1.jpg"
-          
-          # 2. We use the --service flag with the name from your status/JSON
-          # This tells the CLI which of your 3 services to update.
-          railway variables --set "$STUDENT_VAR" --service "eloquent-renewal"
+          # Every value is now pulled directly from your GitHub Secrets
+          railway variables --set "DB_USER=${{ secrets.DB_USER }}" \
+                            --set "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" \
+                            --set "DB_HOST=${{ secrets.DB_HOST }}" \
+                            --set "DB_PORT=${{ secrets.DB_PORT }}" \
+                            --set "DB_NAME=${{ secrets.DB_NAME }}" \
+                            --set "DB_OPTIONS=${{ secrets.DB_OPTIONS }}" \
+                            --set "USE_SUPABASE=${{ secrets.USE_SUPABASE }}" \
+                            --set "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" \
+                            --set "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" \
+                            --set "SUPABASE_BUCKET=${{ secrets.SUPABASE_BUCKET }}" \
+                            --set "ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}" \
+                            --service "eloquent-renewal"
 
-      - name: Deploy Service
+      - name: Deploy to Eloquent Renewal
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          # 3. We use the --service flag here too
-          railway up --service "Smart_attendance_system" --detach
+        run: railway up --service "eloquent-renewal" --detach
