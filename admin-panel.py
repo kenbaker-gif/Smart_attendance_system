@@ -1,96 +1,91 @@
 import streamlit as st
 import pandas as pd
-from app import dbmodule # Retain this for dbmodule.get_all_attendance()
-# REMOVED: from app.dbmodule import get_all_attendance <-- Not needed
+import os
+from app import dbmodule
 
+# 1. PAGE CONFIG & SECURITY
 st.set_page_config(page_title="📊 Attendance Admin Panel", layout="wide")
-st.title("📊 Attendance Admin Panel")
 
-def is_verified(val):
-    """Return True if value indicates successful verification."""
-    if not val:
-        return False
-    return str(val).strip().lower() == "success"
-
-# ----------------------------------------------
-# STEP 1: INITIALIZE all_records (FIX for NameError)
-# This ensures it's defined even if the DB connection fails.
-# ----------------------------------------------
-all_records = []
-
-# -----------------------
-# Fetch all attendance records
-# -----------------------
-st.subheader("All Attendance Records")
-try:
-    # Fetch data and assign it to the initialized variable
-    all_records = dbmodule.get_all_attendance()
-    
-    if all_records:
-        df_all = pd.DataFrame(all_records)
-        st.dataframe(df_all)
-
-        # Optional CSV export
-        csv_all = df_all.to_csv(index=False).encode("utf-8")
-        st.download_button("Download All Records CSV", csv_all, "attendance_all.csv", "text/csv")
-    else:
-        st.info("No attendance records found.")
-except Exception as e:
-    st.error(f"Failed to fetch attendance records: {e}")
-
-
-# -----------------------
-# Fetch attendance for a specific student (Search block is fine)
-# -----------------------
-st.subheader("Search Attendance by Student ID")
-student_id_input = st.text_input("Enter Student ID:")
-
-if st.button("Fetch Student Records") and student_id_input:
-    try:
-        student_records = dbmodule.get_attendance_by_student(student_id_input)
-        if student_records:
-            df_student = pd.DataFrame(student_records)
-            st.dataframe(df_student)
-
-            # CSV export for specific student
-            csv_student = df_student.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Download Student Records CSV",
-                csv_student,
-                f"attendance_{student_id_input}.csv",
-                "text/csv"
-            )
+def check_password():
+    """Returns True if the user had the correct password."""
+    def password_entered():
+        if st.session_state["password"] == os.getenv("ADMIN_SECRET", "default_pass"):
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # don't store password
         else:
-            st.info("No records found for this student.")
-    except Exception as e:
-        st.error(f"Failed to fetch student records: {e}")
+            st.session_state["password_correct"] = False
 
-# ----------------------------------------------------------------------------------
-# STATISTICS SECTION
-# all_records is now guaranteed to be either the fetched list or an empty list []
-# REMOVED: all_records = get_all_attendance()
-# ----------------------------------------------------------------------------------
+    if "password_correct" not in st.session_state:
+        # First run, show input for password.
+        st.text_input("Admin Password", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        # Password incorrect, show input + error.
+        st.text_input("Admin Password", type="password", on_change=password_entered, key="password")
+        st.error("😕 Password incorrect")
+        return False
+    else:
+        # Password correct.
+        return True
 
-# Count verified/unverified
-total_verified = sum(1 for r in all_records if is_verified(r.get("verified")))
-total_unverified = sum(1 for r in all_records if not is_verified(r.get("verified")))
+if check_password():
+    st.title("📊 Attendance Admin Panel")
 
-st.write(f"**Total Verified (Success):** {total_verified}")
-st.write(f"**Total Unverified (Failure):** {total_unverified}")
+    # 2. CACHED DATA FETCHING
+    @st.cache_data(ttl=600)  # Cache results for 10 minutes
+    def get_data():
+        try:
+            return dbmodule.get_all_attendance()
+        except Exception as e:
+            st.error(f"Database Error: {e}")
+            return []
 
-# Verified per student
-by_student = {}
-for r in all_records:
-    sid = str(r.get("student_id", "Unknown")).strip()
-    if is_verified(r.get("verified")):
-        by_student[sid] = by_student.get(sid, 0) + 1
+    all_records = get_data()
 
-if by_student:
-    st.write("**Verified Students Count per Student ID:**")
-    by_student_df = pd.DataFrame(
-        list(by_student.items()),
-        columns=["Student ID", "Verified Count"]
-    )
-    st.bar_chart(by_student_df.set_index("Student ID"))
-else:
-    st.info("No verified student attendance data to display.")
+    # 3. LAYOUT: USE COLUMNS FOR STATS
+    if all_records:
+        df = pd.DataFrame(all_records)
+        
+        # Clean 'verified' column once
+        df['is_success'] = df['verified'].apply(lambda x: str(x).strip().lower() == "success")
+
+        # Top Row Metrics
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Records", len(df))
+        col2.metric("Verified (Success)", df['is_success'].sum())
+        col3.metric("Unverified", len(df) - df['is_success'].sum())
+
+        st.divider()
+
+        # 4. TABS FOR BETTER UX
+        tab1, tab2, tab3 = st.tabs(["📋 Full Data", "🔍 Search", "📈 Analytics"])
+
+        with tab1:
+            st.subheader("All Attendance Records")
+            st.dataframe(df, use_container_width=True)
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 Download Full CSV", csv, "attendance_all.csv", "text/csv")
+
+        with tab2:
+            st.subheader("Find Student")
+            sid = st.text_input("Enter Student ID to filter:")
+            if sid:
+                filtered_df = df[df['student_id'].astype(str).str.contains(sid)]
+                st.dataframe(filtered_df)
+
+        with tab3:
+            st.subheader("Attendance Visualization")
+            # Grouping data for the chart
+            success_only = df[df['is_success']]
+            if not success_only.empty:
+                chart_data = success_only.groupby('student_id').size().reset_index(name='Verified Count')
+                st.bar_chart(chart_data.set_index('student_id'))
+            else:
+                st.warning("No verified records to plot.")
+    else:
+        st.info("No records found in the database.")
+
+    # Refresh Button (Clears cache)
+    if st.sidebar.button("🔄 Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
