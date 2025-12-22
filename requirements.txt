@@ -1,9 +1,4 @@
-fastapi
-uvicorn
-python-dotenv
-supabase
-requests
-python-multipart
+streamlit
 pandas
-opencv-python-headless
-Pillow
+supabase
+python-dotenv

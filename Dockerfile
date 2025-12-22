@@ -1,28 +1,23 @@
 # --- BASE IMAGE ---
-FROM continuumio/miniconda3:latest
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install minimal system dependencies
+# Install minimal system dependencies for pandas/supabase
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libglib2.0-0 cmake build-essential git \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
+# Copy and install Python dependencies
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install all Python dependencies including uvicorn and fastapi in base environment
-RUN pip install --no-cache-dir -r requirements.txt uvicorn fastapi python-dotenv requests pandas
-
-# Copy application code
+# Copy all application files
 COPY . .
 
-# Expose port (Railway uses $PORT)
-EXPOSE 8000
+# Railway uses a dynamic port
+EXPOSE 8501
 
-# --- FASTAPI CMD ---
-# Adjust path depending on where your main.py is:
-# If main.py is at root folder: uvicorn main:app
-# If main.py is inside app/ folder: uvicorn app.main:app
-CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-
+# --- STREAMLIT RUN COMMAND ---
+# Point this exactly to your new admin file
+CMD ["sh", "-c", "streamlit run admin_app.py --server.port $PORT --server.address 0.0.0.0"]
