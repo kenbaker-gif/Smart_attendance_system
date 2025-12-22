@@ -19,18 +19,16 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          # 1. Link the CLI to your project ID first
-          railway link 0ac7a236-07f1-47e9-8c8a-f5311963590c
+          # Use explicit flags for the project and environment IDs
+          railway link --project 0ac7a236-07f1-47e9-8c8a-f5311963590c --environment 55e579a4-5ba5-4885-95c5-fe013672ced3
           
-          # 2. Set the variable (Now it knows which project because of the link)
-          # We use --service to ensure it hits the right one of your 3 services
+          # Now set the variable for the specific service
           STUDENT_VAR="STUDENT_2400102415_IMAGE=2400102415/1.jpg"
-          
           railway variables --set "$STUDENT_VAR" --service "Smart_attendance_system"
 
       - name: Deploy Service
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          # Use the service name directly for the deployment
+          # Deploying with the service name
           railway up --service "Smart_attendance_system" --detach
