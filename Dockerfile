@@ -4,7 +4,9 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install minimal system dependencies for pandas/supabase
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
