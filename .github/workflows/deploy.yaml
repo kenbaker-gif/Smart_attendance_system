@@ -14,25 +14,28 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
 
-      - name: Sync Variables and Deploy
+      - name: Create .env and Sync
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          # Map secrets to env vars to avoid shell escaping issues
-          VARS: >
-            DB_USER=${{ secrets.DB_USER }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_HOST=${{ secrets.DB_HOST }}
-            DB_PORT=${{ secrets.DB_PORT }}
-            DB_NAME=${{ secrets.DB_NAME }}
-            DB_OPTIONS=${{ secrets.DB_OPTIONS }}
-            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
-            SUPABASE_BUCKET=${{ secrets.SUPABASE_BUCKET }}
-            USE_SUPABASE=${{ secrets.USE_SUPABASE }}
-            ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}
         run: |
-          # Use the $VARS variable which now contains a clean space-separated list
-          railway variables --set $VARS
-          
-          # Trigger the build
+          # 1. Create a temporary .env file with all secrets
+          cat <<EOF > .env
+          DB_USER="${{ secrets.DB_USER }}"
+          DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          DB_HOST="${{ secrets.DB_HOST }}"
+          DB_PORT="${{ secrets.DB_PORT }}"
+          DB_NAME="${{ secrets.DB_NAME }}"
+          DB_OPTIONS="${{ secrets.DB_OPTIONS }}"
+          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
+          SUPABASE_KEY="${{ secrets.SUPABASE_KEY }}"
+          SUPABASE_BUCKET="${{ secrets.SUPABASE_BUCKET }}"
+          USE_SUPABASE="${{ secrets.USE_SUPABASE }}"
+          ADMIN_SECRET="${{ secrets.ADMIN_SECRET }}"
+          EOF
+
+          # 2. Use Railway's bulk import feature (it reads the .env file in the current dir)
+          # Replace "admin-panel" with your actual service name if different
+          railway variables --set < .env
+
+          # 3. Deploy
           railway up --detach
