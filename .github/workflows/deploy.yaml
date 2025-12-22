@@ -25,7 +25,7 @@ jobs:
           
           # 2. We use the --service flag with the name from your status/JSON
           # This tells the CLI which of your 3 services to update.
-          railway variables --set "$STUDENT_VAR" --service "Smart_attendance_system"
+          railway variables --set "$STUDENT_VAR" --service "eloquent-renewal"
 
       - name: Deploy Service
         env:
