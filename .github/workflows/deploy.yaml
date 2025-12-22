@@ -8,8 +8,10 @@ jobs:
   sync-and-deploy:
     runs-on: ubuntu-latest
     env:
-      # Use the SERVICE TOKEN you just generated
+      # These 3 variables together provide 'Total Confidence' to the CLI
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: 0ac7a236-07f1-47e9-8c8a-f5311963590c
+      RAILWAY_SERVICE_ID: d15cd597-9588-4823-8b82-d30b7f91f378
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -20,13 +22,11 @@ jobs:
       - name: Sync Student Variable
         shell: bash
         run: |
-          # Setting the image path for student 2400102415
+          # No flags or 'link' command needed! 
+          # The CLI sees the IDs in the 'env' block above.
           STUDENT_VAR="STUDENT_2400102415_IMAGE=2400102415/1.jpg"
-          
-          # With a Service Token, the CLI already knows the context
           railway variables --set "$STUDENT_VAR"
 
       - name: Deploy Service
         run: |
-          # This will now target the service tied to the token
           railway up --detach
