@@ -37,7 +37,6 @@ for d in [DATA_DIR, RAW_FACES_DIR, LOG_DIR]:
 
 INSIGHTFACE_MODEL_NAME = "buffalo_s"
 DEFAULT_THRESHOLD = float(os.getenv("THRESHOLD", "0.50"))
-# Path inside your Supabase Bucket
 ENCODINGS_REMOTE_PATH = os.getenv("ENCODINGS_REMOTE_PATH", "encodings/encodings_insightface.pkl")
 
 # -----------------------------
@@ -59,6 +58,7 @@ USE_SUPABASE = os.getenv("USE_SUPABASE", "false").lower() == "true"
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "")
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
 supabase = None
 if USE_SUPABASE and SUPABASE_URL and SUPABASE_KEY:
@@ -117,7 +117,6 @@ def add_attendance_record(student_id: str, confidence: float, status: str):
 # Process Pipeline
 # -----------------------------
 def generate_encodings() -> bool:
-    """Downloads images from Supabase, generates encodings, and uploads result back to Cloud."""
     if not USE_SUPABASE or not supabase:
         return False
     
@@ -170,6 +169,9 @@ def generate_encodings() -> bool:
                 file=f,
                 file_options={"upsert": "true"}
             )
+        
+        # Cleanup memory after processing
+        gc.collect()
         return True
     except Exception as e:
         logger.error(f"Generate Error: {e}")
@@ -177,7 +179,6 @@ def generate_encodings() -> bool:
 
 @st.cache_resource
 def load_encodings():
-    """Loads database. Pulls from Supabase if missing (Railway behavior)."""
     if not ENCODINGS_PATH.exists() and USE_SUPABASE and supabase:
         try:
             res = supabase.storage.from_(SUPABASE_BUCKET).download(ENCODINGS_REMOTE_PATH.lstrip('/'))
@@ -198,53 +199,71 @@ def load_encodings():
 # Streamlit UI
 # -----------------------------
 def main():
-    st.set_page_config(page_title="Smart Attendance", page_icon="📸")
-    st.title("📸 Attendance System")
+    st.set_page_config(page_title="Smart Attendance", page_icon="📸", layout="centered")
+    st.title("📸 AI Attendance System")
 
     known_encs, known_ids = load_encodings()
     tab1, tab2 = st.tabs(["Verification", "Admin Panel"])
 
     with tab1:
         if known_encs.size == 0:
-            st.warning("Database empty. Sync in Admin Panel.")
+            st.warning("Face database is empty. Please sync in the Admin Panel.")
             
-        sid = st.text_input("Student ID")
-        img_file = st.camera_input("Capture")
+        sid = st.text_input("Enter Student ID (e.g., 2400102415)")
+        img_file = st.camera_input("Capture Face for Verification")
         
-        if sid and img_file and st.button("Verify"):
-            img = Image.open(img_file).convert("RGB")
-            img_bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-            faces = get_insightface().get(img_bgr)
-            
-            if faces:
-                face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0])*(f.bbox[3]-f.bbox[1]))
-                captured_emb = face.embedding / (np.linalg.norm(face.embedding) + 1e-10)
+        if sid and img_file:
+            if st.button("Run Verification"):
+                img = Image.open(img_file).convert("RGB")
+                img_bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
                 
-                if known_encs.size > 0:
-                    dists = 1.0 - np.dot(known_encs, captured_emb)
-                    idx = np.argmin(dists)
-                    conf = float(1.0 - dists[idx])
+                with st.spinner("Analyzing biometric data..."):
+                    faces = get_insightface().get(img_bgr)
+                
+                if faces:
+                    face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0])*(f.bbox[3]-f.bbox[1]))
+                    captured_emb = face.embedding / (np.linalg.norm(face.embedding) + 1e-10)
                     
-                    # Match check: logic handles specific user context 2400102415
-                    if dists[idx] < DEFAULT_THRESHOLD and known_ids[idx] == sid:
-                        st.success(f"Verified: {sid}")
-                        st.balloons()
-                        add_attendance_record(sid, conf, "success")
-                    else:
-                        st.error("Access Denied.")
-                        add_attendance_record(sid, conf, "failed")
-            else:
-                st.warning("No face detected.")
+                    if known_encs.size > 0:
+                        # Cosine Similarity check
+                        dists = 1.0 - np.dot(known_encs, captured_emb)
+                        idx = np.argmin(dists)
+                        conf = float(1.0 - dists[idx])
+                        
+                        # Verify against user context: matching ID and threshold
+                        if dists[idx] < DEFAULT_THRESHOLD and str(known_ids[idx]) == str(sid).strip():
+                            st.success(f"Verified: {sid} (Confidence: {conf:.2f})")
+                            st.balloons()
+                            add_attendance_record(sid, conf, "success")
+                        else:
+                            st.error("Verification Failed: Identity mismatch or face not recognized.")
+                            add_attendance_record(sid, conf, "failed")
+                else:
+                    st.warning("No face detected in the frame. Please try again.")
 
     with tab2:
-        st.subheader("System Management")
-        if st.button("🔄 Sync & Regenerate Encodings"):
-            with st.spinner("Processing Cloud Data..."):
-                if generate_encodings():
-                    st.success("Cloud Database Updated!")
-                    st.rerun()
-                else:
-                    st.error("Sync Failed. Check Supabase paths.")
+        st.subheader("🔐 Database Management")
+        
+        # Using the ADMIN_SECRET synced from Railway
+        admin_input = st.text_input("Admin Password", type="password")
+        
+        if admin_input:
+            if admin_input == ADMIN_SECRET:
+                st.success("Authenticated")
+                st.info("Warning: Regenerating encodings will re-download all images and update the cloud database.")
+                
+                if st.button("🔄 Sync & Regenerate Encodings"):
+                    with st.spinner("Processing... This may take a minute."):
+                        if generate_encodings():
+                            st.success("Cloud database synchronized!")
+                            st.cache_resource.clear() # Force reload of encodings
+                            st.rerun()
+                        else:
+                            st.error("Sync failed. Check logs.")
+            else:
+                st.error("Incorrect Password")
+        else:
+            st.write("Please authenticate to access system management tools.")
 
 if __name__ == "__main__":
     if "--generate" in sys.argv:
