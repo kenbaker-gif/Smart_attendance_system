@@ -27,12 +27,11 @@ class AttendanceRecordIn(BaseModel):
 load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "data"
-RAW_FACES_DIR = DATA_DIR / "raw_faces"
 ENCODINGS_PATH = DATA_DIR / "encodings_insightface.pkl"
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "attendance.log"
 
-for d in [DATA_DIR, RAW_FACES_DIR, LOG_DIR]:
+for d in [DATA_DIR, LOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 INSIGHTFACE_MODEL_NAME = "buffalo_s"
@@ -78,6 +77,7 @@ LOG_COOLDOWN_SECONDS = 60
 @st.cache_resource(show_spinner="Loading AI Engine...")
 def get_insightface(det_size=(640, 640)):
     from insightface.app import FaceAnalysis
+    # CPUExecutionProvider is standard for Railway
     _app = FaceAnalysis(name=INSIGHTFACE_MODEL_NAME, providers=["CPUExecutionProvider"])
     _app.prepare(ctx_id=-1, det_size=det_size)
     return _app
@@ -114,51 +114,64 @@ def add_attendance_record(student_id: str, confidence: float, status: str):
             logger.error(f"DB Log Fail: {e}")
 
 # -----------------------------
-# Process Pipeline
+# Process Pipeline (Optimized for Speed)
 # -----------------------------
 def generate_encodings() -> bool:
     if not USE_SUPABASE or not supabase:
+        st.error("Supabase not configured.")
         return False
     
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
     try:
-        # 1. Download Images from Bucket
+        status_text.text("📂 Accessing Supabase Storage...")
         folders = supabase.storage.from_(SUPABASE_BUCKET).list()
-        for folder in folders:
+        
+        # Filter student folders
+        valid_folders = [f for f in folders if not f['name'].startswith('.') and f['name'] != "encodings"]
+        total_folders = len(valid_folders)
+        
+        if total_folders == 0:
+            status_text.error("No student folders found in bucket.")
+            return False
+
+        encodings, ids = [], []
+        engine = get_insightface()
+
+        for i, folder in enumerate(valid_folders):
             student_id = folder['name']
-            if student_id.startswith('.') or student_id == "encodings": continue
+            status_text.text(f"⚙️ Processing Student: {student_id} ({i+1}/{total_folders})")
             
             files = supabase.storage.from_(SUPABASE_BUCKET).list(student_id)
             for f_info in files:
                 file_name = f_info['name']
                 if file_name.lower().endswith(('.jpg', '.jpeg', '.png')):
                     remote_path = f"{student_id}/{file_name}"
-                    local_path = RAW_FACES_DIR / student_id / file_name
-                    local_path.parent.mkdir(parents=True, exist_ok=True)
                     
+                    # Download to memory (skips slow disk I/O)
                     data = supabase.storage.from_(SUPABASE_BUCKET).download(remote_path)
-                    with open(local_path, "wb") as f: f.write(data)
-        
-        # 2. Generate Encodings
-        student_dirs = sorted([p for p in RAW_FACES_DIR.iterdir() if p.is_dir()])
-        if not student_dirs: return False
+                    nparr = np.frombuffer(data, np.uint8)
+                    img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    
+                    if img_bgr is None: continue
+                    
+                    # Face detection & encoding
+                    faces = engine.get(img_bgr)
+                    if faces:
+                        # Largest face only
+                        face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0])*(f.bbox[3]-f.bbox[1]))
+                        encodings.append(face.embedding)
+                        ids.append(student_id)
+            
+            progress_bar.progress((i + 1) / total_folders)
 
-        encodings, ids = [], []
-        engine = get_insightface()
-        for s_dir in student_dirs:
-            student_id = s_dir.name
-            img_files = [p for p in s_dir.iterdir() if p.suffix.lower() in ('.jpg', '.jpeg', '.png')]
-            for img_p in img_files:
-                img_bgr = cv2.imread(str(img_p))
-                if img_bgr is None: continue
-                faces = engine.get(img_bgr)
-                if faces:
-                    face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0])*(f.bbox[3]-f.bbox[1]))
-                    encodings.append(face.embedding)
-                    ids.append(student_id)
-
-        if not encodings: return False
+        if not encodings:
+            status_text.error("No faces detected in images.")
+            return False
         
-        # 3. Save & Upload .pkl
+        # Save to local cache & Upload
+        status_text.text("☁️ Syncing Encodings to Cloud...")
         arr = normalize_encodings(np.array(encodings, dtype=np.float32))
         with open(ENCODINGS_PATH, "wb") as f:
             pickle.dump({"encodings": arr, "ids": np.array(ids)}, f)
@@ -170,15 +183,19 @@ def generate_encodings() -> bool:
                 file_options={"upsert": "true"}
             )
         
-        # Cleanup memory after processing
-        gc.collect()
+        status_text.success("✅ Database Regenerated Successfully!")
+        progress_bar.empty()
         return True
+        
     except Exception as e:
-        logger.error(f"Generate Error: {e}")
+        status_text.error(f"Critical Sync Error: {e}")
         return False
+    finally:
+        gc.collect()
 
 @st.cache_resource
 def load_encodings():
+    """Tries local cache, then downloads from Supabase if on Railway."""
     if not ENCODINGS_PATH.exists() and USE_SUPABASE and supabase:
         try:
             res = supabase.storage.from_(SUPABASE_BUCKET).download(ENCODINGS_REMOTE_PATH.lstrip('/'))
@@ -207,17 +224,17 @@ def main():
 
     with tab1:
         if known_encs.size == 0:
-            st.warning("Face database is empty. Please sync in the Admin Panel.")
+            st.warning("Biometric database empty. Use Admin Panel to Sync.")
             
         sid = st.text_input("Enter Student ID (e.g., 2400102415)")
-        img_file = st.camera_input("Capture Face for Verification")
+        img_file = st.camera_input("Capture Face")
         
         if sid and img_file:
-            if st.button("Run Verification"):
+            if st.button("Verify Identity"):
                 img = Image.open(img_file).convert("RGB")
                 img_bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
                 
-                with st.spinner("Analyzing biometric data..."):
+                with st.spinner("Running AI Matching..."):
                     faces = get_insightface().get(img_bgr)
                 
                 if faces:
@@ -225,45 +242,40 @@ def main():
                     captured_emb = face.embedding / (np.linalg.norm(face.embedding) + 1e-10)
                     
                     if known_encs.size > 0:
-                        # Cosine Similarity check
                         dists = 1.0 - np.dot(known_encs, captured_emb)
                         idx = np.argmin(dists)
                         conf = float(1.0 - dists[idx])
                         
-                        # Verify against user context: matching ID and threshold
+                        # Match Logic
                         if dists[idx] < DEFAULT_THRESHOLD and str(known_ids[idx]) == str(sid).strip():
-                            st.success(f"Verified: {sid} (Confidence: {conf:.2f})")
+                            st.success(f"Verified: {sid} ({conf:.2f})")
                             st.balloons()
                             add_attendance_record(sid, conf, "success")
                         else:
-                            st.error("Verification Failed: Identity mismatch or face not recognized.")
+                            st.error("Access Denied: Identity mismatch.")
                             add_attendance_record(sid, conf, "failed")
                 else:
-                    st.warning("No face detected in the frame. Please try again.")
+                    st.warning("No face detected.")
 
     with tab2:
-        st.subheader("🔐 Database Management")
+        st.subheader("🔐 System Management")
         
-        # Using the ADMIN_SECRET synced from Railway
-        admin_input = st.text_input("Admin Password", type="password")
+        # Check against Railway environment variable
+        admin_pass = st.text_input("Admin Secret Key", type="password")
         
-        if admin_input:
-            if admin_input == ADMIN_SECRET:
-                st.success("Authenticated")
-                st.info("Warning: Regenerating encodings will re-download all images and update the cloud database.")
+        if admin_pass:
+            if admin_pass == ADMIN_SECRET:
+                st.success("Access Granted")
                 
-                if st.button("🔄 Sync & Regenerate Encodings"):
-                    with st.spinner("Processing... This may take a minute."):
-                        if generate_encodings():
-                            st.success("Cloud database synchronized!")
-                            st.cache_resource.clear() # Force reload of encodings
-                            st.rerun()
-                        else:
-                            st.error("Sync failed. Check logs.")
+                if st.button("🔄 Sync & Regenerate Face Database"):
+                    # This is the heavy part - we now have progress tracking
+                    if generate_encodings():
+                        st.cache_resource.clear()
+                        st.rerun()
             else:
-                st.error("Incorrect Password")
+                st.error("Invalid Secret Key")
         else:
-            st.write("Please authenticate to access system management tools.")
+            st.info("Enter the ADMIN_SECRET to unlock sync features.")
 
 if __name__ == "__main__":
     if "--generate" in sys.argv:
