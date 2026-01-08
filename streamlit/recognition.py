@@ -5,6 +5,8 @@ import face_recognition
 import numpy as np # Added for robust type hinting (though not strictly required here)
 from typing import Tuple, List, Optional
 
+from app.utils.logger import logger
+
 # Local import (ensure your project root is on sys.path when running standalone)
 try:
     # Assuming this import structure is correct relative to the project root
@@ -12,7 +14,7 @@ try:
 except ImportError:
     # Use a more specific exception for clarity
     download_all_supabase_images = None
-    print("WARNING: Could not import app.utils.supabase_utils. Supabase download functionality is disabled.")
+    logger.warning("Could not import app.utils.supabase_utils. Supabase download functionality is disabled.")
 
 
 # CONFIG
@@ -55,8 +57,7 @@ def _generate_face_encoding_from_image(path: Path) -> Optional[np.ndarray]:
             return encs[0]
         return None
     except Exception as e:
-        # Use simple print since this is a utility/cli script
-        print(f"❌ Error processing {path.name}: {e}")
+        logger.error("Error processing %s: %s", path.name, e)
         return None
 
 
@@ -72,20 +73,20 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
     # If using Supabase, download into nested structure
     if USE_SUPABASE:
         if download_all_supabase_images is None:
-            print("❌ Supabase utils not available. Set up app.utils.supabase_utils.")
+            logger.error("Supabase utils not available. Set up app.utils.supabase_utils.")
             # Continue running with local files instead of failing the function
         elif not SUPABASE_URL or not SUPABASE_KEY or not SUPABASE_BUCKET:
-            print("❌ Supabase environment variables are missing. Skipping download.")
+            logger.error("Supabase environment variables are missing. Skipping download.")
         else:
-            print("📦 USE_SUPABASE=True — downloading images from Supabase into local folders...")
+            logger.info("USE_SUPABASE=True — downloading images from Supabase into local folders...")
             
             # Assuming download_all_supabase_images signature: (url, key, bucket, local_base_path, clear_local)
             ok = download_all_supabase_images(SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET, str(images_dir), clear_local=False)
             
             if not ok:
-                print("⚠ Supabase download failed or returned 0 files — attempting to continue with local files.")
+                logger.warning("Supabase download failed or returned 0 files — attempting to continue with local files.")
             else:
-                print("✅ Supabase download complete.")
+                logger.info("Supabase download complete.")
 
 
     encodings: List[np.ndarray] = []
@@ -101,10 +102,10 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
         image_paths = _get_image_paths_for_student(student_dir)
         
         if not image_paths:
-            print(f"⚠ No images found for {student_id}, skipping.")
+            logger.warning("No images found for %s, skipping.", student_id)
             continue
 
-        print(f"📸 Processing student {student_id} ({len(image_paths)} images)...")
+        logger.info("Processing student %s (%d images)...", student_id, len(image_paths))
         for img_path in image_paths:
             enc = _generate_face_encoding_from_image(img_path)
             
@@ -121,7 +122,7 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
             # print(f"  ✅ Encoded {img_path.name}") 
 
     if not encodings:
-        print("❌ No encodings generated. Check image folders and visibility of faces.")
+        logger.error("No encodings generated. Check image folders and visibility of faces.")
         return False
 
     # Save to pickle
@@ -134,11 +135,11 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
             pickle.dump(data, fh)
             
         unique_students = len(set(ids))
-        print(f"\n✅ Saved {len(encodings)} encodings for {unique_students} students to {output_path}")
-        print(f"Summary: {processed_files} faces encoded, {skipped_files} files skipped.")
+        logger.info("Saved %d encodings for %d students to %s", len(encodings), unique_students, output_path)
+        logger.info("Summary: %d faces encoded, %d files skipped.", processed_files, skipped_files)
         return True
     except Exception as e:
-        print(f"❌ Failed to save encodings to {output_path}: {e}")
+        logger.error("Failed to save encodings to %s: %s", output_path, e)
         return False
 
 

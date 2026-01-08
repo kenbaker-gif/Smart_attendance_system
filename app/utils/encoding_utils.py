@@ -5,6 +5,8 @@ import face_recognition
 import pickle
 from typing import List, Union
 
+from app.utils.logger import logger
+
 # -----------------------------
 # SUPABASE CONFIG & INITIALIZATION
 # -----------------------------
@@ -19,13 +21,13 @@ if USE_SUPABASE:
     try:
         from supabase import create_client
         if not SUPABASE_URL or not SUPABASE_KEY or not SUPABASE_BUCKET:
-            print("⚠ Supabase enabled but one or more SUPABASE_* env vars are missing.")
+            logger.warning("Supabase enabled but one or more SUPABASE_* env vars are missing.")
             supabase = None
         else:
             supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-            print("✅ Supabase client initialized.")
+            logger.info("Supabase client initialized.")
     except Exception as e:
-        print(f"⚠ Failed to initialize Supabase client: {e}")
+        logger.warning("Failed to initialize Supabase client: %s", e)
         supabase = None
 
 
@@ -90,22 +92,22 @@ def download_all_supabase_images(local_images_dir: str) -> bool:
     from the beginning of the filename.
     """
     if supabase is None or SUPABASE_BUCKET is None:
-        print("❌ Supabase client not initialized or bucket name missing.")
+        logger.error("Supabase client not initialized or bucket name missing.")
         return False
         
     local_images_path = Path(local_images_dir)
     storage_api = supabase.storage.from_(SUPABASE_BUCKET)
     
-    print(f"📦 Starting download from Supabase bucket: {SUPABASE_BUCKET}")
+    logger.info("Starting download from Supabase bucket: %s", SUPABASE_BUCKET)
     
     # 1. Clear the local directory to ensure fresh data
     try:
         if local_images_path.exists():
             shutil.rmtree(local_images_path)
         local_images_path.mkdir(parents=True, exist_ok=True)
-        print(f"🧹 Cleared and created local directory: {local_images_dir}")
+        logger.info("Cleared and created local directory: %s", local_images_dir)
     except Exception as e:
-        print(f"❌ Failed to clear/create local directory: {e}")
+        logger.error("Failed to clear/create local directory: %s", e)
         return False
 
     # 2. List ALL files recursively in the bucket
@@ -113,13 +115,13 @@ def download_all_supabase_images(local_images_dir: str) -> bool:
         all_files_raw = storage_api.list("", options={"limit": 1000, "deep": True})
         all_files = _normalize_list_response(all_files_raw)
     except Exception as e:
-        print(f"❌ Failed to list files from Supabase: {e}")
+        logger.error("Failed to list files from Supabase: %s", e)
         return False
 
     download_count = 0
     
     if not all_files:
-        print("⚠️ Supabase bucket list returned no files.")
+        logger.warning("Supabase bucket list returned no files.")
         return False
         
     # 3. Download and save each file
@@ -137,10 +139,10 @@ def download_all_supabase_images(local_images_dir: str) -> bool:
             student_id = filename[:10]
             # Ensure the extracted ID is the correct length and numeric
             if not (len(student_id) == 10 and student_id.isdigit()):
-                 print(f"⚠️ Skipping file, extracted ID is invalid: {filename}")
+                 logger.warning("Skipping file, extracted ID is invalid: %s", filename)
                  continue
         except IndexError:
-            print(f"⚠️ Skipping file with short name (less than 10 chars): {filename}")
+            logger.warning("Skipping file with short name (less than 10 chars): %s", filename)
             continue
 
         # Check for valid image extensions
@@ -151,7 +153,7 @@ def download_all_supabase_images(local_images_dir: str) -> bool:
         # This FORCES: data/raw_faces/2400102415/filename.jpg
         local_file_path = local_images_path / student_id / filename
         
-        print(f"DEBUG (DOWNLOAD FIX): Remote Path: {remote_path} -> Local Path: {local_file_path}") 
+        logger.debug("Remote Path: %s -> Local Path: %s", remote_path, local_file_path) 
 
         local_file_path.parent.mkdir(parents=True, exist_ok=True) # Creates the student_id folder
 
@@ -165,15 +167,15 @@ def download_all_supabase_images(local_images_dir: str) -> bool:
                     f.write(file_data)
                 download_count += 1
             else:
-                print(f"❌ Failed to download/convert file data for: {remote_path}. Content was empty.")
+                logger.error("Failed to download/convert file data for: %s. Content was empty.", remote_path)
 
         except Exception as e:
-            print(f"❌ Error during download or save for {remote_path}: {e}")
+            logger.error("Error during download or save for %s: %s", remote_path, e)
 
-    print(f"✅ Download complete. Saved {download_count} files to {local_images_dir}.")
+    logger.info("Download complete. Saved %d files to %s.", download_count, local_images_dir)
     
     if download_count == 0 and len(all_files) > 0:
-         print("⚠️ Files listed but none saved.")
+         logger.warning("Files listed but none saved.")
          return False
 
     return True
@@ -198,7 +200,7 @@ def generate_encodings(images_dir: str = "data/raw_faces", output_path: str = "d
     if USE_SUPABASE and supabase is not None:
         ok = download_all_supabase_images(str(images_dir))
         if not ok:
-            print("⚠ Supabase download step reported failure — continuing with any local files present.")
+            logger.warning("Supabase download step reported failure — continuing with any local files present.")
 
     encodings = []
     ids = []
@@ -211,16 +213,16 @@ def generate_encodings(images_dir: str = "data/raw_faces", output_path: str = "d
         student_id = student_folder.name
         
         # ADDED DEBUG LINE: CONFIRMS FOLDER READ SUCCESS
-        print(f"DEBUG ENCODER: Found folder/ID: {student_id}") 
+        logger.debug("Found folder/ID: %s", student_id)
         
         # Check for valid image files
         image_files = sorted([p for p in student_folder.iterdir() if p.suffix.lower() in (".jpg", ".jpeg", ".png")])
 
         if not image_files:
-            print(f"⚠️  No images found for {student_id}")
+            logger.warning("No images found for %s", student_id)
             continue
 
-        print(f"📸 Processing student {student_id} ({len(image_files)} images)...")
+        logger.info("Processing student %s (%d images)...", student_id, len(image_files))
 
         for img_path in image_files:
             try:
@@ -228,7 +230,7 @@ def generate_encodings(images_dir: str = "data/raw_faces", output_path: str = "d
                 face_locations = face_recognition.face_locations(image, model="hog")
 
                 if not face_locations:
-                    print(f"  ⚠️  No face detected in {img_path.name}")
+                    logger.debug("No face detected in %s", img_path.name)
                     continue
 
                 face_encs = face_recognition.face_encodings(image, face_locations)
@@ -237,10 +239,10 @@ def generate_encodings(images_dir: str = "data/raw_faces", output_path: str = "d
                     encodings.append(face_encs[0])
                     ids.append(student_id)
             except Exception as e:
-                print(f"  ❌ Error processing {img_path.name}: {e}")
+                logger.error("Error processing %s: %s", img_path.name, e)
 
     if not encodings:
-        print("\n❌ No encodings generated. Check your image folder structure or Supabase files.")
+        logger.error("No encodings generated. Check your image folder structure or Supabase files.")
         return False
 
     # 3. Save encodings
@@ -248,8 +250,8 @@ def generate_encodings(images_dir: str = "data/raw_faces", output_path: str = "d
     try:
         with open(output_path, "wb") as f:
             pickle.dump({"encodings": encodings, "ids": ids}, f)
-        print(f"\n✅ Saved {len(encodings)} encodings to {output_path}")
+        logger.info("Saved %d encodings to %s", len(encodings), output_path)
         return True
     except Exception as e:
-        print(f"\n❌ Failed to save encodings: {e}")
+        logger.error("Failed to save encodings: %s", e)
         return False

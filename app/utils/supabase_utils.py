@@ -18,6 +18,8 @@ import shutil
 from pathlib import Path
 from typing import List, Optional, Union
 
+from app.utils.logger import logger
+
 # Lazy import so module can be imported without env vars in some contexts
 _supabase_client = None
 
@@ -106,7 +108,7 @@ def download_all_supabase_images(
     """
     # sanity
     if not supabase_url or not supabase_key or not bucket_name:
-        print("❌ Supabase credentials or bucket missing.")
+        logger.error("Supabase credentials or bucket missing.")
         return False
 
     client = init_supabase_client(supabase_url, supabase_key)
@@ -119,7 +121,7 @@ def download_all_supabase_images(
         try:
             shutil.rmtree(local_root_path)
         except Exception as e:
-            print(f"⚠ Failed to clear local folder {local_root}: {e}")
+            logger.warning(f"Failed to clear local folder {local_root}: {e}")
 
     local_root_path.mkdir(parents=True, exist_ok=True)
 
@@ -131,11 +133,11 @@ def download_all_supabase_images(
         raw_list = storage.list("", options)
         files = _normalize_list_response(raw_list)
     except Exception as e:
-        print(f"❌ Failed to list bucket contents: {e}")
+        logger.error(f"Failed to list bucket contents: {e}")
         return False
 
     if not files:
-        print("⚠ No files found in bucket (or list returned empty).")
+        logger.warning("No files found in bucket (or list returned empty).")
         return False
 
     download_count = 0
@@ -153,7 +155,7 @@ def download_all_supabase_images(
         if len(parts) != 2:
             # Skip unexpected shapes — user can adapt if their bucket is flat
             # (e.g., '2400102415_1.jpg') by post-processing or by calling a different helper.
-            print(f"⚠ Skipping unexpected path shape: {remote_path}")
+            logger.warning("Skipping unexpected path shape: %s", remote_path)
             continue
 
         student_id, filename = parts
@@ -171,11 +173,11 @@ def download_all_supabase_images(
                     fh.write(data)
                 download_count += 1
                 # small feedback
-                print(f"⬇ Downloaded: {remote_path} -> {local_file_path}")
+                logger.info("Downloaded: %s -> %s", remote_path, local_file_path)
             else:
-                print(f"⚠ Empty data for {remote_path} (possible RLS or access issue)")
+                logger.warning("Empty data for %s (possible RLS or access issue)", remote_path)
         except Exception as e:
-            print(f"❌ Failed to download {remote_path}: {e}")
+            logger.error("Failed to download %s: %s", remote_path, e)
 
-    print(f"✅ Download complete. Total files downloaded: {download_count}")
+    logger.info("Download complete. Total files downloaded: %d", download_count)
     return download_count > 0

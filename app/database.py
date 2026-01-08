@@ -77,12 +77,11 @@ SQLALCHEMY_DATABASE_URL = (
     f"postgresql://{DB_USER}:{ENCODED_DB_PASSWORD}@{DB_HOST}:{SUPABASE_POOLER_PORT}/{DB_NAME}{DB_OPTIONS_ENCODED}"
 )
 
-# --- DEBUGGING STEP: PRINT THE CONSTRUCTED URL (Excluding password for security) ---
-print("--- DATABASE CONNECTION INFO ---")
-print(f"Host: {DB_HOST} (Expected: Supavisor Pooler Hostname)")
-print(f"Port: {SUPABASE_POOLER_PORT}")
-print(f"URL (masked): postgresql://{DB_USER}:***@{DB_HOST}:{SUPABASE_POOLER_PORT}/{DB_NAME}{DB_OPTIONS_ENCODED}")
-print("--------------------------------")
+# --- Log the constructed URL (masked for security) ---
+logger.debug("Database connection configured.")
+logger.debug("Host: %s (Expected: Supavisor Pooler Hostname)", DB_HOST)
+logger.debug("Port: %s", SUPABASE_POOLER_PORT)
+logger.debug("URL (masked): postgresql://%s:***@%s:%s/%s%s", DB_USER, DB_HOST, SUPABASE_POOLER_PORT, DB_NAME, DB_OPTIONS_ENCODED)
 
 
 # Now create the engine

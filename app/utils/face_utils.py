@@ -5,6 +5,8 @@ from tqdm import tqdm
 from supabase import create_client
 import os
 
+from app.utils.logger import logger
+
 # --- Supabase Config ---
 USE_SUPABASE = os.getenv("USE_SUPABASE", "false").lower() == "true"
 if USE_SUPABASE:
@@ -21,7 +23,7 @@ def capture_faces(student_id, save_path="data/raw_faces"):
     detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     count = 0
 
-    print("[INFO] Starting face capture. Look at the camera...")
+    logger.info("Starting face capture for student %s", student_id)
 
     while True:
         ret, frame = cam.read()
@@ -51,7 +53,7 @@ def capture_faces(student_id, save_path="data/raw_faces"):
         if k == 27 or count >= 20:
             break
 
-    print(f"[INFO] Captured {count} images for {student_id}")
+    logger.info("Captured %d images for %s", count, student_id)
     cam.release()
     cv2.destroyAllWindows()
 
@@ -65,7 +67,7 @@ def preprocess_faces(input_dir="data/raw_faces", output_dir="data/processed_face
         student_input = os.path.join(input_dir, student)
         student_output = os.path.join(output_dir, student)
         os.makedirs(student_output, exist_ok=True)
-        print(f"[INFO] Processing {student}...")
+        logger.info("Processing %s...", student)
 
         for img_name in tqdm(os.listdir(student_input), desc=student):
             input_path = os.path.join(student_input, img_name)
@@ -78,6 +80,6 @@ def preprocess_faces(input_dir="data/raw_faces", output_dir="data/processed_face
                 normalized = resized / 255.0
                 cv2.imwrite(output_path, (normalized * 255).astype("uint8"))
             except Exception as e:
-                print(f"[ERROR] Failed to process {img_name}: {e}")
+                logger.error("Failed to process %s: %s", img_name, e)
 
-    print(f"[DONE] Preprocessing completed. Processed faces saved to {output_dir}")
+    logger.info("Preprocessing completed. Processed faces saved to %s", output_dir)
