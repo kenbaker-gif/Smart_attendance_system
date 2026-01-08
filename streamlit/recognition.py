@@ -1,5 +1,4 @@
 import os
-import pickle
 from pathlib import Path
 import face_recognition
 import numpy as np # Added for robust type hinting (though not strictly required here)
@@ -24,7 +23,7 @@ SUPABASE_KEY: Optional[str] = os.getenv("SUPABASE_KEY")
 SUPABASE_BUCKET: Optional[str] = os.getenv("SUPABASE_BUCKET")
 
 RAW_FACES_DIR: Path = Path("data") / "raw_faces"
-ENCODINGS_PATH: Path = Path("data") / "encodings_facenet.pkl"
+ENCODINGS_PATH: Path = Path("data") / "encodings_facenet.npz"
 
 
 def _get_image_paths_for_student(student_dir: Path) -> List[Path]:
@@ -125,15 +124,16 @@ def generate_encodings(images_dir: Path = RAW_FACES_DIR, output_path: Path = ENC
         logger.error("No encodings generated. Check image folders and visibility of faces.")
         return False
 
-    # Save to pickle
+    # Save as a compressed NumPy archive to avoid unsafe pickle usage
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        # Combine encodings/ids into a single dictionary
-        data = {"encodings": np.array(encodings), "ids": np.array(ids)}
-        
-        with open(output_path, "wb") as fh:
-            pickle.dump(data, fh)
-            
+        encodings_arr = np.array(encodings)
+        ids_arr = np.array(ids)
+        # Ensure file has .npz extension
+        if output_path.suffix != ".npz":
+            output_path = output_path.with_suffix(".npz")
+        np.savez_compressed(output_path, encodings=encodings_arr, ids=ids_arr)
+
         unique_students = len(set(ids))
         logger.info("Saved %d encodings for %d students to %s", len(encodings), unique_students, output_path)
         logger.info("Summary: %d faces encoded, %d files skipped.", processed_files, skipped_files)

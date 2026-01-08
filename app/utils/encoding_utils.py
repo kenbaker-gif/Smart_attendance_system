@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 import face_recognition
-import pickle
+import numpy as np
 from typing import List, Union
 
 from app.utils.logger import logger
@@ -184,10 +184,10 @@ def download_all_supabase_images(local_images_dir: str) -> bool:
 # -----------------------------------------------------------
 # GENERATE FACE ENCODINGS (With Final Debug Check)
 # -----------------------------------------------------------
-def generate_encodings(images_dir: str = "data/raw_faces", output_path: str = "data/encodings_facenet.pkl") -> bool:
+def generate_encodings(images_dir: str = "data/raw_faces", output_path: str = "data/encodings_facenet.npz") -> bool:
     """
     Downloads (if configured) and reads images from images_dir, generates encodings,
-    and saves a pickle { 'encodings': [...], 'ids': [...] } to output_path.
+    and saves them as a compressed NumPy archive with arrays 'encodings' and 'ids'.
 
     Returns True on success, False otherwise.
     """
@@ -248,9 +248,14 @@ def generate_encodings(images_dir: str = "data/raw_faces", output_path: str = "d
     # 3. Save encodings
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with open(output_path, "wb") as f:
-            pickle.dump({"encodings": encodings, "ids": ids}, f)
-        logger.info("Saved %d encodings to %s", len(encodings), output_path)
+        encodings_arr = np.array(encodings)
+        ids_arr = np.array(ids)
+        out_path = Path(output_path)
+        if out_path.suffix != ".npz":
+            out_path = out_path.with_suffix(".npz")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(out_path, encodings=encodings_arr, ids=ids_arr)
+        logger.info("Saved %d encodings to %s", len(encodings), out_path)
         return True
     except Exception as e:
         logger.error("Failed to save encodings: %s", e)

@@ -1,7 +1,6 @@
 import importlib
 import sys
 import types
-import pickle
 from pathlib import Path
 
 import numpy as np
@@ -26,7 +25,7 @@ def _make_fake_face_recognition():
     return m
 
 
-def test_generate_encodings_creates_pickle(tmp_path, monkeypatch):
+def test_generate_encodings_creates_npz(tmp_path, monkeypatch):
     # Arrange: prepare fake face_recognition module before importing
     sys.modules["face_recognition"] = _make_fake_face_recognition()
 
@@ -44,21 +43,20 @@ def test_generate_encodings_creates_pickle(tmp_path, monkeypatch):
     img_file = student_dir / "1.jpg"
     img_file.write_bytes(b"fake-jpg-data")
 
-    out_file = tmp_path / "encodings_test.pkl"
+    out_file = tmp_path / "encodings_test.npz"
 
     # Act
     ok = rec.generate_encodings(images_dir=tmp_path, output_path=out_file)
 
     # Assert
     assert ok is True
-    assert out_file.exists()
 
-    with open(out_file, "rb") as fh:
-        data = pickle.load(fh)
+    data = np.load(out_file)
 
     assert "encodings" in data and "ids" in data
-    assert len(data["encodings"]) == 1
-    assert data["ids"][0] == "2400102415"
+    assert data["encodings"].shape[0] == 1
+    # ids may be stored as bytes or unicode depending on numpy version; coerce to str
+    assert str(data["ids"][0]) == "2400102415"
 
 
 def test_generate_encodings_no_images_returns_false(tmp_path, monkeypatch):
@@ -70,5 +68,5 @@ def test_generate_encodings_no_images_returns_false(tmp_path, monkeypatch):
     sys.modules[spec.name] = rec
     spec.loader.exec_module(rec)
 
-    ok = rec.generate_encodings(images_dir=tmp_path, output_path=tmp_path / "out.pkl")
+    ok = rec.generate_encodings(images_dir=tmp_path, output_path=tmp_path / "out.npz")
     assert ok is False
