@@ -39,17 +39,20 @@ FROM continuumio/miniconda3:latest
 
 WORKDIR /app
 
-# Install runtime GL and system dependencies
+# 1. Install runtime system dependencies (Crucial for OpenCV on Cloud)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the optimized Conda environment and pre-downloaded weights
+# 2. Copy the optimized Conda environment and pre-downloaded weights
 COPY --from=builder /opt/conda /opt/conda
 COPY --from=builder /root/.deepface /root/.deepface
 
-# Set environment variables for runtime stability
+# 3. Set environment variables for runtime stability
 ENV PATH="/opt/conda/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
 ENV HOME="/root"
@@ -57,15 +60,13 @@ ENV DEEPFACE_HOME="/root"
 ENV TF_CPP_MIN_LOG_LEVEL=3
 ENV PYTHONUNBUFFERED=1
 
-# Create persistent data and log directories
+# 4. Create persistent data and log directories
 RUN mkdir -p data/raw_faces logs
 
-# Copy your application source code
+# 5. Copy your application source code
 COPY . .
 
-# Streamlit configuration
-ENV PORT=8501
-EXPOSE 8501
-
-# Command to launch the application
-CMD ["streamlit", "run", "streamlit/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# 6. RAILWAY PORT FIX: 
+# Using the shell form of CMD allows the $PORT environment variable 
+# provided by Railway to be injected into the Streamlit command.
+CMD streamlit run streamlit/app.py --server.port=$PORT --server.address=0.0.0.0
