@@ -9,6 +9,6 @@ COPY . .
 
 # Admin panel usually runs on 8501
 EXPOSE 8501
-ENV $PORT
+
 
 CMD ["streamlit", "run", "app/admin-panel.py", "--server.port=$PORT", "--server.address=0.0.0.0"]
