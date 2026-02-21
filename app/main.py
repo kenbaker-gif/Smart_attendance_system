@@ -1,63 +1,45 @@
 import os
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from supabase import create_client
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# --- CONFIGURATION ---
 load_dotenv()
-URL = os.getenv("SUPABASE_URL")
-KEY = os.getenv("SUPABASE_KEY")
-BUCKET = os.getenv("SUPABASE_BUCKET", "student_faces")
 
-if URL and not URL.endswith("/"):
-    URL += "/"
-
-supabase = create_client(URL, KEY)
 app = FastAPI()
 
+# Configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 @app.get("/")
-async def root():
-    return {"message": "Smart Attendance API is running", "status": "online"}
+def home():
+    return {"status": "Smart Attendance API is Active"}
 
 @app.post("/upload-student-face")
-async def upload_student_face(
+async def upload_student(
     student_id: str = Form(...), 
     file: UploadFile = File(...)
 ):
     try:
-        # 1. Determine the next sequence number (listing files in the folder)
-        res = supabase.storage.from_(BUCKET).list(student_id)
-        # Handle cases where res might be empty or None
-        existing_files = [f['name'] for f in (res or []) if f['name'].lower().endswith(('.jpg', '.jpeg', '.png'))]
-        next_num = len(existing_files) + 1
-        
-        # 2. Read file content
+        # 1. Prepare File for Supabase
         file_content = await file.read()
-        
-        # 3. Upload Loop (Collision Protection)
-        uploaded = False
-        while not uploaded:
-            file_name = f"{next_num}.jpg"
-            path = f"{student_id}/{file_name}"
-            try:
-                supabase.storage.from_(BUCKET).upload(
-                    path=path,
-                    file=file_content,
-                    file_options={"content-type": "image/jpeg"}
-                )
-                uploaded = True
-            except Exception as e:
-                if "409" in str(e) or "already exists" in str(e).lower():
-                    next_num += 1
-                else:
-                    raise e
+        file_path = f"{student_id}/{file.filename}"
 
-        return {
-            "status": "success",
-            "message": f"Successfully saved as {file_name}",
-            "student_id": student_id,
-            "file_path": path
-        }
+        # 2. Upload to Supabase Storage
+        # Replace 'student_faces' with your actual bucket name
+        storage_response = supabase.storage.from_("student_faces").upload(
+            path=file_path,
+            file=file_content,
+            file_options={"content-type": file.content_type}
+        )
+
+        # 3. Get the Public URL for the image
+        image_url = supabase.storage.from_("student_faces").get_public_url(file_path)
+
+        # 4. Return the URL to Flutter (Flutter will save to DB)
+        # OR you can add the DB insert here to make it a one-stop shop
+        return {"image_url": image_url, "file_path": file_path}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
