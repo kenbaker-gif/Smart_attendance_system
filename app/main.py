@@ -28,14 +28,14 @@ async def upload_student(
 
         # 2. Upload to Supabase Storage
         # Replace 'student_faces' with your actual bucket name
-        storage_response = supabase.storage.from_("student_faces").upload(
+        storage_response = supabase.storage.from_("raw_faces").upload(
             path=file_path,
             file=file_content,
             file_options={"content-type": file.content_type}
         )
 
         # 3. Get the Public URL for the image
-        image_url = supabase.storage.from_("student_faces").get_public_url(file_path)
+        image_url = supabase.storage.from_("raw_faces").get_public_url(file_path)
 
         # 4. Return the URL to Flutter (Flutter will save to DB)
         # OR you can add the DB insert here to make it a one-stop shop
