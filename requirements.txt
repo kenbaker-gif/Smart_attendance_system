@@ -1,4 +1,5 @@
-streamlit
+fastapi
+uvicorn
 supabase
 python-dotenv
-uvicorn
+python-multipart
