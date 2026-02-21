@@ -14,7 +14,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.get("/")
 def home():
-    return {"status": "Smart Attendance API is Active"}
+    return {"status": "Smart Attendance: OTA ACTIVE"}
 
 @app.post("/upload-student-face")
 async def upload_student(
