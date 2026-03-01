@@ -250,7 +250,8 @@ if df.empty:
 
 # ── Process data ───────────────────────────────────────────────────────────
 if 'timestamp' in df.columns:
-    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce', utc=True)
+    df['timestamp'] = df['timestamp'].dt.tz_convert('Africa/Nairobi')  # UTC+3 EAT
     df['date']      = df['timestamp'].dt.date
     df['hour']      = df['timestamp'].dt.hour
 

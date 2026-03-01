@@ -1,6 +1,7 @@
 streamlit
 supabase
-face-recognition
 numpy
 Pillow
 python-dotenv
+requests
+pandas
