@@ -42,10 +42,12 @@ def health():
 async def upload_student(
     student_id:     str        = Form(...),
     name:           str        = Form(...),
-    institution_id: str        = Form(default="NKU"),  # default until Flutter update ships
+    institution_id: str        = Form(default="NKU"),
     file:           UploadFile = File(...),
 ):
-    # ── Validate inputs ────────────────────────────────────────────────
+    import logging
+    logging.warning(f"UPLOAD DEBUG: student_id={student_id!r} name={name!r} institution_id={institution_id!r} content_type={file.content_type!r} filename={file.filename!r}")
+
     if not student_id.strip():
         raise HTTPException(status_code=400, detail="student_id cannot be empty.")
     if not name.strip():
