@@ -199,7 +199,7 @@ hr { border-color: #1e1e30 !important; }
 """, unsafe_allow_html=True)
 
 # ── Config ─────────────────────────────────────────────────────────────────
-API_URL = "https://smartattendancesystem-production-e0b7.up.railway.app"
+API_URL = "https://smartattendancemvp-production.up.railway.app"
 
 # ── Header ─────────────────────────────────────────────────────────────────
 col_title, col_auth = st.columns([3, 1])
