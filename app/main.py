@@ -3,7 +3,6 @@ from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from dotenv import load_dotenv
-from fastapi import Request
 
 load_dotenv()
 
@@ -43,7 +42,7 @@ def health():
 async def upload_student(
     student_id:     str        = Form(...),
     name:           str        = Form(...),
-    institution_id: str        = Form(...),   # ✅ NKU or MUK
+    institution_id: str        = Form(default="NKU"),  # default until Flutter update ships
     file:           UploadFile = File(...),
 ):
     # ── Validate inputs ────────────────────────────────────────────────
@@ -133,9 +132,3 @@ def delete_student(student_id: str):
         return {"success": True, "deleted_student_id": student_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-#Temporary
-@app.post("/upload-student-face-debug")
-async def upload_debug(request: Request):
-    form = await request.form()
-    return {"received_fields": list(form.keys())}
