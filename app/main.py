@@ -132,3 +132,9 @@ def delete_student(student_id: str):
         return {"success": True, "deleted_student_id": student_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+#Temporary
+@app.post("/upload-student-face-debug")
+async def upload_debug(request: Request):
+    form = await request.form()
+    return {"received_fields": list(form.keys())}
