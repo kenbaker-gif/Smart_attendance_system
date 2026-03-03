@@ -2,6 +2,8 @@ import os
 import httpx
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -44,9 +46,12 @@ async def trigger_sync_in_background():
         print(f"❌ Auto-sync failed: {e}")
 
 
+# Serve static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 @app.get("/")
 def home():
-    return {"status": "Smart Attendance: OTA ACTIVE"}
+    return FileResponse(os.path.join("static", "index.html"))
 
 
 @app.get("/health")
