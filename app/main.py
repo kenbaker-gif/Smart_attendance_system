@@ -30,6 +30,7 @@ BUCKET        = "raw_faces"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-stream"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
+APP_URL = os.getenv("APP_URL", "https://dazzling-intuition-production-297b.up.railway.app")
 MVP_URL      = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app")
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
@@ -183,18 +184,14 @@ def generate_institution_id(name: str) -> str:
         code = words[0][:3]
     return re.sub(r'[^A-Z0-9]', '', code)[:5]
 
-
 @app.post("/register-institution")
 async def register_institution(
-    university_name: str = Form(...),
-    admin_full_name: str = Form(...),
-    admin_email:     str = Form(...),
-    phone:           str = Form(...),
-    logo:            UploadFile = File(None),  # optional
+    university_name: str        = Form(...),
+    admin_full_name: str        = Form(...),
+    admin_email:     str        = Form(...),
+    phone:           str        = Form(...),
+    logo:            UploadFile = File(None),
 ):
-    """Self-service institution registration with email verification."""
-
-    # ── Validate inputs ────────────────────────────────────────────────
     if not all([university_name.strip(), admin_full_name.strip(),
                 admin_email.strip(), phone.strip()]):
         raise HTTPException(status_code=400, detail="All fields are required.")
@@ -203,11 +200,9 @@ async def register_institution(
     if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
         raise HTTPException(status_code=400, detail="Invalid email address.")
 
-    # ── Generate institution ID ────────────────────────────────────────
+    # Generate institution ID
     base_id = generate_institution_id(university_name)
     inst_id = base_id
-
-    # Check for conflicts and append number if needed
     existing = supabase.table("institutions").select("id").execute().data
     existing_ids = {r["id"] for r in existing}
     counter = 1
@@ -215,7 +210,7 @@ async def register_institution(
         inst_id = f"{base_id}{counter}"
         counter += 1
 
-    # ── Upload logo if provided ────────────────────────────────────────
+    # Upload logo if provided
     logo_url = None
     if logo and logo.filename:
         logo_bytes = await logo.read()
@@ -231,24 +226,7 @@ async def register_institution(
             )
             logo_url = supabase.storage.from_("raw_faces").get_public_url(logo_path)
 
-    # ── Create Supabase Auth user ──────────────────────────────────────
-    try:
-        auth_response = supabase.auth.admin.create_user({
-            "email":            email,
-            "email_confirm":    False,  # requires email verification
-            "user_metadata":    {
-                "full_name":       admin_full_name.strip(),
-                "institution_id":  inst_id,
-            }
-        })
-        user_id = auth_response.user.id
-    except Exception as e:
-        error_msg = str(e)
-        if "already registered" in error_msg.lower() or "already exists" in error_msg.lower():
-            raise HTTPException(status_code=409, detail="Email already registered.")
-        raise HTTPException(status_code=500, detail=f"Auth error: {error_msg}")
-
-    # ── Insert institution ─────────────────────────────────────────────
+    # Insert institution first
     try:
         supabase.table("institutions").insert({
             "id":          inst_id,
@@ -260,36 +238,46 @@ async def register_institution(
             "logo_url":    logo_url,
         }).execute()
     except Exception as e:
-        # Rollback auth user if institution insert fails
-        try: supabase.auth.admin.delete_user(user_id)
-        except: pass
         raise HTTPException(status_code=500, detail=f"Institution creation failed: {str(e)}")
 
-    # ── Create profile ─────────────────────────────────────────────────
+    # Invite user — creates account + sends password setup email
+    try:
+        auth_response = supabase.auth.admin.invite_user_by_email(
+            email,
+            options={
+                "data": {
+                    "full_name":      admin_full_name.strip(),
+                    "institution_id": inst_id,
+                },
+                "redirect_to": APP_URL,
+            }
+        )
+        user_id = auth_response.user.id
+    except Exception as e:
+        try: supabase.table("institutions").delete().eq("id", inst_id).execute()
+        except: pass
+        error_msg = str(e)
+        if "already registered" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=409, detail="Email already registered.")
+        raise HTTPException(status_code=500, detail=f"Auth error: {error_msg}")
+
+    # Create profile
     try:
         supabase.table("profiles").insert({
             "id":             user_id,
-            "full_name":      admin_full_name.strip(),
             "is_admin":       True,
             "institution_id": inst_id,
         }).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Profile creation failed: {str(e)}")
 
-    # ── Send verification email ────────────────────────────────────────
-    try:
-        supabase.auth.admin.invite_user_by_email(email)
-    except:
-        pass  # Verification email sent automatically on create_user
-
     return {
         "success":          True,
         "institution_id":   inst_id,
         "institution_name": university_name.strip(),
-        "message":          f"Registration successful. Check {email} to verify your account and start your 30-day trial.",
+        "message":          f"Check {email} for an invitation to set your password and start your 30-day trial.",
         "trial_days":       30,
     }
-
 
 @app.get("/check-trial/{institution_id}")
 def check_trial(institution_id: str):
