@@ -28,14 +28,11 @@ BUCKET        = "raw_faces"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-stream"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-# ── InsightFace backend for auto-sync ──────────────────────────────────────
 MVP_URL      = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app")
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
 
-# ── Auto-sync trigger ──────────────────────────────────────────────────────
 async def trigger_sync_in_background():
-    """Called after 4th photo — tells InsightFace backend to rebuild encodings."""
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
@@ -47,7 +44,6 @@ async def trigger_sync_in_background():
         print(f"❌ Auto-sync failed: {e}")
 
 
-# ── Health ─────────────────────────────────────────────────────────────────
 @app.get("/")
 def home():
     return {"status": "Smart Attendance: OTA ACTIVE"}
@@ -58,7 +54,6 @@ def health():
     return {"status": "ok"}
 
 
-# ── Upload student face ────────────────────────────────────────────────────
 @app.post("/upload-student-face")
 async def upload_student(
     background_tasks: BackgroundTasks,
@@ -67,9 +62,6 @@ async def upload_student(
     institution_id: str        = Form(default="NKU"),
     file:           UploadFile = File(...),
 ):
-    import logging
-    logging.warning(f"UPLOAD DEBUG: student_id={student_id!r} name={name!r} institution_id={institution_id!r} content_type={file.content_type!r} filename={file.filename!r}")
-
     if not student_id.strip():
         raise HTTPException(status_code=400, detail="student_id cannot be empty.")
     if not name.strip():
@@ -77,10 +69,7 @@ async def upload_student(
     if not institution_id.strip():
         raise HTTPException(status_code=400, detail="institution_id cannot be empty.")
     if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type '{file.content_type}'. Allowed: jpeg, png, webp.",
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid file type '{file.content_type}'.")
 
     file_content = await file.read()
 
@@ -89,7 +78,9 @@ async def upload_student(
     if len(file_content) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    file_path = f"{student_id.strip()}/{file.filename}"
+    # ✅ New path: institution_id/student_id/filename
+    # e.g. NKU/2400102415/1.jpg
+    file_path = f"{institution_id.strip()}/{student_id.strip()}/{file.filename}"
 
     try:
         try:
@@ -111,7 +102,6 @@ async def upload_student(
             "institution_id": institution_id.strip(),
         }).execute()
 
-        # ✅ Auto-trigger sync after 4th photo
         if file.filename == "4.jpg":
             print(f"📸 4th photo uploaded for {student_id} — triggering auto-sync...")
             background_tasks.add_task(trigger_sync_in_background)
@@ -132,7 +122,6 @@ async def upload_student(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
-# ── List students ──────────────────────────────────────────────────────────
 @app.get("/students")
 def list_students(institution_id: str = None):
     try:
@@ -145,15 +134,26 @@ def list_students(institution_id: str = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Delete student ─────────────────────────────────────────────────────────
 @app.delete("/students/{student_id}")
 def delete_student(student_id: str):
+    """Remove a student and their images from storage."""
     try:
-        files = supabase.storage.from_(BUCKET).list(student_id)
+        # Get institution_id to build correct path
+        resp = supabase.table("students").select("institution_id") \
+            .eq("id", student_id).maybe_single().execute()
+        institution_id = resp.data.get("institution_id", "NKU") if resp.data else "NKU"
+
+        # List and delete files from new path
+        folder = f"{institution_id}/{student_id}"
+        files = supabase.storage.from_(BUCKET).list(folder)
         if files:
-            paths = [f"{student_id}/{f['name']}" for f in files]
+            paths = [f"{folder}/{f['name']}" for f in files]
             supabase.storage.from_(BUCKET).remove(paths)
+
+        # Delete attendance records first, then student
+        supabase.table("attendance_records").delete().eq("student_id", student_id).execute()
         supabase.table("students").delete().eq("id", student_id).execute()
+
         return {"success": True, "deleted_student_id": student_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

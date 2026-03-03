@@ -5,3 +5,5 @@ __pycache__/
 *.pkl
 logs/
 .env
+migration.py
+fix.py
