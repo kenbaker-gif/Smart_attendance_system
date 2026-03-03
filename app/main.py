@@ -1,5 +1,6 @@
 import os
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+import httpx
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -27,7 +28,26 @@ BUCKET        = "raw_faces"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-stream"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
+# ── InsightFace backend for auto-sync ──────────────────────────────────────
+MVP_URL      = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app")
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
+
+# ── Auto-sync trigger ──────────────────────────────────────────────────────
+async def trigger_sync_in_background():
+    """Called after 4th photo — tells InsightFace backend to rebuild encodings."""
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"{MVP_URL}/admin/sync-encodings",
+                headers={"Authorization": f"Bearer {ADMIN_SECRET}"}
+            )
+            print(f"✅ Auto-sync triggered: {resp.status_code}")
+    except Exception as e:
+        print(f"❌ Auto-sync failed: {e}")
+
+
+# ── Health ─────────────────────────────────────────────────────────────────
 @app.get("/")
 def home():
     return {"status": "Smart Attendance: OTA ACTIVE"}
@@ -38,8 +58,10 @@ def health():
     return {"status": "ok"}
 
 
+# ── Upload student face ────────────────────────────────────────────────────
 @app.post("/upload-student-face")
 async def upload_student(
+    background_tasks: BackgroundTasks,
     student_id:     str        = Form(...),
     name:           str        = Form(...),
     institution_id: str        = Form(default="NKU"),
@@ -67,18 +89,14 @@ async def upload_student(
     if len(file_content) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    # ── Storage path uses prefixed student_id ─────────────────────────
-    # student_id already arrives prefixed from Flutter e.g. NKU2400102415
     file_path = f"{student_id.strip()}/{file.filename}"
 
     try:
-        # Remove existing file to avoid storage conflicts
         try:
             supabase.storage.from_(BUCKET).remove([file_path])
         except Exception:
             pass
 
-        # Upload image
         supabase.storage.from_(BUCKET).upload(
             path=file_path,
             file=file_content,
@@ -87,12 +105,16 @@ async def upload_student(
 
         image_url = supabase.storage.from_(BUCKET).get_public_url(file_path)
 
-        # Upsert student record with institution_id
         supabase.table("students").upsert({
             "id":             student_id.strip(),
             "name":           name.strip(),
             "institution_id": institution_id.strip(),
         }).execute()
+
+        # ✅ Auto-trigger sync after 4th photo
+        if file.filename == "4.jpg":
+            print(f"📸 4th photo uploaded for {student_id} — triggering auto-sync...")
+            background_tasks.add_task(trigger_sync_in_background)
 
         return {
             "success":        True,
@@ -101,6 +123,7 @@ async def upload_student(
             "institution_id": institution_id.strip(),
             "image_url":      image_url,
             "file_path":      file_path,
+            "sync_triggered": file.filename == "4.jpg",
         }
 
     except HTTPException:
@@ -109,9 +132,9 @@ async def upload_student(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
+# ── List students ──────────────────────────────────────────────────────────
 @app.get("/students")
 def list_students(institution_id: str = None):
-    """List students — optionally filtered by institution."""
     try:
         query = supabase.table("students").select("*").order("name")
         if institution_id:
@@ -122,9 +145,9 @@ def list_students(institution_id: str = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Delete student ─────────────────────────────────────────────────────────
 @app.delete("/students/{student_id}")
 def delete_student(student_id: str):
-    """Remove a student and their images from storage."""
     try:
         files = supabase.storage.from_(BUCKET).list(student_id)
         if files:
