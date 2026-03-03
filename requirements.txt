@@ -4,6 +4,7 @@ uvicorn
 python-multipart
 httpx
 supabase
+aiofiles
 
 # Streamlit (dashboard)
 streamlit
