@@ -1,7 +1,17 @@
-streamlit
+# FastAPI (upload service + registration)
+fastapi
+uvicorn
+python-multipart
+httpx
 supabase
+
+# Streamlit (dashboard)
+streamlit
+pandas
+plotly
+
+# Shared
+python-dotenv
 numpy
 Pillow
-python-dotenv
 requests
-pandas
