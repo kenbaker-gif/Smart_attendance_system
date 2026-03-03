@@ -1,49 +1,600 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Smart Attendance System</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FaceAttend — AI Attendance for Universities</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --black:   #080810;
+  --surface: #0f0f1c;
+  --border:  #1a1a2e;
+  --cyan:    #00f5c4;
+  --orange:  #ff6b35;
+  --white:   #eeeef5;
+  --muted:   #5a5a7a;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 0;
+}
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 48px;
+  background: rgba(8,8,16,0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: -0.03em;
+}
+.logo span { color: var(--cyan); }
+nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  transition: color 0.2s;
+}
+nav a:hover { color: var(--white); }
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.btn-nav {
+  background: var(--cyan) !important;
+  color: var(--black) !important;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.8rem !important;
+  letter-spacing: 0.08em !important;
+}
+.hero {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 24px 80px;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,245,196,0.08);
+  border: 1px solid rgba(0,245,196,0.2);
+  border-radius: 100px;
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  color: var(--cyan);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  animation: fadeUp 0.6s ease both;
+}
+.hero-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--cyan);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.4); }
+}
+h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(2.8rem, 8vw, 6rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  margin-bottom: 24px;
+  animation: fadeUp 0.6s 0.1s ease both;
+}
+h1 .accent { color: var(--cyan); }
+h1 .accent-orange { color: var(--orange); }
+.hero-sub {
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.7;
+  margin-bottom: 48px;
+  animation: fadeUp 0.6s 0.2s ease both;
+}
+.hero-cta {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  animation: fadeUp 0.6s 0.3s ease both;
+}
+.btn-primary {
+  background: var(--cyan);
+  color: var(--black);
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0,245,196,0.3);
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--white);
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.btn-secondary:hover { border-color: var(--muted); transform: translateY(-2px); }
+.stats-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.stat-item {
+  flex: 1;
+  max-width: 220px;
+  padding: 28px 24px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+.stat-item:last-child { border-right: none; }
+.stat-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--cyan);
+  line-height: 1;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.features {
+  position: relative;
+  z-index: 1;
+  padding: 100px 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.section-label {
+  font-size: 0.72rem;
+  color: var(--cyan);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 64px;
+  max-width: 500px;
+}
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.feature-card {
+  background: var(--surface);
+  padding: 40px 36px;
+  transition: background 0.2s;
+}
+.feature-card:hover { background: #131325; }
+.feature-icon {
+  width: 44px; height: 44px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+  margin-bottom: 20px;
+}
+.feature-icon.cyan   { background: rgba(0,245,196,0.1); }
+.feature-icon.orange { background: rgba(255,107,53,0.1); }
+.feature-icon.blue   { background: rgba(74,158,255,0.1); }
+.feature-icon.purple { background: rgba(167,139,250,0.1); }
+.feature-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.feature-desc { font-size: 0.88rem; color: var(--muted); line-height: 1.7; }
+.signup-section {
+  position: relative;
+  z-index: 1;
+  padding: 100px 24px;
+  display: flex;
+  justify-content: center;
+}
+.signup-container { width: 100%; max-width: 560px; }
+.signup-header { text-align: center; margin-bottom: 48px; }
+.signup-header h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+}
+.signup-header p { color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
+.signup-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 48px;
+}
+.form-group { margin-bottom: 20px; }
+label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+input[type="text"], input[type="email"], input[type="tel"] {
+  width: 100%;
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0,245,196,0.08);
+}
+input::placeholder { color: var(--muted); }
+.logo-upload {
+  width: 100%;
+  background: var(--black);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+}
+.logo-upload:hover { border-color: var(--cyan); }
+.logo-upload input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.logo-upload-text { font-size: 0.85rem; color: var(--muted); }
+.logo-upload-text span { color: var(--cyan); font-weight: 500; }
+#logo-preview {
+  width: 60px; height: 60px;
+  border-radius: 8px;
+  object-fit: contain;
+  display: none;
+  margin: 0 auto 8px;
+}
+.trial-note {
+  background: rgba(0,245,196,0.06);
+  border: 1px solid rgba(0,245,196,0.15);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 0.82rem;
+  color: var(--cyan);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-submit {
+  width: 100%;
+  background: var(--cyan);
+  color: var(--black);
+  padding: 15px;
+  border-radius: 8px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0,245,196,0.3);
+}
+.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.status-msg {
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 0.85rem;
+  margin-top: 16px;
+  display: none;
+  line-height: 1.6;
+}
+.status-msg.success {
+  background: rgba(0,245,196,0.08);
+  border: 1px solid rgba(0,245,196,0.2);
+  color: var(--cyan);
+}
+.status-msg.error {
+  background: rgba(255,80,80,0.08);
+  border: 1px solid rgba(255,80,80,0.2);
+  color: #ff5050;
+}
+footer {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid var(--border);
+  padding: 32px 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 768px) {
+  nav { padding: 16px 24px; }
+  .nav-links { gap: 16px; }
+  .features { padding: 60px 24px; }
+  .stats-bar { flex-wrap: wrap; }
+  .stat-item { min-width: 140px; border-right: none; border-bottom: 1px solid var(--border); }
+  .signup-card { padding: 28px 20px; }
+  footer { flex-direction: column; gap: 8px; text-align: center; }
+}
+</style>
 </head>
 <body>
-    <h2>Upload or Capture Student Image</h2>
+<div class="grid-bg"></div>
 
-    <div class="flex-row">
-        <!-- Webcam Section -->
-        <div class="flex-column">
-            <h3>Capture with Webcam</h3>
-            <video id="video" autoplay playsinline></video>
-            <canvas id="canvas" style="display:none;"></canvas>
-            <p class="preview-label">Preview:</p>
-            <img id="preview" src="" style="display:none; border:1px solid black;">
+<nav>
+  <div class="logo">Face<span>Attend</span></div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#signup">Pricing</a>
+    <a href="#signup" class="btn-nav">Get Started</a>
+  </div>
+</nav>
 
-            <div class="button-group">
-                <button id="switchCamera"><i class="fa fa-sync"></i> Switch Camera</button>
-                <button id="capture"><i class="fa fa-camera"></i> Capture</button>
-            </div>
+<section class="hero">
+  <div class="hero-badge">AI-Powered · Face Recognition · Real-time</div>
+  <h1>Attendance that<br>runs on <span class="accent">faces</span>,<br>not <span class="accent-orange">paper</span>.</h1>
+  <p class="hero-sub">Replace manual registers with instant face recognition. Students scan in under a second. Lecturers get real-time reports.</p>
+  <div class="hero-cta">
+    <a href="#signup" class="btn-primary">Start Free Trial</a>
+    <a href="#features" class="btn-secondary">See How It Works</a>
+  </div>
+</section>
 
-            <!-- Hidden form for submission -->
-            <form id="webcamForm" method="post" enctype="multipart/form-data" style="display:none;">
-                <input type="hidden" name="student_id" id="webcamStudentId">
-                <input type="file" name="file" id="webcamFile">
-                <button type="submit"><i class="fa fa-upload"></i> Submit Captured Image</button>
-            </form>
-        </div>
+<div class="stats-bar">
+  <div class="stat-item"><div class="stat-num">&lt;1s</div><div class="stat-label">Verification Speed</div></div>
+  <div class="stat-item"><div class="stat-num">99%</div><div class="stat-label">Recognition Accuracy</div></div>
+  <div class="stat-item"><div class="stat-num">30</div><div class="stat-label">Day Free Trial</div></div>
+  <div class="stat-item"><div class="stat-num">4</div><div class="stat-label">Photos to Enroll</div></div>
+</div>
 
-        <!-- Upload Section -->
-        <div class="flex-column">
-            <h3>Upload Image</h3>
-            <form action="/attendance/capture/" method="post" enctype="multipart/form-data">
-                <label for="studentIdUpload">Student ID:</label>
-                <input type="text" name="student_id" id="studentIdUpload" required>
-
-                <label for="fileUpload">Select Image:</label>
-                <input type="file" name="file" id="fileUpload" accept="image/*" required>
-
-                <button type="submit"><i class="fa fa-upload"></i> Upload Image</button>
-            </form>
-        </div>
+<section class="features" id="features">
+  <div class="section-label">Why FaceAttend</div>
+  <h2 class="section-title">Everything your university needs.</h2>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon cyan">🧠</div>
+      <div class="feature-title">InsightFace AI Engine</div>
+      <div class="feature-desc">Military-grade face recognition. Identifies students in under a second with 99%+ accuracy even in low light.</div>
     </div>
-    <script src="/static/js/main.js"></script>
+    <div class="feature-card">
+      <div class="feature-icon orange">📱</div>
+      <div class="feature-title">Mobile-First App</div>
+      <div class="feature-desc">Native Android app for lecturers and admins. Register students in 4 photos. Scan attendance from any angle.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon blue">📊</div>
+      <div class="feature-title">Live Dashboard</div>
+      <div class="feature-desc">Real-time attendance analytics. Filter by date, student, institution. Export CSV reports in one click.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon purple">🏛️</div>
+      <div class="feature-title">Multi-Institution</div>
+      <div class="feature-desc">Each university gets its own isolated environment. Data never crosses institution boundaries.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon cyan">🔒</div>
+      <div class="feature-title">Biometric Security</div>
+      <div class="feature-desc">Fingerprint lock, inactivity timeout, admin-only routes. Your data is protected at every layer.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon orange">⚡</div>
+      <div class="feature-title">Auto-Sync</div>
+      <div class="feature-desc">Register a student and they're live immediately. No manual sync jobs. No GitHub Actions to trigger.</div>
+    </div>
+  </div>
+</section>
+
+<section class="signup-section" id="signup">
+  <div class="signup-container">
+    <div class="signup-header">
+      <div class="section-label">Get Started</div>
+      <h2>Register your university</h2>
+      <p>Start your 30-day free trial. No credit card required. Full access from day one.</p>
+    </div>
+    <div class="signup-card">
+      <form id="signup-form">
+        <div class="form-group">
+          <label>University Name</label>
+          <input type="text" id="university_name" placeholder="e.g. Kampala International University" required/>
+        </div>
+        <div class="form-group">
+          <label>Admin Full Name</label>
+          <input type="text" id="admin_full_name" placeholder="e.g. Dr. John Mukasa" required/>
+        </div>
+        <div class="form-group">
+          <label>Admin Email</label>
+          <input type="email" id="admin_email" placeholder="admin@university.ac.ug" required/>
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="tel" id="phone" placeholder="+256 700 000 000" required/>
+        </div>
+        <div class="form-group">
+          <label>University Logo (optional)</label>
+          <div class="logo-upload">
+            <input type="file" id="logo" accept="image/*"/>
+            <img id="logo-preview" src="" alt="Logo preview"/>
+            <div class="logo-upload-text">
+              <span>Click to upload</span> or drag and drop<br>PNG, JPG up to 2MB
+            </div>
+          </div>
+        </div>
+        <div class="trial-note">
+          🎉 30-day free trial · Full access · No credit card needed
+        </div>
+        <button type="submit" class="btn-submit" id="submit-btn">
+          Create Institution Account
+        </button>
+        <div class="status-msg" id="status-msg"></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="logo" style="font-size:1rem">Face<span style="color:var(--cyan)">Attend</span></div>
+  <div>Built for African universities · Powered by InsightFace AI</div>
+</footer>
+
+<script>
+const API_URL = "https://lovely-imagination-production.up.railway.app";
+
+document.getElementById('logo').addEventListener('change', function() {
+  const preview = document.getElementById('logo-preview');
+  if (this.files && this.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(this.files[0]);
+  }
+});
+
+document.getElementById('signup-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn    = document.getElementById('submit-btn');
+  const status = document.getElementById('status-msg');
+
+  btn.disabled    = true;
+  btn.textContent = 'Creating account...';
+  status.style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('university_name', document.getElementById('university_name').value.trim());
+  formData.append('admin_full_name', document.getElementById('admin_full_name').value.trim());
+  formData.append('admin_email',     document.getElementById('admin_email').value.trim());
+  formData.append('phone',           document.getElementById('phone').value.trim());
+
+  const logoFile = document.getElementById('logo').files[0];
+  if (logoFile) formData.append('logo', logoFile);
+
+  try {
+    const resp = await fetch(`${API_URL}/register-institution`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await resp.json();
+
+    if (resp.ok && data.success) {
+      status.className     = 'status-msg success';
+      status.style.display = 'block';
+      status.innerHTML     = `
+        <strong>Welcome to FaceAttend!</strong><br><br>
+        Your institution <strong>${data.institution_name}</strong> has been created.<br>
+        Institution ID: <strong>${data.institution_id}</strong><br><br>
+        Check <strong>${document.getElementById('admin_email').value}</strong> to verify your account and start your ${data.trial_days}-day free trial.
+      `;
+      document.getElementById('signup-form').reset();
+      document.getElementById('logo-preview').style.display = 'none';
+      btn.textContent = 'Account Created!';
+    } else {
+      throw new Error(data.detail || 'Registration failed. Please try again.');
+    }
+  } catch (err) {
+    status.className     = 'status-msg error';
+    status.style.display = 'block';
+    status.textContent   = err.message;
+    btn.disabled         = false;
+    btn.textContent      = 'Create Institution Account';
+  }
+});
+</script>
 </body>
 </html>
