@@ -59,6 +59,9 @@ def home():
 def health():
     return {"status": "ok"}
 
+@app.get("/set-password")
+def set_password_page():
+    return FileResponse(os.path.join("static", "set-password.html"))
 
 @app.post("/upload-student-face")
 async def upload_student(
@@ -249,7 +252,7 @@ async def register_institution(
                     "full_name":      admin_full_name.strip(),
                     "institution_id": inst_id,
                 },
-                "redirect_to": APP_URL,
+                "redirect_to": f"{APP_URL}/set-password",
             }
         )
         user_id = auth_response.user.id
