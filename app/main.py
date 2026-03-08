@@ -1,6 +1,7 @@
 import os
+import re
 import httpx
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -13,27 +14,63 @@ app = FastAPI(title="Smart Attendance — Upload Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "https://faceattend.app",
+        "https://www.faceattend.app",
+        "http://localhost:3000",
+        "http://localhost:8080",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_URL         = os.getenv("SUPABASE_URL")
+SUPABASE_KEY         = os.getenv("SUPABASE_KEY")          # anon key — for token verification
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # service role — for DB/storage ops
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in environment.")
+if not SUPABASE_SERVICE_KEY:
+    raise RuntimeError("Missing SUPABASE_SERVICE_KEY in environment.")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# ✅ Two clients — anon for auth verification, service role for data ops
+supabase: Client       = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 BUCKET        = "raw_faces"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-stream"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-APP_URL = os.getenv("APP_URL", "https://dazzling-intuition-production-297b.up.railway.app")
+APP_URL      = os.getenv("APP_URL", "https://dazzling-intuition-production-297b.up.railway.app")
 MVP_URL      = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app")
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
+
+# ── Auth dependencies ──────────────────────────────────────────────────────
+
+async def verify_supabase_token(authorization: str = Header(None)):
+    """Verify that the request comes from a valid authenticated Supabase user."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        user_response = supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        return user_response.user
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token verification failed")
+
+def check_admin(authorization: str = Header(None)):
+    """Verify admin secret for internal endpoints."""
+    if not authorization or authorization != f"Bearer {ADMIN_SECRET}":
+        raise HTTPException(status_code=401, detail="Invalid admin secret")
+
+
+# ── Background sync ────────────────────────────────────────────────────────
 
 async def trigger_sync_in_background():
     try:
@@ -47,13 +84,13 @@ async def trigger_sync_in_background():
         print(f"❌ Auto-sync failed: {e}")
 
 
-# Serve static files
+# ── Static files ───────────────────────────────────────────────────────────
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 def home():
     return FileResponse(os.path.join("static", "index.html"))
-
 
 @app.get("/health")
 def health():
@@ -63,6 +100,9 @@ def health():
 def set_password_page():
     return FileResponse(os.path.join("static", "set-password.html"))
 
+
+# ── Upload student face ────────────────────────────────────────────────────
+
 @app.post("/upload-student-face")
 async def upload_student(
     background_tasks: BackgroundTasks,
@@ -70,6 +110,7 @@ async def upload_student(
     name:           str        = Form(...),
     institution_id: str        = Form(default="NKU"),
     file:           UploadFile = File(...),
+    user=Depends(verify_supabase_token),  # ✅ requires valid Supabase session
 ):
     if not student_id.strip():
         raise HTTPException(status_code=400, detail="student_id cannot be empty.")
@@ -87,25 +128,24 @@ async def upload_student(
     if len(file_content) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    # ✅ New path: institution_id/student_id/filename
     # e.g. NKU/2400102415/1.jpg
     file_path = f"{institution_id.strip()}/{student_id.strip()}/{file.filename}"
 
     try:
         try:
-            supabase.storage.from_(BUCKET).remove([file_path])
+            supabase_admin.storage.from_(BUCKET).remove([file_path])
         except Exception:
             pass
 
-        supabase.storage.from_(BUCKET).upload(
+        supabase_admin.storage.from_(BUCKET).upload(
             path=file_path,
             file=file_content,
             file_options={"content-type": file.content_type},
         )
 
-        image_url = supabase.storage.from_(BUCKET).get_public_url(file_path)
+        image_url = supabase_admin.storage.from_(BUCKET).get_public_url(file_path)
 
-        supabase.table("students").upsert({
+        supabase_admin.table("students").upsert({
             "id":             student_id.strip(),
             "name":           name.strip(),
             "institution_id": institution_id.strip(),
@@ -131,10 +171,15 @@ async def upload_student(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
+# ── Students ───────────────────────────────────────────────────────────────
+
 @app.get("/students")
-def list_students(institution_id: str = None):
+def list_students(
+    institution_id: str = None,
+    _=Depends(check_admin),  # ✅ admin only
+):
     try:
-        query = supabase.table("students").select("*").order("name")
+        query = supabase_admin.table("students").select("*").order("name")
         if institution_id:
             query = query.eq("institution_id", institution_id)
         response = query.execute()
@@ -144,40 +189,35 @@ def list_students(institution_id: str = None):
 
 
 @app.delete("/students/{student_id}")
-def delete_student(student_id: str):
+def delete_student(
+    student_id: str,
+    _=Depends(check_admin),  # ✅ admin only
+):
     """Remove a student and their images from storage."""
     try:
-        # Get institution_id to build correct path
-        resp = supabase.table("students").select("institution_id") \
+        resp = supabase_admin.table("students").select("institution_id") \
             .eq("id", student_id).limit(1).execute()
         institution_id = resp.data[0].get("institution_id", "NKU") if resp.data else "NKU"
 
-        # List and delete files from new path
         folder = f"{institution_id}/{student_id}"
-        files = supabase.storage.from_(BUCKET).list(folder)
+        files = supabase_admin.storage.from_(BUCKET).list(folder)
         if files:
             paths = [f"{folder}/{f['name']}" for f in files]
-            supabase.storage.from_(BUCKET).remove(paths)
+            supabase_admin.storage.from_(BUCKET).remove(paths)
 
-        # Delete attendance records first, then student
-        supabase.table("attendance_records").delete().eq("student_id", student_id).execute()
-        supabase.table("students").delete().eq("id", student_id).execute()
+        supabase_admin.table("attendance_records").delete().eq("student_id", student_id).execute()
+        supabase_admin.table("students").delete().eq("id", student_id).execute()
 
         return {"success": True, "deleted_student_id": student_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Institution self-service registration ──────────────────────────────────
-import re
-import unicodedata
+# ── Institution registration (intentionally public) ────────────────────────
 
 def generate_institution_id(name: str) -> str:
-    """Generate a short unique ID from university name e.g. Kampala University → KU"""
-    # Normalize and extract uppercase letters
     words = name.strip().upper().split()
-    # Filter out common words
-    stop = {"OF", "THE", "AND", "FOR", "A", "AN", "IN", "AT", "TO"}
+    stop  = {"OF", "THE", "AND", "FOR", "A", "AN", "IN", "AT", "TO"}
     words = [w for w in words if w not in stop]
     if len(words) >= 3:
         code = "".join(w[0] for w in words[:3])
@@ -203,35 +243,32 @@ async def register_institution(
     if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
         raise HTTPException(status_code=400, detail="Invalid email address.")
 
-    # Generate institution ID
     base_id = generate_institution_id(university_name)
     inst_id = base_id
-    existing = supabase.table("institutions").select("id").execute().data
+    existing     = supabase_admin.table("institutions").select("id").execute().data
     existing_ids = {r["id"] for r in existing}
     counter = 1
     while inst_id in existing_ids:
         inst_id = f"{base_id}{counter}"
         counter += 1
 
-    # Upload logo if provided
     logo_url = None
     if logo and logo.filename:
         logo_bytes = await logo.read()
         if len(logo_bytes) > 0:
             logo_path = f"logos/{inst_id}.png"
             try:
-                supabase.storage.from_("raw_faces").remove([logo_path])
+                supabase_admin.storage.from_("raw_faces").remove([logo_path])
             except:
                 pass
-            supabase.storage.from_("raw_faces").upload(
+            supabase_admin.storage.from_("raw_faces").upload(
                 logo_path, logo_bytes,
                 file_options={"content-type": logo.content_type or "image/png"}
             )
-            logo_url = supabase.storage.from_("raw_faces").get_public_url(logo_path)
+            logo_url = supabase_admin.storage.from_("raw_faces").get_public_url(logo_path)
 
-    # Insert institution first
     try:
-        supabase.table("institutions").insert({
+        supabase_admin.table("institutions").insert({
             "id":          inst_id,
             "name":        university_name.strip(),
             "plan":        "trial",
@@ -243,9 +280,8 @@ async def register_institution(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Institution creation failed: {str(e)}")
 
-    # Invite user — creates account + sends password setup email
     try:
-        auth_response = supabase.auth.admin.invite_user_by_email(
+        auth_response = supabase_admin.auth.admin.invite_user_by_email(
             email,
             options={
                 "data": {
@@ -257,16 +293,17 @@ async def register_institution(
         )
         user_id = auth_response.user.id
     except Exception as e:
-        try: supabase.table("institutions").delete().eq("id", inst_id).execute()
-        except: pass
+        try:
+            supabase_admin.table("institutions").delete().eq("id", inst_id).execute()
+        except:
+            pass
         error_msg = str(e)
         if "already registered" in error_msg.lower() or "already exists" in error_msg.lower():
             raise HTTPException(status_code=409, detail="Email already registered.")
         raise HTTPException(status_code=500, detail=f"Auth error: {error_msg}")
 
-    # Create profile
     try:
-        supabase.table("profiles").insert({
+        supabase_admin.table("profiles").insert({
             "id":             user_id,
             "is_admin":       True,
             "institution_id": inst_id,
@@ -282,11 +319,12 @@ async def register_institution(
         "trial_days":       30,
     }
 
+
 @app.get("/check-trial/{institution_id}")
 def check_trial(institution_id: str):
     """Check if an institution's trial is still active."""
     try:
-        resp = supabase.table("institutions") \
+        resp = supabase_admin.table("institutions") \
             .select("plan, is_active, trial_ends_at, name") \
             .eq("id", institution_id) \
             .limit(1).execute()
@@ -303,7 +341,7 @@ def check_trial(institution_id: str):
         if plan == "paid":
             return {"active": True, "plan": "paid"}
         if trial_ends:
-            ends_at = datetime.fromisoformat(trial_ends.replace("Z", "+00:00"))
+            ends_at   = datetime.fromisoformat(trial_ends.replace("Z", "+00:00"))
             days_left = (ends_at - datetime.now(timezone.utc)).days
             if days_left <= 0:
                 return {"active": False, "reason": "Trial expired.", "days_left": 0}
