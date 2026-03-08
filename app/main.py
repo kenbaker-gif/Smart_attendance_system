@@ -27,12 +27,12 @@ app.add_middleware(
 
 SUPABASE_URL         = os.getenv("SUPABASE_URL")
 SUPABASE_KEY         = os.getenv("SUPABASE_KEY")          # anon key — for token verification
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # service role — for DB/storage ops
+SUPABASE_SERVICE_KEY = os.getenv("SERVICE_KEY")  # service role — for DB/storage ops
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in environment.")
 if not SUPABASE_SERVICE_KEY:
-    raise RuntimeError("Missing SUPABASE_SERVICE_KEY in environment.")
+    raise RuntimeError("Missing SERVICE_KEY in environment.")
 
 # ✅ Two clients — anon for auth verification, service role for data ops
 supabase: Client       = create_client(SUPABASE_URL, SUPABASE_KEY)
