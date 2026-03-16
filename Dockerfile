@@ -15,8 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code
 COPY . .
 
-# Expose a port for Railway; the actual port will be dynamic
-EXPOSE 8501
+EXPOSE 8080
 
-# Run Streamlit on Railway's dynamic PORT
-CMD ["sh", "-c", "streamlit run admin-panel.py --server.address=0.0.0.0 --server.port=${PORT}"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
