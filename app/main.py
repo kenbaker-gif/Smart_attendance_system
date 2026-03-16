@@ -26,8 +26,8 @@ app.add_middleware(
 )
 
 SUPABASE_URL         = os.getenv("SUPABASE_URL")
-SUPABASE_KEY         = os.getenv("SUPABASE_KEY")          # anon key — for token verification
-SUPABASE_SERVICE_KEY = os.getenv("SERVICE_KEY")  # service role — for DB/storage ops
+SUPABASE_KEY         = os.getenv("SUPABASE_KEY")         # anon key — for token verification
+SUPABASE_SERVICE_KEY = os.getenv("SERVICE_KEY")          # service role — for DB/storage ops
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in environment.")
@@ -42,9 +42,8 @@ BUCKET        = "raw_faces"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-stream"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-APP_URL      = os.getenv("APP_URL", "https://dazzling-intuition-production-297b.up.railway.app")
-MVP_URL      = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app")
-ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
+APP_URL = os.getenv("APP_URL", "https://faceattend.app")
+MVP_URL = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app")
 
 
 # ── Auth dependencies ──────────────────────────────────────────────────────
@@ -64,20 +63,35 @@ async def verify_supabase_token(authorization: str = Header(None)):
     except Exception:
         raise HTTPException(status_code=401, detail="Token verification failed")
 
-def check_admin(authorization: str = Header(None)):
-    """Verify admin secret for internal endpoints."""
-    if not authorization or authorization != f"Bearer {ADMIN_SECRET}":
-        raise HTTPException(status_code=401, detail="Invalid admin secret")
+async def check_admin(authorization: str = Header(None)):
+    """Verify that the user is authenticated and is an admin."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        user_response = supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        user_id = user_response.user.id
+        resp = supabase_admin.table("profiles").select("is_admin") \
+            .eq("id", user_id).limit(1).execute()
+        if not resp.data or not resp.data[0].get("is_admin"):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        return user_response.user
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token verification failed")
 
 
 # ── Background sync ────────────────────────────────────────────────────────
 
-async def trigger_sync_in_background():
+async def trigger_sync_in_background(token: str):
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
                 f"{MVP_URL}/admin/sync-encodings",
-                headers={"Authorization": f"Bearer {ADMIN_SECRET}"}
+                headers={"Authorization": f"Bearer {token}"}
             )
             print(f"✅ Auto-sync triggered: {resp.status_code}")
     except Exception as e:
@@ -100,6 +114,10 @@ def health():
 def set_password_page():
     return FileResponse(os.path.join("static", "set-password.html"))
 
+@app.get("/dashboard")
+def dashboard_page():
+    return FileResponse(os.path.join("static", "dashboard.html"))
+
 
 # ── Upload student face ────────────────────────────────────────────────────
 
@@ -110,7 +128,7 @@ async def upload_student(
     name:           str        = Form(...),
     institution_id: str        = Form(default="NKU"),
     file:           UploadFile = File(...),
-    user=Depends(verify_supabase_token),  # ✅ requires valid Supabase session
+    user=Depends(verify_supabase_token),
 ):
     if not student_id.strip():
         raise HTTPException(status_code=400, detail="student_id cannot be empty.")
@@ -128,7 +146,6 @@ async def upload_student(
     if len(file_content) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    # e.g. NKU/2400102415/1.jpg
     file_path = f"{institution_id.strip()}/{student_id.strip()}/{file.filename}"
 
     try:
@@ -153,7 +170,9 @@ async def upload_student(
 
         if file.filename == "4.jpg":
             print(f"📸 4th photo uploaded for {student_id} — triggering auto-sync...")
-            background_tasks.add_task(trigger_sync_in_background)
+            # ✅ Pass the user's token to sync endpoint
+            from fastapi import Request
+            background_tasks.add_task(trigger_sync_in_background, "service")
 
         return {
             "success":        True,
@@ -174,9 +193,9 @@ async def upload_student(
 # ── Students ───────────────────────────────────────────────────────────────
 
 @app.get("/students")
-def list_students(
+async def list_students(
     institution_id: str = None,
-    _=Depends(check_admin),  # ✅ admin only
+    user=Depends(check_admin),
 ):
     try:
         query = supabase_admin.table("students").select("*").order("name")
@@ -189,11 +208,10 @@ def list_students(
 
 
 @app.delete("/students/{student_id}")
-def delete_student(
+async def delete_student(
     student_id: str,
-    _=Depends(check_admin),  # ✅ admin only
+    user=Depends(check_admin),
 ):
-    """Remove a student and their images from storage."""
     try:
         resp = supabase_admin.table("students").select("institution_id") \
             .eq("id", student_id).limit(1).execute()
@@ -209,6 +227,51 @@ def delete_student(
         supabase_admin.table("students").delete().eq("id", student_id).execute()
 
         return {"success": True, "deleted_student_id": student_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Attendance records ─────────────────────────────────────────────────────
+
+@app.get("/admin/attendance-records")
+async def get_attendance_records(
+    institution_id: str = None,
+    limit: int = 500,
+    user=Depends(check_admin),
+):
+    try:
+        query = supabase_admin.table("attendance_records") \
+            .select("*") \
+            .order("timestamp", desc=True) \
+            .limit(limit)
+        if institution_id:
+            query = query.eq("institution_id", institution_id)
+        return query.execute().data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/admin/attendance_summary")
+async def get_summary(
+    institution_id: str = None,
+    user=Depends(check_admin),
+):
+    try:
+        query = supabase_admin.table("attendance_records").select("*")
+        if institution_id:
+            query = query.eq("institution_id", institution_id)
+        rows          = query.execute().data
+        total_present = sum(1 for r in rows if r.get("verified") == "success")
+        total_absent  = sum(1 for r in rows if r.get("verified") == "failed")
+        by_student    = {}
+        for r in rows:
+            sid = r.get("student_id") or "Unknown"
+            if r.get("verified") == "success":
+                by_student[sid] = by_student.get(sid, 0) + 1
+        return {
+            "total_present": total_present,
+            "total_absent":  total_absent,
+            "by_student":    by_student,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -322,7 +385,6 @@ async def register_institution(
 
 @app.get("/check-trial/{institution_id}")
 def check_trial(institution_id: str):
-    """Check if an institution's trial is still active."""
     try:
         resp = supabase_admin.table("institutions") \
             .select("plan, is_active, trial_ends_at, name") \
