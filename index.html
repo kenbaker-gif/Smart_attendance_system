@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Ainebyona Abubaker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#080c14;--surface:#0e1421;--surface2:#141c2e;--border:#1e2d47;
+--accent:#00e5ff;--accent2:#7c3aed;--text:#e8f0fe;--muted:#6b7fa3;--green:#00d68f;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.5rem 3rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(8,12,20,0.92);backdrop-filter:blur(12px);z-index:100}
+.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:-0.02em;color:var(--accent)}
+.nav-center{display:flex;gap:2rem}
+.nav-center a{font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--muted);text-decoration:none;letter-spacing:0.05em;transition:color .2s}
+.nav-center a:hover{color:var(--text)}
+.social-links{display:flex;align-items:center;gap:0.6rem}
+.social-link{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--border);color:var(--muted);text-decoration:none;transition:border-color .2s,color .2s;flex-shrink:0}
+.social-link:hover{border-color:var(--accent);color:var(--accent)}
+.social-link svg{width:14px;height:14px;fill:currentColor}
+.hero{padding:6rem 3rem 5rem;max-width:1100px;margin:auto;display:grid;grid-template-columns:1fr auto;align-items:center;gap:3rem}
+.hero-tag{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:1.5rem}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(2.8rem,6vw,5rem);font-weight:800;line-height:1.0;letter-spacing:-0.04em;margin-bottom:1.5rem}
+.hero h1 span{color:var(--accent)}
+.hero-sub{font-size:1.05rem;line-height:1.7;color:var(--muted);max-width:540px;font-weight:300;margin-bottom:2.5rem}
+.hero-btns{display:flex;gap:1rem;flex-wrap:wrap;align-items:center}
+.btn-primary{font-family:'DM Mono',monospace;font-size:0.82rem;padding:0.75rem 1.75rem;background:var(--accent);color:#000;border:none;cursor:pointer;letter-spacing:0.04em;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;transition:opacity .2s}
+.btn-primary:hover{opacity:0.85}
+.btn-ghost{font-family:'DM Mono',monospace;font-size:0.82rem;padding:0.75rem 1.75rem;background:transparent;color:var(--text);border:1px solid var(--border);cursor:pointer;letter-spacing:0.04em;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;transition:border-color .2s,color .2s}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.hero-social{display:flex;gap:0.6rem;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+.hero-visual{display:flex;flex-direction:column;gap:0.75rem;min-width:220px}
+.stat-card{background:var(--surface);border:1px solid var(--border);padding:1.25rem 1.5rem;border-left:3px solid var(--accent)}
+.stat-card.v2{border-left-color:var(--accent2)}
+.stat-card.v3{border-left-color:var(--green)}
+.stat-num{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;line-height:1}
+.stat-label{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);letter-spacing:0.08em;margin-top:0.3rem}
+.divider{height:1px;background:var(--border);max-width:1100px;margin:0 auto}
+section{max-width:1100px;margin:0 auto;padding:5rem 3rem}
+.sec-label{font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--accent);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:1rem}
+.sec-title{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:2.5rem}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start}
+.about-text{font-size:1.05rem;line-height:1.8;color:var(--muted);font-weight:300}
+.about-text strong{color:var(--text);font-weight:500}
+.skill-tags{display:flex;flex-wrap:wrap;gap:0.5rem}
+.tag{font-family:'DM Mono',monospace;font-size:0.75rem;padding:0.4rem 0.9rem;border:1px solid var(--border);color:var(--muted);letter-spacing:0.04em;transition:border-color .2s,color .2s}
+.tag:hover{border-color:var(--accent);color:var(--accent)}
+.tag.ai{border-color:var(--accent2);color:var(--accent2)}
+.skill-group-label{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin:1.2rem 0 0.5rem}
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem}
+.project-card{background:var(--surface);border:1px solid var(--border);padding:2rem;transition:border-color .25s,transform .25s;position:relative;overflow:hidden}
+.project-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.project-card.featured{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;align-items:start;gap:2rem}
+.project-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.project-badge{font-family:'DM Mono',monospace;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;padding:0.3rem 0.75rem;background:rgba(0,229,255,0.08);color:var(--accent);border:1px solid rgba(0,229,255,0.25);display:inline-block;margin-bottom:1.25rem}
+.project-card h3{font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:700;letter-spacing:-0.02em;margin-bottom:0.75rem}
+.project-card p{font-size:0.95rem;line-height:1.7;color:var(--muted);font-weight:300;margin-bottom:1.5rem}
+.tech-stack{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.25rem}
+.tech{font-family:'DM Mono',monospace;font-size:0.7rem;padding:0.25rem 0.6rem;background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.project-link{font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--accent);text-decoration:none;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:0.4rem;transition:gap .2s}
+.project-link:hover{gap:0.7rem}
+.certs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem}
+.cert-card{background:var(--surface);border:1px solid var(--border);padding:1.5rem;display:flex;align-items:flex-start;gap:1rem;transition:border-color .2s}
+.cert-card:hover{border-color:var(--accent2)}
+.cert-icon{width:36px;height:36px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cert-icon svg{width:16px;height:16px}
+.cert-name{font-size:0.9rem;font-weight:500;margin-bottom:0.25rem}
+.cert-org{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);letter-spacing:0.06em}
+.contact-wrap{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:start}
+.contact-text{font-size:1.1rem;line-height:1.8;color:var(--muted);font-weight:300;margin-bottom:2rem}
+.contact-item{display:flex;align-items:center;gap:1rem;padding:1.25rem 1.5rem;background:var(--surface);border:1px solid var(--border);margin-top:1rem;text-decoration:none;color:var(--text);transition:border-color .2s}
+.contact-item:hover{border-color:var(--accent)}
+.contact-item-label{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.2rem}
+.contact-item-val{font-size:0.95rem;font-weight:500}
+.contact-socials{margin-top:2rem}
+.contact-socials-label{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem}
+.contact-social-grid{display:flex;flex-direction:column;gap:0.6rem}
+.contact-social-item{display:flex;align-items:center;gap:0.75rem;padding:0.9rem 1.25rem;background:var(--surface);border:1px solid var(--border);text-decoration:none;color:var(--muted);transition:border-color .2s,color .2s;font-family:'DM Mono',monospace;font-size:0.8rem}
+.contact-social-item:hover{border-color:var(--accent);color:var(--text)}
+.contact-social-item svg{width:15px;height:15px;fill:currentColor;flex-shrink:0}
+footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-items:center;justify-content:space-between;max-width:1100px;margin:0 auto}
+.footer-left{display:flex;align-items:center;gap:1.5rem}
+.footer-copy{font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--muted);letter-spacing:0.06em}
+.footer-social-links{display:flex;gap:0.5rem}
+.footer-status{display:flex;align-items:center;gap:0.5rem;font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--green)}
+.dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@media(max-width:768px){
+  nav{padding:1.2rem 1.5rem}
+  .nav-center{display:none}
+  .hero{grid-template-columns:1fr;padding:4rem 1.5rem 3rem}
+  .hero-visual{flex-direction:row;min-width:unset}
+  .stat-card{flex:1}
+  section{padding:3.5rem 1.5rem}
+  .about-grid,.contact-wrap{grid-template-columns:1fr}
+  .project-card.featured{grid-template-columns:1fr}
+  footer{padding:1.5rem;flex-direction:column;gap:1rem;text-align:center}
+  .footer-left{flex-direction:column;gap:0.75rem}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">AA_</div>
+  <div class="nav-center">
+    <a href="#about">about</a>
+    <a href="#projects">projects</a>
+    <a href="#skills">skills</a>
+    <a href="#contact">contact</a>
+  </div>
+  <div class="social-links">
+    <a href="https://github.com/kenbaker-gif" target="_blank" class="social-link" title="GitHub">
+      <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+    </a>
+    <a href="https://linkedin.com/in/ainebyona-abubaker" target="_blank" class="social-link" title="LinkedIn">
+      <svg viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+    </a>
+    <a href="https://x.com/AinebyonaAbuba3" target="_blank" class="social-link" title="Twitter / X">
+      <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+    </a>
+  </div>
+</nav>
+
+<div style="max-width:1100px;margin:0 auto">
+<div class="hero">
+  <div>
+    <div class="hero-tag">&#9632; available for opportunities</div>
+    <h1>Ainebyona<br/><span>Abubaker</span></h1>
+    <p class="hero-sub">IST Student &amp; Aspiring ML Engineer. I build AI-powered systems and deploy real-world SaaS applications that solve actual problems.</p>
+    <div class="hero-btns">
+      <a href="#projects" class="btn-primary">view projects &#8594;</a>
+      <a href="#contact" class="btn-ghost">get in touch</a>
+    </div>
+    <div class="hero-social">
+      <a href="https://github.com/kenbaker-gif" target="_blank" class="social-link" title="GitHub">
+        <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      </a>
+      <a href="https://linkedin.com/in/ainebyona-abubaker" target="_blank" class="social-link" title="LinkedIn">
+        <svg viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      <a href="https://x.com/AinebyonaAbuba3" target="_blank" class="social-link" title="Twitter / X">
+        <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="stat-card">
+      <div class="stat-num">3+</div>
+      <div class="stat-label">live projects</div>
+    </div>
+    <div class="stat-card v2">
+      <div class="stat-num">AI</div>
+      <div class="stat-label">ml engineer</div>
+    </div>
+    <div class="stat-card v3">
+      <div class="stat-num">SaaS</div>
+      <div class="stat-label">deployed apps</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="divider"></div>
+
+<section id="about">
+  <div class="sec-label">// 01 — about</div>
+  <div class="sec-title">Who I am</div>
+  <div class="about-grid">
+    <div class="about-text">
+      <p>I'm an <strong>Information Systems &amp; Technology student</strong> focused on building intelligent, scalable systems that bridge the gap between AI research and real-world deployment.</p>
+      <br/>
+      <p>I specialize in <strong>backend development</strong>, <strong>AI/ML integration</strong>, and deploying production-grade applications. My flagship project, FaceAttend, is a live SaaS product serving universities.</p>
+    </div>
+    <div id="skills">
+      <div class="skill-group-label">technical stack</div>
+      <div class="skill-tags">
+        <span class="tag">Python</span>
+        <span class="tag">FastAPI</span>
+        <span class="tag">SQL</span>
+        <span class="tag">Docker</span>
+        <span class="tag">Railway</span>
+      </div>
+      <div class="skill-group-label">ai / machine learning</div>
+      <div class="skill-tags">
+        <span class="tag ai">Machine Learning</span>
+        <span class="tag ai">NLP</span>
+        <span class="tag ai">Model Deployment</span>
+        <span class="tag ai">Deep Learning</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="projects">
+  <div class="sec-label">// 02 — work</div>
+  <div class="sec-title">Projects</div>
+  <div class="projects-grid">
+    <div class="project-card featured">
+      <div>
+        <div class="project-badge">&#9679; flagship project</div>
+        <h3>FaceAttend SaaS</h3>
+        <p>AI-powered facial recognition attendance system built for universities. Automates attendance tracking with real-time detection, institutional dashboards, and seamless email notification integration via Zoho Mail.</p>
+        <div class="tech-stack">
+          <span class="tech">FastAPI</span>
+          <span class="tech">Railway</span>
+          <span class="tech">Zoho Mail</span>
+          <span class="tech">Computer Vision</span>
+          <span class="tech">Python</span>
+        </div>
+        <a href="https://faceattend.app" target="_blank" class="project-link">faceattend.app &#8594;</a>
+      </div>
+      <div style="padding:1.5rem;background:var(--surface2);border:1px solid var(--border);min-width:180px;text-align:center">
+        <div style="font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);letter-spacing:0.1em;margin-bottom:1rem">SYSTEM STATUS</div>
+        <div style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;color:var(--green)">LIVE</div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--green);margin-top:0.3rem">production</div>
+      </div>
+    </div>
+    <div class="project-card">
+      <div class="project-badge">ML model</div>
+      <h3>AI Spam Classifier</h3>
+      <p>Machine learning model trained to detect and filter spam emails with high precision. Implements NLP feature extraction and binary classification.</p>
+      <div class="tech-stack">
+        <span class="tech">Python</span>
+        <span class="tech">scikit-learn</span>
+        <span class="tech">NLP</span>
+      </div>
+    </div>
+    <div class="project-card">
+      <div class="project-badge">API integration</div>
+      <h3>Weather App</h3>
+      <p>Real-time weather application with live data fetching, location-based forecasts, and clean data presentation via REST API integration.</p>
+      <div class="tech-stack">
+        <span class="tech">Python</span>
+        <span class="tech">REST API</span>
+        <span class="tech">JSON</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section>
+  <div class="sec-label">// 03 — credentials</div>
+  <div class="sec-title">Certifications</div>
+  <div class="certs-grid">
+    <div class="cert-card">
+      <div class="cert-icon">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#7c3aed" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="cert-name">Python for Data Science &amp; AI</div>
+        <div class="cert-org">IBM &#8212; Coursera</div>
+      </div>
+    </div>
+    <div class="cert-card">
+      <div class="cert-icon">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#7c3aed" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="cert-name">Deep Learning Specialization</div>
+        <div class="cert-org">Coursera</div>
+      </div>
+    </div>
+    <div class="cert-card">
+      <div class="cert-icon">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#7c3aed" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="cert-name">Machine Learning Foundations</div>
+        <div class="cert-org">Coursera</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="contact">
+  <div class="sec-label">// 04 — contact</div>
+  <div class="sec-title">Get in touch</div>
+  <div class="contact-wrap">
+    <div>
+      <p class="contact-text">I'm open to internships, collaborations, and full-time roles in machine learning and backend engineering. Let's build something together.</p>
+      <div class="contact-socials">
+        <div class="contact-socials-label">find me on</div>
+        <div class="contact-social-grid">
+          <a href="https://github.com/kenbaker-gif" target="_blank" class="contact-social-item">
+            <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            github.com/kenbaker-gif
+          </a>
+          <a href="https://linkedin.com/in/ainebyona-abubaker" target="_blank" class="contact-social-item">
+            <svg viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+            linkedin.com/in/ainebyona-abubaker
+          </a>
+          <a href="https://x.com/AinebyonaAbuba3" target="_blank" class="contact-social-item">
+            <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            x.com/AinebyonaAbuba3
+          </a>
+        </div>
+      </div>
+    </div>
+    <div>
+      <a href="mailto:admin@faceattend.app" class="contact-item">
+        <div>
+          <div class="contact-item-label">email</div>
+          <div class="contact-item-val">admin@faceattend.app</div>
+        </div>
+        <span style="margin-left:auto;color:var(--muted)">&#8594;</span>
+      </a>
+      <a href="https://faceattend.app" target="_blank" class="contact-item">
+        <div>
+          <div class="contact-item-label">project</div>
+          <div class="contact-item-val">faceattend.app</div>
+        </div>
+        <span style="margin-left:auto;color:var(--muted)">&#8594;</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<footer>
+  <div class="footer-left">
+    <div class="footer-copy">&copy; 2026 Ainebyona Abubaker</div>
+    <div class="footer-social-links">
+      <a href="https://github.com/kenbaker-gif" target="_blank" class="social-link" title="GitHub">
+        <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      </a>
+      <a href="https://linkedin.com/in/ainebyona-abubaker" target="_blank" class="social-link" title="LinkedIn">
+        <svg viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      <a href="https://x.com/AinebyonaAbuba3" target="_blank" class="social-link" title="Twitter / X">
+        <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+    </div>
+  </div>
+  <div class="footer-status"><span class="dot"></span>open to work</div>
+</footer>
+
+</body>
+</html>
