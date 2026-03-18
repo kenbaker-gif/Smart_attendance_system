@@ -142,6 +142,7 @@ footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-i
     <div class="hero-btns">
       <a href="#projects" class="btn-primary">view projects &#8594;</a>
       <a href="#contact" class="btn-ghost">get in touch</a>
+      <a href="https://drive.google.com/uc?export=download&id=1H0Y0pc1dV9U__H_Oki8DAvMTe81M1eYb" target="_blank" class="btn-ghost" style="border-color:var(--green);color:var(--green);">download resume &#8595;</a>
     </div>
     <div class="hero-social">
       <a href="https://github.com/kenbaker-gif" target="_blank" class="social-link" title="GitHub"><svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
@@ -257,8 +258,7 @@ footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-i
   <div class="sec-label">// 03 — credentials</div>
   <div class="sec-title">Certifications</div>
   <div class="cert-filters">
-    <button class="cert-filter active" onclick="filterCerts('all',this)">all (20)</button>
-    <button class="cert-filter" onclick="filterCerts('ml',this)">AI / ML</button>
+    <button class="cert-filter active" onclick="filterCerts('ml',this)">AI / ML</button>
     <button class="cert-filter" onclick="filterCerts('data',this)">data science</button>
     <button class="cert-filter" onclick="filterCerts('net',this)">networking</button>
     <button class="cert-filter" onclick="filterCerts('other',this)">other</button>
@@ -479,6 +479,10 @@ footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-i
         <div><div class="contact-item-label">email</div><div class="contact-item-val">admin@faceattend.app</div></div>
         <span style="margin-left:auto;color:var(--muted)">&#8594;</span>
       </a>
+      <a href="https://drive.google.com/uc?export=download&id=1H0Y0pc1dV9U__H_Oki8DAvMTe81M1eYb" target="_blank" class="contact-item" style="border-color:var(--green)">
+        <div><div class="contact-item-label">resume</div><div class="contact-item-val">Resume (PDF)</div></div>
+        <span style="margin-left:auto;color:var(--green)">&#8595;</span>
+      </a>
       <a href="https://faceattend.app" target="_blank" class="contact-item">
         <div><div class="contact-item-label">project</div><div class="contact-item-val">faceattend.app</div></div>
         <span style="margin-left:auto;color:var(--muted)">&#8594;</span>
@@ -506,9 +510,15 @@ function filterCerts(cat, btn) {
   document.querySelectorAll('.cert-filter').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.cert-card').forEach(card => {
-    card.classList.toggle('hidden', cat !== 'all' && card.dataset.cat !== cat);
+    card.classList.toggle('hidden', card.dataset.cat !== cat);
   });
 }
+// Default to AI/ML on load
+window.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.cert-card').forEach(card => {
+    card.classList.toggle('hidden', card.dataset.cat !== 'ml');
+  });
+});
 </script>
 </body>
 </html>
