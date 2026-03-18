@@ -32,6 +32,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:1.5rem
 .btn-ghost{font-family:'DM Mono',monospace;font-size:0.82rem;padding:0.75rem 1.75rem;background:transparent;color:var(--text);border:1px solid var(--border);cursor:pointer;letter-spacing:0.04em;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;transition:border-color .2s,color .2s}
 .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
 .hero-social{display:flex;gap:0.6rem;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+.hero-photo{width:180px;height:180px;border-radius:4px;object-fit:cover;object-position:center top;border:2px solid var(--border);filter:grayscale(20%);flex-shrink:0}
 .hero-visual{display:flex;flex-direction:column;gap:0.75rem;min-width:220px}
 .stat-card{background:var(--surface);border:1px solid var(--border);padding:1.25rem 1.5rem;border-left:3px solid var(--accent)}
 .stat-card.v2{border-left-color:var(--accent2)}
@@ -123,7 +124,9 @@ footer { padding: 2rem clamp(1rem, 4vw, 3rem); }
   nav{padding:1rem 1.25rem}
   .nav-center{display:none}
   .hero{grid-template-columns:1fr;padding:3rem 1.25rem 2.5rem;gap:2rem}
+  .hero-photo{width:100px;height:100px;margin:0 auto}
   .hero h1{font-size:clamp(2rem,10vw,3.5rem)}
+  .hero-photo{display:block}
   .hero-visual{flex-direction:row;min-width:unset;gap:0.5rem}
   .stat-card{flex:1;padding:1rem}
   .stat-num{font-size:1.5rem}
@@ -188,6 +191,7 @@ footer { padding: 2rem clamp(1rem, 4vw, 3rem); }
       <a href="https://x.com/AinebyonaAbuba3" target="_blank" class="social-link" title="Twitter / X"><svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
     </div>
   </div>
+  <img src="profile.jpg" alt="Ainebyona Abubaker" class="hero-photo"/>
   <div class="hero-visual">
     <div class="stat-card">
       <div class="stat-num">20+</div>
@@ -308,7 +312,7 @@ footer { padding: 2rem clamp(1rem, 4vw, 3rem); }
     </a>
     <a href="https://www.coursera.org/learner/ainebyona-abubaker" target="_blank" style="font-family:'DM Mono',monospace;font-size:0.78rem;padding:0.65rem 1.5rem;border:1px solid var(--accent);color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;letter-spacing:0.04em;transition:background .2s">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-      view Coursera profile &#8599;
+      view all certificates on Coursera &#8599;
     </a>
     <span style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted)">20+ certificates earned</span>
   </div>
