@@ -64,7 +64,7 @@ nav a:hover { color: var(--white); }
   position: relative; z-index: 1;
   min-height: 100vh; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  text-align: center; padding: 120px 24px 80px;
+  text-align: center; padding: 120px 48px 80px;
 }
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
@@ -327,14 +327,56 @@ footer {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ── MOBILE ── */
 @media (max-width: 768px) {
-  nav { padding: 16px 24px; }
-  .nav-links { gap: 16px; }
-  .how-it-works, .features, .pricing-section { padding: 60px 24px; }
-  .stats-bar { flex-wrap: wrap; }
-  .stat-item { min-width: 140px; border-right: none; border-bottom: 1px solid var(--border); }
+  /* Nav */
+  nav { padding: 14px 20px; }
+  .nav-links { gap: 10px; }
+  nav a { font-size: 0.72rem; letter-spacing: 0; }
+  .btn-nav { padding: 6px 12px; font-size: 0.68rem !important; letter-spacing: 0.04em !important; }
+
+  /* Hero */
+  .hero { padding: 100px 20px 60px; }
+  h1 { font-size: clamp(2rem, 9vw, 3rem); letter-spacing: -0.02em; }
+  .hero-sub { font-size: 0.92rem; }
+  .hero-cta { flex-direction: column; width: 100%; }
+  .btn-primary, .btn-secondary { width: 100%; text-align: center; }
+
+  /* Stats — 2x2 grid */
+  .stats-bar { display: grid; grid-template-columns: 1fr 1fr; }
+  .stat-item {
+    max-width: 100%; border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-item:nth-child(2) { border-right: none; }
+  .stat-item:nth-child(3) { border-bottom: none; }
+  .stat-item:nth-child(4) { border-right: none; border-bottom: none; }
+
+  /* Sections */
+  .how-it-works, .features, .pricing-section { padding: 60px 20px; }
+  .section-title { margin-bottom: 32px; }
+
+  /* Steps — single column */
+  .steps-grid { grid-template-columns: 1fr; }
+
+  /* Features — 2 columns */
+  .features-grid { grid-template-columns: 1fr 1fr; }
+  .feature-card { padding: 24px 16px; }
+  .feature-title { font-size: 0.85rem; }
+  .feature-desc { font-size: 0.75rem; }
+
+  /* Pricing — single column */
+  .pricing-grid { grid-template-columns: 1fr; }
+
+  /* Signup */
+  .signup-section { padding: 60px 20px; }
   .signup-card { padding: 28px 20px; }
-  footer { grid-template-columns: 1fr; text-align: center; padding: 32px 24px; }
+
+  /* Footer */
+  footer {
+    grid-template-columns: 1fr;
+    text-align: center; padding: 32px 20px; gap: 16px;
+  }
   .footer-right { text-align: center; }
 }
 </style>
@@ -405,17 +447,17 @@ footer {
     <div class="feature-card">
       <div class="feature-icon cyan">🧠</div>
       <div class="feature-title">InsightFace AI Engine</div>
-      <div class="feature-desc">Production-grade face recognition. Identifies students in 0.03 seconds with 98%+ accuracy even in challenging lighting conditions.</div>
+      <div class="feature-desc">Production-grade face recognition. Identifies students in 0.03 seconds with 98%+ accuracy even in challenging lighting.</div>
     </div>
     <div class="feature-card">
       <div class="feature-icon orange">📱</div>
       <div class="feature-title">Mobile-First Android App</div>
-      <div class="feature-desc">Native Android app for lecturers and admins. Register students in 4 photos. Scan attendance from any angle, any distance.</div>
+      <div class="feature-desc">Native Android app for lecturers and admins. Register students in 4 photos. Scan from any angle, any distance.</div>
     </div>
     <div class="feature-card">
       <div class="feature-icon blue">📊</div>
       <div class="feature-title">Live Web Dashboard</div>
-      <div class="feature-desc">Real-time attendance analytics accessible from any browser. Filter by date, student, or course. Export CSV reports in one click.</div>
+      <div class="feature-desc">Real-time attendance analytics accessible from any browser. Filter by date, student, or course. Export CSV in one click.</div>
     </div>
     <div class="feature-card">
       <div class="feature-icon purple">🏛️</div>
@@ -581,7 +623,6 @@ async function loadPlans() {
     }).join('');
   } catch (e) {
     console.error('Failed to load plans:', e);
-    // Fallback — keep loading text or show error silently
   }
 }
 
