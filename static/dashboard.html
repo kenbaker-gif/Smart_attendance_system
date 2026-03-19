@@ -122,8 +122,12 @@ nav {
 }
 .nav-logo span { color: var(--cyan); }
 .nav-right { display: flex; align-items: center; gap: 16px; }
-.nav-user {
-  font-size: 0.8rem; color: var(--muted);
+.nav-user { font-size: 0.8rem; color: var(--muted); }
+.nav-inst {
+  font-size: 0.75rem; color: var(--cyan);
+  background: rgba(0,245,196,0.08);
+  border: 1px solid rgba(0,245,196,0.2);
+  padding: 3px 10px; border-radius: 100px;
 }
 .btn-logout {
   background: transparent;
@@ -287,18 +291,17 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <nav>
     <div class="nav-logo">Face<span>Attend</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:400;margin-left:8px;">ADMIN</span></div>
     <div class="nav-right">
+      <span class="nav-inst" id="nav-inst" style="display:none"></span>
       <span class="nav-user" id="nav-user"></span>
       <button class="btn-logout" onclick="logout()">Sign Out</button>
     </div>
   </nav>
 
   <div class="main">
-    <!-- Metrics -->
     <div class="metrics-grid" id="metrics">
       <div class="loading"><div class="spinner"></div>Loading...</div>
     </div>
 
-    <!-- Filters -->
     <div class="section-header">Attendance Records</div>
     <div class="filters">
       <select id="filter-inst" onchange="applyFilters()">
@@ -314,7 +317,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <button class="btn-export" onclick="exportCSV()">↓ Export CSV</button>
     </div>
 
-    <!-- Table -->
     <div class="table-wrap" id="table-wrap">
       <div class="loading"><div class="spinner"></div>Loading records...</div>
     </div>
@@ -323,18 +325,35 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL     = "https://xrlsltunfgjxooyyrora.supabase.co";
+const SUPABASE_URL      = "https://xrlsltunfgjxooyyrora.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhybHNsdHVuZmdqeG9veXlyb3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwNDczODEsImV4cCI6MjA4MDYyMzM4MX0.BWr27wHWGt6a3gWnD2ocGdQBL0_sH0HK-YHUcJsrlC0";
-const API_URL          = "https://smartattendancemvp-production.up.railway.app";
-const DAZZLING_URL     = "https://faceattend.app";
+const API_URL           = "https://smartattendancemvp-production.up.railway.app";
+const DAZZLING_URL      = "https://faceattend.app";
 
 const { createClient } = supabase;
 const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let currentToken = null;
-let allRecords   = [];
+let currentToken         = null;
+let currentInstitutionId = null;
+let allRecords           = [];
 
-// ── Check existing session ──
+// ── Auto-login from Flutter WebView token injection ──
+async function autoLoginWithToken(accessToken, refreshToken) {
+  if (!accessToken) return;
+  try {
+    const { data, error } = await client.auth.setSession({
+      access_token:  accessToken,
+      refresh_token: refreshToken,
+    });
+    if (data?.session) {
+      await initDashboard(data.session);
+    }
+  } catch (e) {
+    console.error('Auto-login failed:', e);
+  }
+}
+
+// ── Check existing session on page load ──
 window.addEventListener('load', async () => {
   const { data: { session } } = await client.auth.getSession();
   if (session) {
@@ -342,7 +361,7 @@ window.addEventListener('load', async () => {
   }
 });
 
-// ── Login ──
+// ── Manual login ──
 async function login() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
@@ -387,23 +406,45 @@ async function login() {
 
 function showLoginError(msg) {
   const el = document.getElementById('login-error');
-  el.textContent    = msg;
-  el.style.display  = 'block';
+  el.textContent   = msg;
+  el.style.display = 'block';
 }
 
+// ── Init dashboard ──
 async function initDashboard(session) {
   currentToken = session.access_token;
+
+  // ✅ Fetch institution_id — admin only sees their own institution
+  const { data: profile } = await client
+    .from('profiles')
+    .select('institution_id')
+    .eq('id', session.user.id)
+    .single();
+
+  currentInstitutionId = profile?.institution_id || null;
+
   document.getElementById('login-screen').style.display    = 'none';
   document.getElementById('dashboard-screen').style.display = 'block';
   document.getElementById('nav-user').textContent = session.user.email;
+
+  // Show institution badge if scoped
+  if (currentInstitutionId) {
+    const instEl = document.getElementById('nav-inst');
+    instEl.textContent    = currentInstitutionId;
+    instEl.style.display  = 'inline-block';
+    // Hide institution filter — they can only see their own
+    document.getElementById('filter-inst').style.display = 'none';
+  }
+
   await loadData();
 }
 
 // ── Logout ──
 async function logout() {
   await client.auth.signOut();
-  currentToken = null;
-  allRecords   = [];
+  currentToken         = null;
+  currentInstitutionId = null;
+  allRecords           = [];
   document.getElementById('login-screen').style.display    = 'flex';
   document.getElementById('dashboard-screen').style.display = 'none';
 }
@@ -413,13 +454,17 @@ async function loadData() {
   if (!currentToken) return;
   const headers = { 'Authorization': `Bearer ${currentToken}` };
 
-  // Fetch records
-  document.getElementById('table-wrap').innerHTML = '<div class="loading"><div class="spinner"></div>Loading records...</div>';
+  document.getElementById('table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Loading records...</div>';
 
   try {
+    // ✅ Scope all requests to institution if set
+    const instParam = currentInstitutionId ? `&institution_id=${currentInstitutionId}` : '';
+    const instQuery = currentInstitutionId ? `?institution_id=${currentInstitutionId}` : '';
+
     const [recResp, studResp] = await Promise.all([
-      fetch(`${API_URL}/admin/attendance-records?limit=1000`, { headers }),
-      fetch(`${DAZZLING_URL}/students`, { headers }),
+      fetch(`${API_URL}/admin/attendance-records?limit=1000${instParam}`, { headers }),
+      fetch(`${DAZZLING_URL}/students${instQuery}`, { headers }),
     ]);
 
     const records  = recResp.ok  ? await recResp.json()  : [];
@@ -458,16 +503,19 @@ async function loadData() {
       </div>
     `;
 
-    // Populate institution filter
-    const insts = [...new Set(allRecords.map(r => r.institution_id).filter(Boolean))].sort();
-    const instSelect = document.getElementById('filter-inst');
-    instSelect.innerHTML = '<option value="">All Institutions</option>' +
-      insts.map(i => `<option value="${i}">${i}</option>`).join('');
+    // Populate institution filter only for super admin
+    if (!currentInstitutionId) {
+      const insts = [...new Set(allRecords.map(r => r.institution_id).filter(Boolean))].sort();
+      document.getElementById('filter-inst').innerHTML =
+        '<option value="">All Institutions</option>' +
+        insts.map(i => `<option value="${i}">${i}</option>`).join('');
+    }
 
     renderTable(allRecords);
 
   } catch (e) {
-    document.getElementById('table-wrap').innerHTML = `<div class="loading" style="color:var(--red)">Failed to load data: ${e.message}</div>`;
+    document.getElementById('table-wrap').innerHTML =
+      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
   }
 }
 
@@ -486,12 +534,15 @@ function applyFilters() {
 // ── Render table ──
 function renderTable(records) {
   if (!records.length) {
-    document.getElementById('table-wrap').innerHTML = '<div class="loading">No records found.</div>';
+    document.getElementById('table-wrap').innerHTML =
+      '<div class="loading">No records found.</div>';
     return;
   }
 
   const rows = records.map(r => {
-    const ts   = r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' }) : '—';
+    const ts   = r.timestamp
+      ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })
+      : '—';
     const conf = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
     const badge = r.verified === 'success'
       ? '<span class="badge badge-success">Success</span>'
