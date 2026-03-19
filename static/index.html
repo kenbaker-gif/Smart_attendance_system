@@ -151,7 +151,7 @@ h1 .accent-orange { color: var(--orange); }
 }
 .step-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 36px 32px; position: relative;
+  border-radius: 16px; padding: 36px 32px;
   transition: border-color 0.2s;
 }
 .step-card:hover { border-color: rgba(0,245,196,0.3); }
@@ -186,27 +186,6 @@ h1 .accent-orange { color: var(--orange); }
 .feature-icon.purple { background: rgba(167,139,250,0.1); }
 .feature-title { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
 .feature-desc { font-size: 0.88rem; color: var(--muted); line-height: 1.7; }
-
-/* ── PILOT BADGE ── */
-.pilot-section {
-  position: relative; z-index: 1;
-  padding: 0 48px 80px; max-width: 1200px; margin: 0 auto;
-}
-.pilot-card {
-  background: rgba(0,245,196,0.04);
-  border: 1px solid rgba(0,245,196,0.15);
-  border-radius: 16px; padding: 40px 48px;
-  display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
-}
-.pilot-text h3 { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; }
-.pilot-text p { color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
-.pilot-badges { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; }
-.pilot-badge {
-  background: rgba(0,245,196,0.08); border: 1px solid rgba(0,245,196,0.2);
-  border-radius: 8px; padding: 10px 20px;
-  font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 700;
-  color: var(--cyan);
-}
 
 /* ── PRICING ── */
 .pricing-section {
@@ -337,8 +316,7 @@ footer {
   color: var(--muted); font-size: 0.8rem;
 }
 .footer-contact a {
-  color: var(--cyan); text-decoration: none; font-size: 0.85rem;
-  transition: opacity 0.2s;
+  color: var(--cyan); text-decoration: none; font-size: 0.85rem; transition: opacity 0.2s;
 }
 .footer-contact a:hover { opacity: 0.7; }
 .footer-center { text-align: center; }
@@ -352,14 +330,12 @@ footer {
 @media (max-width: 768px) {
   nav { padding: 16px 24px; }
   .nav-links { gap: 16px; }
-  .how-it-works, .features, .pricing-section, .pilot-section { padding: 60px 24px; }
+  .how-it-works, .features, .pricing-section { padding: 60px 24px; }
   .stats-bar { flex-wrap: wrap; }
   .stat-item { min-width: 140px; border-right: none; border-bottom: 1px solid var(--border); }
   .signup-card { padding: 28px 20px; }
   footer { grid-template-columns: 1fr; text-align: center; padding: 32px 24px; }
   .footer-right { text-align: center; }
-  .pilot-card { flex-direction: column; }
-  .pilot-badges { margin-left: 0; }
 }
 </style>
 </head>
@@ -421,21 +397,6 @@ footer {
   </div>
 </section>
 
-<!-- PILOT BADGE — uncomment when NKU/MUK formally onboarded
-<div class="pilot-section">
-  <div class="pilot-card">
-    <div class="pilot-text">
-      <h3>Trusted by leading Ugandan universities</h3>
-      <p>FaceAttend is currently being piloted at two of Uganda's top institutions. Join them and modernize your attendance system today.</p>
-    </div>
-    <div class="pilot-badges">
-      <div class="pilot-badge">Nkumba University</div>
-      <div class="pilot-badge">Makerere University</div>
-    </div>
-  </div>
-</div>
--->
-
 <!-- FEATURES -->
 <section class="features" id="features">
   <div class="section-label">Why FaceAttend</div>
@@ -474,50 +435,27 @@ footer {
   </div>
 </section>
 
+<!-- PILOT BADGE — uncomment when NKU/MUK formally onboarded
+<div class="pilot-section">
+  <div class="pilot-card">
+    <div class="pilot-text">
+      <h3>Trusted by leading Ugandan universities</h3>
+      <p>FaceAttend is currently being piloted at two of Uganda's top institutions. Join them and modernize your attendance system today.</p>
+    </div>
+    <div class="pilot-badges">
+      <div class="pilot-badge">Nkumba University</div>
+      <div class="pilot-badge">Makerere University</div>
+    </div>
+  </div>
+</div>
+-->
+
 <!-- PRICING -->
 <section class="pricing-section" id="pricing">
   <div class="section-label">Pricing</div>
   <h2 class="section-title">Simple, transparent pricing.</h2>
-  <div class="pricing-grid">
-    <div class="pricing-card">
-      <div class="pricing-plan">Trial</div>
-      <div class="pricing-price">Free</div>
-      <div class="pricing-period">30 days, no credit card</div>
-      <ul class="pricing-features">
-        <li>Full access to all features</li>
-        <li>Unlimited student enrollment</li>
-        <li>Real-time attendance dashboard</li>
-        <li>CSV export</li>
-        <li>Email support</li>
-      </ul>
-      <a href="#signup" class="btn-pricing outline">Start Free Trial</a>
-    </div>
-    <div class="pricing-card featured">
-      <div class="pricing-plan">Standard</div>
-      <div class="pricing-price">$20 <span>/ mo</span></div>
-      <div class="pricing-period">per institution, billed monthly</div>
-      <ul class="pricing-features">
-        <li>Everything in Trial</li>
-        <li>Priority support</li>
-        <li>Dedicated institution ID</li>
-        <li>Attendance history (unlimited)</li>
-        <li>Custom institution branding</li>
-      </ul>
-      <a href="#signup" class="btn-pricing filled">Get Started</a>
-    </div>
-    <div class="pricing-card">
-      <div class="pricing-plan">Enterprise</div>
-      <div class="pricing-price">Custom</div>
-      <div class="pricing-period">for large institutions</div>
-      <ul class="pricing-features">
-        <li>Everything in Standard</li>
-        <li>Multiple campuses</li>
-        <li>API access</li>
-        <li>On-site setup support</li>
-        <li>SLA guarantee</li>
-      </ul>
-      <a href="mailto:abubaker@faceattend.app" class="btn-pricing outline">Contact Us</a>
-    </div>
+  <div class="pricing-grid" id="pricing-grid">
+    <div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px;">Loading plans...</div>
   </div>
 </section>
 
@@ -587,6 +525,7 @@ footer {
 <script>
 const API_URL = "https://faceattend.app";
 
+// ── Logo preview ──
 document.getElementById('logo').addEventListener('change', function() {
   const preview = document.getElementById('logo-preview');
   if (this.files && this.files[0]) {
@@ -599,6 +538,56 @@ document.getElementById('logo').addEventListener('change', function() {
   }
 });
 
+// ── Load pricing plans dynamically from DB ──
+async function loadPlans() {
+  try {
+    const resp  = await fetch(`${API_URL}/plans`);
+    const data  = await resp.json();
+    const plans = data.plans || [];
+    const grid  = document.getElementById('pricing-grid');
+    if (!grid || !plans.length) return;
+
+    grid.innerHTML = plans.map(plan => {
+      const isFeatured = plan.id === 'standard';
+      const price      = plan.price_usd === 0
+        ? 'Free'
+        : plan.price_usd === null
+          ? 'Custom'
+          : `$${plan.price_usd}`;
+      const priceHtml  = (plan.price_usd > 0 && plan.price_usd !== null)
+        ? `${price} <span>/ mo</span>`
+        : price;
+      const period     = plan.billing || '';
+      const features   = (plan.features || []).map(f => `<li>${f}</li>`).join('');
+      const btnHref    = plan.id === 'enterprise'
+        ? 'mailto:abubaker@faceattend.app'
+        : '#signup';
+      const btnClass   = isFeatured ? 'filled' : 'outline';
+      const btnText    = plan.id === 'trial'
+        ? 'Start Free Trial'
+        : plan.id === 'enterprise'
+          ? 'Contact Us'
+          : 'Get Started';
+
+      return `
+        <div class="pricing-card ${isFeatured ? 'featured' : ''}">
+          <div class="pricing-plan">${plan.name}</div>
+          <div class="pricing-price">${priceHtml}</div>
+          <div class="pricing-period">${period}</div>
+          <ul class="pricing-features">${features}</ul>
+          <a href="${btnHref}" class="btn-pricing ${btnClass}">${btnText}</a>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load plans:', e);
+    // Fallback — keep loading text or show error silently
+  }
+}
+
+loadPlans();
+
+// ── Signup form ──
 document.getElementById('signup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn    = document.getElementById('submit-btn');

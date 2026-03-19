@@ -383,6 +383,20 @@ async def register_institution(
     }
 
 
+@app.get("/plans")
+def get_plans():
+    """Public endpoint — returns active pricing plans for the landing page."""
+    try:
+        resp = supabase_admin.table("plans") \
+            .select("*") \
+            .eq("is_active", True) \
+            .order("price_usd", desc=False, nullsfirst=False) \
+            .execute()
+        return {"plans": resp.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/check-trial/{institution_id}")
 def check_trial(institution_id: str):
     try:
