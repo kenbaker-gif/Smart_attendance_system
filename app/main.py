@@ -169,10 +169,9 @@ async def upload_student(
         }).execute()
 
         if file.filename == "4.jpg":
-            print(f"📸 4th photo uploaded for {student_id} — triggering auto-sync...")
-            # ✅ Pass the user's token to sync endpoint
             from fastapi import Request
-            background_tasks.add_task(trigger_sync_in_background, "service")
+            print(f"📸 4th photo uploaded for {student_id} — triggering auto-sync...")
+            background_tasks.add_task(trigger_sync_in_background, authorization)
 
         return {
             "success":        True,
