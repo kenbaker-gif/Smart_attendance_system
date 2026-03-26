@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Privacy Policy — FaceAttend</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23080810'/><text x='10' y='23' font-family='sans-serif' font-weight='800' font-size='22' fill='%23eeeef5'>F</text><circle cx='26' cy='8' r='5' fill='%2300f5c4'/></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --black:   #080810;
+  --surface: #0f0f1c;
+  --border:  #1a1a2e;
+  --cyan:    #00f5c4;
+  --white:   #eeeef5;
+  --muted:   #5a5a7a;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  line-height: 1.8;
+}
+.grid-bg {
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.3; pointer-events: none; z-index: 0;
+}
+nav {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 48px;
+  background: rgba(8,8,16,0.9);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; letter-spacing: -0.03em; text-decoration: none; color: var(--white); }
+.logo span { color: var(--cyan); }
+.back-link { font-size: 0.82rem; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+.back-link:hover { color: var(--cyan); }
+.container {
+  position: relative; z-index: 1;
+  max-width: 760px; margin: 0 auto;
+  padding: 60px 48px 100px;
+}
+.page-label { font-size: 0.72rem; color: var(--cyan); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px; }
+h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 2.4rem; font-weight: 800;
+  letter-spacing: -0.03em; margin-bottom: 12px;
+}
+.last-updated { font-size: 0.82rem; color: var(--muted); margin-bottom: 48px; }
+h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem; font-weight: 700;
+  margin-top: 48px; margin-bottom: 12px;
+  color: var(--white);
+}
+p { color: #b0b0c8; margin-bottom: 16px; font-size: 0.95rem; }
+ul { color: #b0b0c8; padding-left: 20px; margin-bottom: 16px; }
+ul li { margin-bottom: 8px; font-size: 0.95rem; }
+.highlight {
+  background: rgba(0,245,196,0.06);
+  border: 1px solid rgba(0,245,196,0.15);
+  border-radius: 8px; padding: 20px 24px;
+  margin: 32px 0; color: var(--cyan); font-size: 0.9rem;
+}
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 48px; text-align: center;
+  color: var(--muted); font-size: 0.8rem;
+  position: relative; z-index: 1;
+}
+@media (max-width: 768px) {
+  nav { padding: 16px 20px; }
+  .container { padding: 40px 20px 80px; }
+  h1 { font-size: 1.8rem; }
+  footer { padding: 24px 20px; }
+}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<nav>
+  <a href="/" class="logo">Face<span>Attend</span></a>
+  <a href="/" class="back-link">← Back to Home</a>
+</nav>
+
+<div class="container">
+  <div class="page-label">Legal</div>
+  <h1>Privacy Policy</h1>
+  <p class="last-updated">Last updated: March 2026</p>
+
+  <div class="highlight">
+    FaceAttend is committed to protecting your privacy and complying with the Uganda Data Protection and Privacy Act, 2019 (PDPA). This policy explains how we collect, use, store, and protect your personal data.
+  </div>
+
+  <h2>1. Who We Are</h2>
+  <p>FaceAttend is a biometric attendance SaaS product developed and operated by Ainebyona Abubaker, based in Uganda. We provide face recognition attendance solutions to universities and educational institutions.</p>
+  <p>Contact: <a href="mailto:abubaker@faceattend.app">admin@faceattend.app</a></p>
+
+  <h2>2. Data We Collect</h2>
+  <p>We collect the following categories of personal data:</p>
+  <ul>
+    <li><strong>Biometric data</strong> — facial images and facial embeddings (mathematical representations of faces) used for identity verification</li>
+    <li><strong>Student identification data</strong> — student ID numbers and full names</li>
+    <li><strong>Attendance records</strong> — timestamps, verification status, and confidence scores</li>
+    <li><strong>Administrator account data</strong> — name, email address, phone number, and institution affiliation</li>
+    <li><strong>Usage data</strong> — login timestamps and system activity logs</li>
+  </ul>
+
+  <h2>3. How We Collect Data</h2>
+  <p>Data is collected through:</p>
+  <ul>
+    <li>The FaceAttend Android application — when administrators capture student face photos during enrollment</li>
+    <li>The institution registration form at faceattend.app — when universities sign up</li>
+    <li>Automatic system logs generated during use of the service</li>
+  </ul>
+
+  <h2>4. Legal Basis for Processing</h2>
+  <p>We process personal data on the following legal grounds under the Uganda Data Protection and Privacy Act, 2019:</p>
+  <ul>
+    <li><strong>Consent</strong> — institutions and their administrators provide explicit consent during registration</li>
+    <li><strong>Legitimate interest</strong> — attendance management is a core administrative function of educational institutions</li>
+    <li><strong>Contractual necessity</strong> — processing is necessary to deliver the service agreed upon</li>
+  </ul>
+  <p>Institutions are responsible for obtaining consent from students before enrolling their biometric data into the system.</p>
+
+  <h2>5. How We Use Your Data</h2>
+  <ul>
+    <li>To verify student identity during attendance sessions</li>
+    <li>To generate and display attendance reports to authorized administrators</li>
+    <li>To manage user accounts and institution profiles</li>
+    <li>To send account-related emails including invitations and password resets</li>
+    <li>To maintain system security and prevent fraud or spoofing</li>
+  </ul>
+
+  <h2>6. Data Storage and Security</h2>
+  <p>Your data is stored using the following infrastructure:</p>
+  <ul>
+    <li><strong>Supabase</strong> — database and file storage (servers located in the European Union)</li>
+    <li><strong>Railway</strong> — application hosting (servers located in the United States)</li>
+  </ul>
+  <p>We implement the following security measures:</p>
+  <ul>
+    <li>All data is encrypted in transit using HTTPS/TLS</li>
+    <li>Face images are stored in private buckets — not publicly accessible</li>
+    <li>Access to face images requires time-limited signed URLs</li>
+    <li>All API endpoints require authenticated JWT tokens</li>
+    <li>Institution data is fully isolated — no data crosses institution boundaries</li>
+    <li>Anti-spoofing liveness detection prevents unauthorized access attempts</li>
+  </ul>
+  <p>As required by the Uganda PDPA, we ensure that any cross-border transfer of data to service providers in the EU and USA is governed by adequate data protection agreements.</p>
+
+  <h2>7. Data Retention</h2>
+  <ul>
+    <li><strong>Biometric data (face images)</strong> — retained for the duration of the institution's active subscription. Deleted upon account termination or upon request.</li>
+    <li><strong>Attendance records</strong> — retained for up to 3 years to support institutional reporting needs</li>
+    <li><strong>Account data</strong> — retained for the duration of the account and up to 90 days after termination</li>
+  </ul>
+
+  <h2>8. Data Sharing</h2>
+  <p>We do not sell, rent, or share your personal data with third parties for marketing purposes. Data is only shared with:</p>
+  <ul>
+    <li><strong>Supabase</strong> — for database and storage services</li>
+    <li><strong>Railway</strong> — for application hosting</li>
+    <li><strong>Zoho</strong> — for transactional email delivery</li>
+    <li>Law enforcement or regulatory bodies — only when required by Ugandan law</li>
+  </ul>
+
+  <h2>9. Your Rights</h2>
+  <p>Under the Uganda Data Protection and Privacy Act, 2019, you have the right to:</p>
+  <ul>
+    <li><strong>Access</strong> — request a copy of the personal data we hold about you</li>
+    <li><strong>Correction</strong> — request correction of inaccurate or incomplete data</li>
+    <li><strong>Deletion</strong> — request deletion of your personal data</li>
+    <li><strong>Objection</strong> — object to processing of your data</li>
+    <li><strong>Withdrawal of consent</strong> — withdraw consent at any time</li>
+    <li><strong>Data portability</strong> — receive your data in a portable format</li>
+  </ul>
+  <p>To exercise any of these rights, contact us at <a href="mailto:abubaker@faceattend.app">admin@faceattend.app</a>. We will respond within 21 days.</p>
+
+  <h2>10. Biometric Data — Special Notice</h2>
+  <p>Facial images and facial embeddings are classified as sensitive personal data under Uganda's PDPA. We treat this data with the highest level of care:</p>
+  <ul>
+    <li>Biometric data is never sold or shared with any third party</li>
+    <li>Face images are stored in private, access-controlled storage</li>
+    <li>Facial embeddings (mathematical vectors) are stored separately from identity data</li>
+    <li>Institutions must obtain informed consent from students before enrollment</li>
+    <li>Students may request deletion of their biometric data at any time through their institution administrator</li>
+  </ul>
+
+  <h2>11. Data Breach Notification</h2>
+  <p>In the event of a data breach that poses a risk to the rights and freedoms of data subjects, we will notify the Personal Data Protection Office (PDPO) of Uganda and affected institutions within 72 hours of becoming aware of the breach, as required by the Uganda PDPA.</p>
+
+  <h2>12. Children's Data</h2>
+  <p>FaceAttend is intended for use by universities and higher education institutions where students are typically adults (18+). We do not knowingly collect data from persons under 18. If an institution enrolls a student under 18, the institution is responsible for obtaining parental consent.</p>
+
+  <h2>13. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. We will notify registered institutions by email of any material changes. The updated policy will always be available at <a href="https://faceattend.app/privacy">faceattend.app/privacy</a>.</p>
+
+  <h2>14. Contact and Complaints</h2>
+  <p>For privacy-related queries or complaints, contact us at:</p>
+  <ul>
+    <li>Email: <a href="mailto:abubaker@faceattend.app">admin@faceattend.app</a></li>
+    <li>Website: <a href="https://faceattend.app">faceattend.app</a></li>
+  </ul>
+  <p>You also have the right to lodge a complaint with the Personal Data Protection Office (PDPO) of Uganda at <a href="https://pdpo.go.ug" target="_blank">pdpo.go.ug</a>.</p>
+</div>
+
+<footer>
+  <div>© 2026 FaceAttend · Uganda · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a></div>
+</footer>
+</body>
+</html>

@@ -118,6 +118,13 @@ def set_password_page():
 def dashboard_page():
     return FileResponse(os.path.join("static", "dashboard.html"))
 
+@app.get("/privacy")
+def privacy_page():
+    return FileResponse(os.path.join("static", "privacy.html"))
+
+@app.get("/terms")
+def terms_page():
+    return FileResponse(os.path.join("static", "terms.html"))
 
 # ── Upload student face ────────────────────────────────────────────────────
 

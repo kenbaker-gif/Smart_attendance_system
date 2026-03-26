@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Terms of Service — FaceAttend</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23080810'/><text x='10' y='23' font-family='sans-serif' font-weight='800' font-size='22' fill='%23eeeef5'>F</text><circle cx='26' cy='8' r='5' fill='%2300f5c4'/></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --black:   #080810;
+  --surface: #0f0f1c;
+  --border:  #1a1a2e;
+  --cyan:    #00f5c4;
+  --white:   #eeeef5;
+  --muted:   #5a5a7a;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  line-height: 1.8;
+}
+.grid-bg {
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.3; pointer-events: none; z-index: 0;
+}
+nav {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 48px;
+  background: rgba(8,8,16,0.9);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; letter-spacing: -0.03em; text-decoration: none; color: var(--white); }
+.logo span { color: var(--cyan); }
+.back-link { font-size: 0.82rem; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+.back-link:hover { color: var(--cyan); }
+.container {
+  position: relative; z-index: 1;
+  max-width: 760px; margin: 0 auto;
+  padding: 60px 48px 100px;
+}
+.page-label { font-size: 0.72rem; color: var(--cyan); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px; }
+h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 2.4rem; font-weight: 800;
+  letter-spacing: -0.03em; margin-bottom: 12px;
+}
+.last-updated { font-size: 0.82rem; color: var(--muted); margin-bottom: 48px; }
+h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem; font-weight: 700;
+  margin-top: 48px; margin-bottom: 12px;
+  color: var(--white);
+}
+p { color: #b0b0c8; margin-bottom: 16px; font-size: 0.95rem; }
+ul { color: #b0b0c8; padding-left: 20px; margin-bottom: 16px; }
+ul li { margin-bottom: 8px; font-size: 0.95rem; }
+.highlight {
+  background: rgba(0,245,196,0.06);
+  border: 1px solid rgba(0,245,196,0.15);
+  border-radius: 8px; padding: 20px 24px;
+  margin: 32px 0; color: var(--cyan); font-size: 0.9rem;
+}
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 48px; text-align: center;
+  color: var(--muted); font-size: 0.8rem;
+  position: relative; z-index: 1;
+}
+@media (max-width: 768px) {
+  nav { padding: 16px 20px; }
+  .container { padding: 40px 20px 80px; }
+  h1 { font-size: 1.8rem; }
+  footer { padding: 24px 20px; }
+}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<nav>
+  <a href="/" class="logo">Face<span>Attend</span></a>
+  <a href="/" class="back-link">← Back to Home</a>
+</nav>
+
+<div class="container">
+  <div class="page-label">Legal</div>
+  <h1>Terms of Service</h1>
+  <p class="last-updated">Last updated: March 2026</p>
+
+  <div class="highlight">
+    By registering an institution or using FaceAttend, you agree to these Terms of Service. Please read them carefully. These terms are governed by the laws of Uganda.
+  </div>
+
+  <h2>1. Acceptance of Terms</h2>
+  <p>These Terms of Service ("Terms") constitute a legally binding agreement between you ("Institution", "Administrator", or "User") and FaceAttend, operated by Ainebyona Abubaker ("we", "us", or "our"). By creating an account, registering an institution, or using the FaceAttend platform in any way, you agree to be bound by these Terms.</p>
+
+  <h2>2. Description of Service</h2>
+  <p>FaceAttend provides an AI-powered face recognition attendance management system for universities and educational institutions. The service includes:</p>
+  <ul>
+    <li>An Android mobile application for student enrollment and attendance verification</li>
+    <li>A web-based dashboard for attendance reporting and management</li>
+    <li>Automated email notifications and account management tools</li>
+    <li>Secure cloud storage for attendance records and biometric data</li>
+  </ul>
+
+  <h2>3. Account Registration</h2>
+  <p>To use FaceAttend, an authorized representative of the institution must register at faceattend.app. By registering, you confirm that:</p>
+  <ul>
+    <li>You are authorized to enter into this agreement on behalf of the institution</li>
+    <li>All information provided during registration is accurate and complete</li>
+    <li>You will maintain the security of your account credentials</li>
+    <li>You will notify us immediately of any unauthorized access to your account</li>
+  </ul>
+
+  <h2>4. Trial Period</h2>
+  <p>New institutions receive a 30-day free trial with full access to all features. No credit card is required during the trial. At the end of the trial period, continued use of the service requires a paid subscription. We reserve the right to suspend or terminate accounts that remain on an expired trial without converting to a paid plan.</p>
+
+  <h2>5. Payment and Billing</h2>
+  <p>Paid plans are billed on a monthly basis. All prices are listed in USD on our pricing page and are subject to change with 30 days notice. Failure to pay may result in suspension of your account. We do not offer refunds for partial months of service.</p>
+
+  <h2>6. Acceptable Use</h2>
+  <p>You agree to use FaceAttend only for lawful purposes. You must not:</p>
+  <ul>
+    <li>Use the service to collect biometric data without the knowledge and consent of the individuals being enrolled</li>
+    <li>Attempt to bypass, disable, or circumvent any security feature including liveness detection</li>
+    <li>Use the service to discriminate against individuals on the basis of race, gender, religion, or any protected characteristic</li>
+    <li>Reverse engineer, decompile, or attempt to extract the source code of FaceAttend</li>
+    <li>Share your account credentials with unauthorized parties</li>
+    <li>Use the service in any way that violates applicable Ugandan law</li>
+  </ul>
+
+  <h2>7. Institution Responsibilities</h2>
+  <p>As an institution using FaceAttend, you are responsible for:</p>
+  <ul>
+    <li><strong>Student consent</strong> — obtaining informed consent from students before enrolling their biometric data, as required by the Uganda Data Protection and Privacy Act, 2019</li>
+    <li><strong>Data accuracy</strong> — ensuring that student information entered into the system is accurate</li>
+    <li><strong>Administrator access</strong> — managing who has administrator access to your institution's account</li>
+    <li><strong>Compliance</strong> — complying with all applicable laws regarding the use of biometric data in your jurisdiction</li>
+    <li><strong>Student notification</strong> — informing students about how their data is used and their rights under applicable law</li>
+  </ul>
+
+  <h2>8. Data Ownership</h2>
+  <p>You retain ownership of all data you submit to FaceAttend, including student records and attendance data. By using the service, you grant FaceAttend a limited licence to store and process this data solely for the purpose of delivering the service. We do not claim ownership of your data and will not use it for any purpose other than providing the service.</p>
+
+  <h2>9. Data Protection</h2>
+  <p>We process personal data in accordance with our <a href="/privacy">Privacy Policy</a> and the Uganda Data Protection and Privacy Act, 2019. Both parties agree to comply with applicable data protection laws. Institutions act as data controllers for student data; FaceAttend acts as a data processor on behalf of institutions.</p>
+
+  <h2>10. Service Availability</h2>
+  <p>We aim to maintain high availability of the FaceAttend service but do not guarantee 100% uptime. Scheduled maintenance will be communicated in advance where possible. We are not liable for any losses arising from temporary service unavailability.</p>
+
+  <h2>11. Intellectual Property</h2>
+  <p>All intellectual property rights in the FaceAttend platform, including software, algorithms, design, and branding, belong to FaceAttend and Ainebyona Abubaker. Nothing in these Terms grants you any rights to our intellectual property except the limited right to use the service as described herein.</p>
+
+  <h2>12. Limitation of Liability</h2>
+  <p>To the fullest extent permitted by Ugandan law, FaceAttend shall not be liable for:</p>
+  <ul>
+    <li>Any indirect, incidental, or consequential damages arising from use of the service</li>
+    <li>Loss of data due to circumstances beyond our reasonable control</li>
+    <li>Errors in attendance records caused by poor lighting, obstructions, or other environmental factors affecting face recognition accuracy</li>
+    <li>Any actions taken by institutions based on attendance data generated by the system</li>
+  </ul>
+  <p>Our total liability to you shall not exceed the amount paid by you for the service in the three months preceding the claim.</p>
+
+  <h2>13. Termination</h2>
+  <p>Either party may terminate this agreement at any time. Upon termination:</p>
+  <ul>
+    <li>Your access to the service will be suspended</li>
+    <li>You may request an export of your attendance data within 30 days of termination</li>
+    <li>Biometric data (face images) will be permanently deleted within 30 days</li>
+    <li>We reserve the right to terminate accounts that violate these Terms without notice</li>
+  </ul>
+
+  <h2>14. Governing Law</h2>
+  <p>These Terms are governed by and construed in accordance with the laws of Uganda. Any disputes arising under these Terms shall be subject to the jurisdiction of the courts of Uganda.</p>
+
+  <h2>15. Changes to Terms</h2>
+  <p>We may update these Terms from time to time. We will notify registered institutions by email of any material changes at least 30 days before they take effect. Continued use of the service after changes take effect constitutes acceptance of the updated Terms.</p>
+
+  <h2>16. Contact</h2>
+  <p>For questions about these Terms, contact us at:</p>
+  <ul>
+    <li>Email: <a href="mailto:abubaker@faceattend.app">admin@faceattend.app</a></li>
+    <li>Website: <a href="https://faceattend.app">faceattend.app</a></li>
+  </ul>
+</div>
+
+<footer>
+  <div>© 2026 FaceAttend · Uganda · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a></div>
+</footer>
+</body>
+</html>
