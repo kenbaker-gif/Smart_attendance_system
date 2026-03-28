@@ -135,8 +135,10 @@ async def upload_student(
     name:           str        = Form(...),
     institution_id: str        = Form(default="NKU"),
     file:           UploadFile = File(...),
+    authorization:  str        = Header(None),  # 👈 add this
     user=Depends(verify_supabase_token),
 ):
+
     if not student_id.strip():
         raise HTTPException(status_code=400, detail="student_id cannot be empty.")
     if not name.strip():
