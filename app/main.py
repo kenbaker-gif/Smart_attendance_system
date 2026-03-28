@@ -135,7 +135,7 @@ async def upload_student(
     name:           str        = Form(...),
     institution_id: str        = Form(default="NKU"),
     file:           UploadFile = File(...),
-    authorization:  str        = Header(None),  # 👈 add this
+    authorization:  str        = Header(None),  
     user=Depends(verify_supabase_token),
 ):
 
