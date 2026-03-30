@@ -172,12 +172,31 @@ nav {
 }
 .metric-sub { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
 
+/* Tabs */
+.tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.tab-btn {
+  background: transparent; border: none;
+  color: var(--muted); padding: 10px 24px;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.85rem; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
 /* Section */
 .section-header {
   font-size: 0.7rem; color: var(--muted);
   letter-spacing: 0.2em; text-transform: uppercase;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 8px; margin: 32px 0 16px;
+  padding-bottom: 8px; margin: 0 0 16px;
 }
 
 /* Filters */
@@ -242,10 +261,52 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .badge-failed  { background: rgba(255,80,80,0.1);  color: var(--red);    border: 1px solid rgba(255,80,80,0.2); }
 .badge-spoof   { background: rgba(255,107,53,0.1); color: var(--orange); border: 1px solid rgba(255,107,53,0.2); }
 
+.btn-delete {
+  background: transparent;
+  border: 1px solid rgba(255,80,80,0.3);
+  color: var(--red); padding: 4px 10px;
+  border-radius: 6px; font-size: 0.75rem;
+  cursor: pointer; transition: background 0.2s, border-color 0.2s;
+}
+.btn-delete:hover { background: rgba(255,80,80,0.1); border-color: var(--red); }
+
 .table-footer {
   padding: 12px 16px;
   font-size: 0.75rem; color: var(--muted);
   border-top: 1px solid var(--border);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; display: none;
+}
+.modal-overlay.visible { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px; padding: 32px;
+  max-width: 380px; width: 100%; margin: 16px;
+}
+.modal h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem; margin-bottom: 12px;
+}
+.modal p { color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin-bottom: 24px; }
+.modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.btn-cancel {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); padding: 8px 18px;
+  border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+}
+.btn-confirm-delete {
+  background: var(--red); border: none;
+  color: white; padding: 8px 18px;
+  border-radius: 8px; cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 0.85rem;
 }
 
 /* Loading */
@@ -275,14 +336,26 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <p>Sign in with your admin account to continue</p>
     <div class="form-group">
       <label>Email</label>
-      <input type="email" id="login-email" placeholder="admin@faceattend.app"/>
+      <input type="email" id="login-email" placeholder="admin@faceattend.app" autocomplete="off"/>
     </div>
     <div class="form-group">
       <label>Password</label>
-      <input type="password" id="login-password" placeholder="Your password"/>
+      <input type="password" id="login-password" placeholder="Your password" autocomplete="off"/>
     </div>
     <button class="btn" id="login-btn" onclick="login()">Sign In</button>
     <div class="error-msg" id="login-error"></div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <h3>Delete Student</h3>
+    <p id="delete-modal-msg">Are you sure? This will remove all photos and attendance records permanently.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-confirm-delete" onclick="confirmDelete()">Delete</button>
+    </div>
   </div>
 </div>
 
@@ -302,23 +375,40 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="loading"><div class="spinner"></div>Loading...</div>
     </div>
 
-    <div class="section-header">Attendance Records</div>
-    <div class="filters">
-      <select id="filter-inst" onchange="applyFilters()">
-        <option value="">All Institutions</option>
-      </select>
-      <select id="filter-status" onchange="applyFilters()">
-        <option value="">All Status</option>
-        <option value="success">Success</option>
-        <option value="failed">Failed</option>
-        <option value="spoof">Spoof</option>
-      </select>
-      <button class="btn-refresh" onclick="loadData()">↺ Refresh</button>
-      <button class="btn-export" onclick="exportCSV()">↓ Export CSV</button>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('attendance')">Attendance Records</button>
+      <button class="tab-btn" onclick="switchTab('students')">Students</button>
     </div>
 
-    <div class="table-wrap" id="table-wrap">
-      <div class="loading"><div class="spinner"></div>Loading records...</div>
+    <!-- Attendance Tab -->
+    <div class="tab-panel active" id="tab-attendance">
+      <div class="filters">
+        <select id="filter-inst" onchange="applyFilters()">
+          <option value="">All Institutions</option>
+        </select>
+        <select id="filter-status" onchange="applyFilters()">
+          <option value="">All Status</option>
+          <option value="success">Success</option>
+          <option value="failed">Failed</option>
+          <option value="spoof">Spoof</option>
+        </select>
+        <button class="btn-refresh" onclick="loadData()">↺ Refresh</button>
+        <button class="btn-export" onclick="exportCSV()">↓ Export CSV</button>
+      </div>
+      <div class="table-wrap" id="table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading records...</div>
+      </div>
+    </div>
+
+    <!-- Students Tab -->
+    <div class="tab-panel" id="tab-students">
+      <div class="filters">
+        <button class="btn-refresh" onclick="loadStudents()">↺ Refresh</button>
+      </div>
+      <div class="table-wrap" id="students-table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading students...</div>
+      </div>
     </div>
   </div>
 </div>
@@ -336,8 +426,20 @@ const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentToken         = null;
 let currentInstitutionId = null;
 let allRecords           = [];
+let pendingDeleteId      = null;
+let pendingDeleteName    = null;
 
-// ── Auto-login from Flutter WebView token injection ──
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0 && tab === 'attendance') || (i === 1 && tab === 'students'));
+  });
+  document.getElementById('tab-attendance').classList.toggle('active', tab === 'attendance');
+  document.getElementById('tab-students').classList.toggle('active', tab === 'students');
+  if (tab === 'students') loadStudents();
+}
+
+// ── Auto-login from Flutter WebView token injection ──────────────────────
 async function autoLoginWithToken(accessToken, refreshToken) {
   if (!accessToken) return;
   try {
@@ -353,7 +455,7 @@ async function autoLoginWithToken(accessToken, refreshToken) {
   }
 }
 
-// ── Check existing session on page load ──
+// ── Check existing session on page load ─────────────────────────────────
 window.addEventListener('load', async () => {
   const { data: { session } } = await client.auth.getSession();
   if (session) {
@@ -361,12 +463,14 @@ window.addEventListener('load', async () => {
   }
 });
 
-// ── Manual login ──
+// ── Manual login ─────────────────────────────────────────────────────────
 async function login() {
-  const email    = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-  const btn      = document.getElementById('login-btn');
-  const errEl    = document.getElementById('login-error');
+  const emailEl    = document.getElementById('login-email');
+  const passwordEl = document.getElementById('login-password');
+  const email      = emailEl.value.trim();
+  const password   = passwordEl.value;
+  const btn        = document.getElementById('login-btn');
+  const errEl      = document.getElementById('login-error');
 
   if (!email || !password) {
     showLoginError("Please enter email and password.");
@@ -401,6 +505,12 @@ async function login() {
     return;
   }
 
+  // ✅ Clear fields after successful login
+  emailEl.value    = '';
+  passwordEl.value = '';
+  btn.disabled     = false;
+  btn.textContent  = 'Sign In';
+
   await initDashboard(data.session);
 }
 
@@ -410,11 +520,10 @@ function showLoginError(msg) {
   el.style.display = 'block';
 }
 
-// ── Init dashboard ──
+// ── Init dashboard ───────────────────────────────────────────────────────
 async function initDashboard(session) {
   currentToken = session.access_token;
 
-  // ✅ Fetch institution_id — admin only sees their own institution
   const { data: profile } = await client
     .from('profiles')
     .select('institution_id')
@@ -423,33 +532,38 @@ async function initDashboard(session) {
 
   currentInstitutionId = profile?.institution_id || null;
 
+  // ✅ Switch screens without refresh
   document.getElementById('login-screen').style.display    = 'none';
   document.getElementById('dashboard-screen').style.display = 'block';
   document.getElementById('nav-user').textContent = session.user.email;
 
-  // Show institution badge if scoped
   if (currentInstitutionId) {
     const instEl = document.getElementById('nav-inst');
     instEl.textContent    = currentInstitutionId;
     instEl.style.display  = 'inline-block';
-    // Hide institution filter — they can only see their own
     document.getElementById('filter-inst').style.display = 'none';
   }
 
   await loadData();
 }
 
-// ── Logout ──
+// ── Logout ───────────────────────────────────────────────────────────────
 async function logout() {
   await client.auth.signOut();
   currentToken         = null;
   currentInstitutionId = null;
   allRecords           = [];
+
+  // ✅ Clear fields on logout so next user sees empty form
+  document.getElementById('login-email').value    = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').style.display = 'none';
+
   document.getElementById('login-screen').style.display    = 'flex';
   document.getElementById('dashboard-screen').style.display = 'none';
 }
 
-// ── Load data ──
+// ── Load data ────────────────────────────────────────────────────────────
 async function loadData() {
   if (!currentToken) return;
   const headers = { 'Authorization': `Bearer ${currentToken}` };
@@ -458,7 +572,6 @@ async function loadData() {
     '<div class="loading"><div class="spinner"></div>Loading records...</div>';
 
   try {
-    // ✅ Scope all requests to institution if set
     const instParam = currentInstitutionId ? `&institution_id=${currentInstitutionId}` : '';
     const instQuery = currentInstitutionId ? `?institution_id=${currentInstitutionId}` : '';
 
@@ -473,7 +586,6 @@ async function loadData() {
     allRecords = Array.isArray(records) ? records : [];
     const totalStudents = studData.count || 0;
 
-    // Metrics
     const total    = allRecords.length;
     const verified = allRecords.filter(r => r.verified === 'success').length;
     const failed   = allRecords.filter(r => r.verified === 'failed').length;
@@ -503,7 +615,6 @@ async function loadData() {
       </div>
     `;
 
-    // Populate institution filter only for super admin
     if (!currentInstitutionId) {
       const insts = [...new Set(allRecords.map(r => r.institution_id).filter(Boolean))].sort();
       document.getElementById('filter-inst').innerHTML =
@@ -519,19 +630,110 @@ async function loadData() {
   }
 }
 
-// ── Filters ──
+// ── Load students tab ────────────────────────────────────────────────────
+async function loadStudents() {
+  if (!currentToken) return;
+  const headers  = { 'Authorization': `Bearer ${currentToken}` };
+  const instQuery = currentInstitutionId ? `?institution_id=${currentInstitutionId}` : '';
+
+  document.getElementById('students-table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Loading students...</div>';
+
+  try {
+    const resp = await fetch(`${DAZZLING_URL}/students${instQuery}`, { headers });
+    const data = resp.ok ? await resp.json() : { students: [] };
+    const students = data.students || [];
+
+    if (!students.length) {
+      document.getElementById('students-table-wrap').innerHTML =
+        '<div class="loading">No students registered.</div>';
+      return;
+    }
+
+    const rows = students.map(s => `
+      <tr>
+        <td>${s.id || '—'}</td>
+        <td>${s.name || '—'}</td>
+        <td>${s.institution_id || '—'}</td>
+        <td>
+          <button class="btn-delete" onclick="openDeleteModal('${s.id}', '${(s.name || '').replace(/'/g, "\\'")}')">
+            Delete
+          </button>
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('students-table-wrap').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Student ID</th>
+            <th>Name</th>
+            <th>Institution</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="table-footer">${students.length} students</div>
+    `;
+  } catch (e) {
+    document.getElementById('students-table-wrap').innerHTML =
+      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+// ── Delete modal ─────────────────────────────────────────────────────────
+function openDeleteModal(studentId, studentName) {
+  pendingDeleteId   = studentId;
+  pendingDeleteName = studentName;
+  document.getElementById('delete-modal-msg').textContent =
+    `Are you sure you want to delete ${studentName}? This will remove all their photos and attendance records permanently.`;
+  document.getElementById('delete-modal').classList.add('visible');
+}
+
+function closeDeleteModal() {
+  pendingDeleteId   = null;
+  pendingDeleteName = null;
+  document.getElementById('delete-modal').classList.remove('visible');
+}
+
+async function confirmDelete() {
+  if (!pendingDeleteId || !currentToken) return;
+
+  const studentId   = pendingDeleteId;
+  const studentName = pendingDeleteName;
+  closeDeleteModal();
+
+  try {
+    const resp = await fetch(`${DAZZLING_URL}/students/${studentId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${currentToken}` },
+    });
+
+    if (resp.ok) {
+      await loadStudents();
+      await loadData(); // refresh metrics too
+    } else {
+      const err = await resp.json();
+      alert(`Failed to delete: ${err.detail || 'Unknown error'}`);
+    }
+  } catch (e) {
+    alert(`Error: ${e.message}`);
+  }
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────
 function applyFilters() {
   const inst   = document.getElementById('filter-inst').value;
   const status = document.getElementById('filter-status').value;
-
   let filtered = allRecords;
   if (inst)   filtered = filtered.filter(r => r.institution_id === inst);
   if (status) filtered = filtered.filter(r => r.verified === status);
-
   renderTable(filtered);
 }
 
-// ── Render table ──
+// ── Render attendance table ───────────────────────────────────────────────
 function renderTable(records) {
   if (!records.length) {
     document.getElementById('table-wrap').innerHTML =
@@ -576,11 +778,10 @@ function renderTable(records) {
   `;
 }
 
-// ── Export CSV ──
+// ── Export CSV ────────────────────────────────────────────────────────────
 function exportCSV() {
   const inst   = document.getElementById('filter-inst').value;
   const status = document.getElementById('filter-status').value;
-
   let filtered = allRecords;
   if (inst)   filtered = filtered.filter(r => r.institution_id === inst);
   if (status) filtered = filtered.filter(r => r.verified === status);
@@ -597,7 +798,7 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
-// ── Enter key on login ──
+// ── Enter key on login ────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
     login();
