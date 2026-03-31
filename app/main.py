@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from datetime import datetime, timezone, timedelta
 
 load_dotenv()
 
@@ -379,6 +380,7 @@ async def register_institution(
             "admin_email": email,
             "phone":       phone.strip(),
             "logo_url":    logo_url,
+            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
         }).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Institution creation failed: {str(e)}")
