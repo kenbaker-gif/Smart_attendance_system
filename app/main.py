@@ -80,9 +80,9 @@ async def check_admin(authorization: str = Header(None)):
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
         user_id = user_response.user.id
-        resp = supabase_admin.table("profiles").select("is_admin, institution_id") \
+        resp = supabase_admin.table("profiles").select("is_admin, is_super_admin, institution_id") \
             .eq("id", user_id).limit(1).execute()
-        if not resp.data or not resp.data[0].get("is_admin"):
+        if not resp.data or not (resp.data[0].get("is_admin") or resp.data[0].get("is_super_admin")):
             raise HTTPException(status_code=403, detail="Admin access required")
 
         # ✅ Check institution status
