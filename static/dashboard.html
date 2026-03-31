@@ -584,10 +584,11 @@ async function login() {
     .eq('id', data.user.id)
     .single();
 
-  const isAdmin = profile && (profile.is_admin === true || profile.is_admin === 'true');
-  const isSuperAdmin = profile && (profile.is_super_admin === true || profile.is_super_admin === 'true');
+  // ── FIX: use distinct local variable names to avoid shadowing the global isSuperAdmin ──
+  const isAdmin           = profile && (profile.is_admin === true || profile.is_admin === 'true');
+  const isSuperAdminCheck = profile && (profile.is_super_admin === true || profile.is_super_admin === 'true');
 
-  if (!profile || !(isAdmin || isSuperAdmin)) {
+  if (!profile || !(isAdmin || isSuperAdminCheck)) {
     showLoginError("Access denied. Admin account required.");
     await client.auth.signOut();
     btn.disabled    = false;
@@ -618,10 +619,6 @@ async function initDashboard(session) {
     .select('institution_id, is_super_admin')
     .eq('id', session.user.id)
     .single();
-
-  console.log('Profile data:', JSON.stringify(profile)); // ADD THIS
-  console.log('isAdmin check:', profile?.is_admin, typeof profile?.is_admin);
-  console.log('isSuperAdmin check:', profile?.is_super_admin, typeof profile?.is_super_admin);  
 
   currentInstitutionId = profile?.institution_id || null;
   isSuperAdmin         = profile?.is_super_admin === true;
