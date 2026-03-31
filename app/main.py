@@ -10,6 +10,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+FREE_EMAIL_DOMAINS = {
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
+    "live.com", "icloud.com", "aol.com", "protonmail.com",
+    "zoho.com", "ymail.com", "mail.com", "googlemail.com"
+}
+
 app = FastAPI(title="Smart Attendance — Upload Service")
 
 app.add_middleware(
@@ -21,7 +27,7 @@ app.add_middleware(
         "http://localhost:8080",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "DELETE", "PATCH"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -64,7 +70,7 @@ async def verify_supabase_token(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Token verification failed")
 
 async def check_admin(authorization: str = Header(None)):
-    """Verify that the user is authenticated and is an admin."""
+    """Verify that the user is authenticated, is an admin, and their institution is active."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     token = authorization.replace("Bearer ", "").strip()
@@ -73,10 +79,29 @@ async def check_admin(authorization: str = Header(None)):
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
         user_id = user_response.user.id
-        resp = supabase_admin.table("profiles").select("is_admin") \
+        resp = supabase_admin.table("profiles").select("is_admin, institution_id") \
             .eq("id", user_id).limit(1).execute()
         if not resp.data or not resp.data[0].get("is_admin"):
             raise HTTPException(status_code=403, detail="Admin access required")
+
+        # ✅ Check institution status
+        institution_id = resp.data[0].get("institution_id")
+        if institution_id:
+            inst_resp = supabase_admin.table("institutions").select("status") \
+                .eq("id", institution_id).limit(1).execute()
+            if inst_resp.data:
+                status = inst_resp.data[0].get("status", "active")
+                if status == "pending":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Your institution is pending approval. You will be notified once approved."
+                    )
+                elif status == "suspended":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Your institution account has been suspended. Contact support."
+                    )
+
         return user_response.user
     except HTTPException:
         raise
@@ -135,10 +160,9 @@ async def upload_student(
     name:           str        = Form(...),
     institution_id: str        = Form(default="NKU"),
     file:           UploadFile = File(...),
-    authorization:  str        = Header(None),  
+    authorization:  str        = Header(None),
     user=Depends(verify_supabase_token),
 ):
-
     if not student_id.strip():
         raise HTTPException(status_code=400, detail="student_id cannot be empty.")
     if not name.strip():
@@ -178,7 +202,6 @@ async def upload_student(
         }).execute()
 
         if file.filename == "4.jpg":
-            from fastapi import Request
             print(f"📸 4th photo uploaded for {student_id} — triggering auto-sync...")
             background_tasks.add_task(trigger_sync_in_background, authorization)
 
@@ -314,6 +337,14 @@ async def register_institution(
     if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
         raise HTTPException(status_code=400, detail="Invalid email address.")
 
+    # ✅ Block free email domains
+    domain = email.split("@")[-1]
+    if domain in FREE_EMAIL_DOMAINS:
+        raise HTTPException(
+            status_code=400,
+            detail="Please use your official institutional email address. Personal emails (Gmail, Yahoo, etc.) are not accepted."
+        )
+
     base_id = generate_institution_id(university_name)
     inst_id = base_id
     existing     = supabase_admin.table("institutions").select("id").execute().data
@@ -344,6 +375,7 @@ async def register_institution(
             "name":        university_name.strip(),
             "plan":        "trial",
             "is_active":   True,
+            "status":      "pending",           # ✅ All new signups start as pending
             "admin_email": email,
             "phone":       phone.strip(),
             "logo_url":    logo_url,
@@ -386,10 +418,59 @@ async def register_institution(
         "success":          True,
         "institution_id":   inst_id,
         "institution_name": university_name.strip(),
-        "message":          f"Check {email} for an invitation to set your password and start your 30-day trial.",
+        "message":          f"Registration received. Check {email} to set your password. Your account will be activated after review.",
         "trial_days":       30,
     }
 
+
+# ── Institution approval (super-admin only) ────────────────────────────────
+
+@app.patch("/admin/institutions/{institution_id}/status")
+async def update_institution_status(
+    institution_id: str,
+    status: str = Form(...),
+    user=Depends(check_admin),
+):
+    """Approve, suspend, or reactivate an institution. status: pending | active | suspended"""
+    if status not in ("pending", "active", "suspended"):
+        raise HTTPException(status_code=400, detail="status must be one of: pending, active, suspended")
+    try:
+        resp = supabase_admin.table("institutions") \
+            .update({"status": status}) \
+            .eq("id", institution_id) \
+            .execute()
+        if not resp.data:
+            raise HTTPException(status_code=404, detail="Institution not found.")
+        return {
+            "success":        True,
+            "institution_id": institution_id,
+            "status":         status,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/admin/institutions")
+async def list_institutions(
+    status: str = None,
+    user=Depends(check_admin),
+):
+    """List all institutions, optionally filtered by status."""
+    try:
+        query = supabase_admin.table("institutions") \
+            .select("id, name, admin_email, phone, plan, status, is_active, logo_url") \
+            .order("name")
+        if status:
+            query = query.eq("status", status)
+        resp = query.execute()
+        return {"institutions": resp.data, "count": len(resp.data)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Plans ──────────────────────────────────────────────────────────────────
 
 @app.get("/plans")
 def get_plans():
@@ -405,17 +486,27 @@ def get_plans():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Trial check ────────────────────────────────────────────────────────────
+
 @app.get("/check-trial/{institution_id}")
 def check_trial(institution_id: str):
     try:
         resp = supabase_admin.table("institutions") \
-            .select("plan, is_active, trial_ends_at, name") \
+            .select("plan, is_active, trial_ends_at, name, status") \
             .eq("id", institution_id) \
             .limit(1).execute()
         if not resp.data:
             raise HTTPException(status_code=404, detail="Institution not found.")
         inst = resp.data[0]
         from datetime import datetime, timezone
+
+        # ✅ Check approval status first
+        status = inst.get("status", "active")
+        if status == "pending":
+            return {"active": False, "reason": "Institution pending approval."}
+        if status == "suspended":
+            return {"active": False, "reason": "Account suspended."}
+
         trial_ends = inst.get("trial_ends_at")
         is_active  = inst.get("is_active", False)
         plan       = inst.get("plan", "trial")
