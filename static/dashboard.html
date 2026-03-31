@@ -580,11 +580,11 @@ async function login() {
 
   const { data: profile } = await client
     .from('profiles')
-    .select('is_admin')
+    .select('is_admin, is_super_admin')
     .eq('id', data.user.id)
     .single();
 
-  if (!profile || !profile.is_admin) {
+  if (!profile || !(profile.is_admin || profile.is_super_admin)) {
     showLoginError("Access denied. Admin account required.");
     await client.auth.signOut();
     btn.disabled    = false;
