@@ -276,7 +276,8 @@ async def list_students(
             query = query.eq("institution_id", institution_id or user_institution_id)
 
         response = query.execute()
-        return {"students": response.data, "count": len(response.data)}
+        students = response.data or []
+        return {"students": students, "count": len(students)}
     except HTTPException:
         raise
     except Exception as e:
@@ -337,7 +338,8 @@ async def get_attendance_records(
         else:
             query = query.eq("institution_id", institution_id or user_institution_id)
 
-        return query.execute().data
+        rows = query.execute().data or []
+        return rows
     except HTTPException:
         raise
     except Exception as e:
@@ -366,7 +368,7 @@ async def get_summary(
         else:
             query = query.eq("institution_id", institution_id or user_institution_id)
 
-        rows          = query.execute().data
+        rows = query.execute().data or []
         total_present = sum(1 for r in rows if r.get("verified") == "success")
         total_absent  = sum(1 for r in rows if r.get("verified") == "failed")
         by_student    = {}
@@ -559,7 +561,8 @@ async def list_institutions(
                 .eq("id", institution_id)
 
         resp = query.execute()
-        return {"institutions": resp.data, "count": len(resp.data)}
+        institutions = resp.data or []
+        return {"institutions": institutions, "count": len(institutions)}
     except HTTPException:
         raise
     except Exception as e:
