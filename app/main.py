@@ -615,11 +615,11 @@ def check_trial(institution_id: str):
 
         trial_ends = inst.get("trial_ends_at")
         is_active  = inst.get("is_active", False)
-        plan       = inst.get("plans", "trial")
+        plans       = inst.get("plans", "trial")
 
         if not is_active:
             return {"active": False, "reason": "Account suspended."}
-        if plan == "paid":
+        if plans == "paid":
             return {"active": True, "plans": "paid"}
         if trial_ends:
             ends_at   = datetime.fromisoformat(trial_ends.replace("Z", "+00:00"))
