@@ -598,7 +598,7 @@ def get_plans():
 def check_trial(institution_id: str):
     try:
         resp = supabase_admin.table("institutions") \
-            .select("plan, is_active, trial_ends_at, name, status") \
+            .select("plans, is_active, trial_ends_at, name, status") \
             .eq("id", institution_id) \
             .limit(1).execute()
         if not resp.data:
@@ -615,19 +615,19 @@ def check_trial(institution_id: str):
 
         trial_ends = inst.get("trial_ends_at")
         is_active  = inst.get("is_active", False)
-        plan       = inst.get("plan", "trial")
+        plan       = inst.get("plans", "trial")
 
         if not is_active:
             return {"active": False, "reason": "Account suspended."}
         if plan == "paid":
-            return {"active": True, "plan": "paid"}
+            return {"active": True, "plans": "paid"}
         if trial_ends:
             ends_at   = datetime.fromisoformat(trial_ends.replace("Z", "+00:00"))
             days_left = (ends_at - datetime.now(timezone.utc)).days
             if days_left <= 0:
                 return {"active": False, "reason": "Trial expired.", "days_left": 0}
-            return {"active": True, "plan": "trial", "days_left": days_left}
-        return {"active": True, "plan": plan}
+            return {"active": True, "plans": "trial", "days_left": days_left}
+        return {"active": True, "plans": plans}
     except HTTPException:
         raise
     except Exception as e:
