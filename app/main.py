@@ -91,10 +91,13 @@ async def check_admin(authorization: str = Header(None)):
             .eq("id", user_id).limit(1).execute()
 
         profile_data = resp.data[0] if resp.data else None
-        is_admin = _bool_flag(profile_data.get("is_admin") if profile_data else None)
-        is_super_admin = _bool_flag(profile_data.get("is_super_admin") if profile_data else None)
+        if not profile_data:
+            raise HTTPException(status_code=403, detail="Admin profile not found or incomplete")
 
-        if not profile_data or not (is_admin or is_super_admin):
+        is_admin = _bool_flag(profile_data.get("is_admin"))
+        is_super_admin = _bool_flag(profile_data.get("is_super_admin"))
+
+        if not (is_admin or is_super_admin):
             raise HTTPException(status_code=403, detail="Admin access required")
 
         # ✅ Check institution status for non-super admins only
@@ -544,8 +547,11 @@ async def list_institutions(
             .select("institution_id, is_super_admin") \
             .eq("id", user.id).single().execute()
 
-        is_super_admin = _bool_flag(profile_resp.data.get("is_super_admin") if profile_resp.data else None)
-        institution_id = profile_resp.data.get("institution_id") if profile_resp.data else None
+        if not profile_resp.data:
+            raise HTTPException(status_code=403, detail="Admin profile not found")
+
+        is_super_admin = _bool_flag(profile_resp.data.get("is_super_admin"))
+        institution_id = profile_resp.data.get("institution_id")
 
         if is_super_admin:
             query = supabase_admin.table("institutions") \
@@ -566,7 +572,8 @@ async def list_institutions(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[ERROR] /admin/institutions failed: {repr(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ── Plans ──────────────────────────────────────────────────────────────────
