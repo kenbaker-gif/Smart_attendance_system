@@ -555,7 +555,7 @@ async def list_institutions(
 
         if is_super_admin:
             query = supabase_admin.table("institutions") \
-                .select("id, name, admin_email, phone, plan, status, is_active, logo_url") \
+                .select("id, name, admin_email, phone, plans, status, is_active, logo_url") \
                 .order("name")
             if status:
                 query = query.eq("status", status)
@@ -563,7 +563,7 @@ async def list_institutions(
             if not institution_id:
                 raise HTTPException(status_code=403, detail="Institution admin requires institution_id in profile")
             query = supabase_admin.table("institutions") \
-                .select("id, name, admin_email, phone, plan, status, is_active, logo_url") \
+                .select("id, name, admin_email, phone, plans, status, is_active, logo_url") \
                 .eq("id", institution_id)
 
         resp = query.execute()
