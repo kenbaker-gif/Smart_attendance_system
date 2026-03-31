@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FaceAttend — Admin Dashboard</title>
+<title>FaceAttend — Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 :root {
@@ -17,6 +17,7 @@
   --white:   #eeeef5;
   --muted:   #5a5a7a;
   --red:     #ff5050;
+  --yellow:  #f5c400;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -129,6 +130,12 @@ nav {
   border: 1px solid rgba(0,245,196,0.2);
   padding: 3px 10px; border-radius: 100px;
 }
+.nav-superadmin {
+  font-size: 0.75rem; color: var(--purple);
+  background: rgba(167,139,250,0.08);
+  border: 1px solid rgba(167,139,250,0.2);
+  padding: 3px 10px; border-radius: 100px;
+}
 .btn-logout {
   background: transparent;
   border: 1px solid var(--border);
@@ -188,6 +195,8 @@ nav {
   transition: color 0.2s, border-color 0.2s;
 }
 .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+.tab-btn.superadmin-tab { color: var(--purple); }
+.tab-btn.superadmin-tab.active { color: var(--purple); border-bottom-color: var(--purple); }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
@@ -257,9 +266,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   font-weight: 600; letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.badge-success { background: rgba(0,245,196,0.1); color: var(--cyan);   border: 1px solid rgba(0,245,196,0.2); }
-.badge-failed  { background: rgba(255,80,80,0.1);  color: var(--red);    border: 1px solid rgba(255,80,80,0.2); }
-.badge-spoof   { background: rgba(255,107,53,0.1); color: var(--orange); border: 1px solid rgba(255,107,53,0.2); }
+.badge-success  { background: rgba(0,245,196,0.1);   color: var(--cyan);   border: 1px solid rgba(0,245,196,0.2); }
+.badge-failed   { background: rgba(255,80,80,0.1);    color: var(--red);    border: 1px solid rgba(255,80,80,0.2); }
+.badge-spoof    { background: rgba(255,107,53,0.1);   color: var(--orange); border: 1px solid rgba(255,107,53,0.2); }
+.badge-pending  { background: rgba(245,196,0,0.1);    color: var(--yellow); border: 1px solid rgba(245,196,0,0.2); }
+.badge-active   { background: rgba(0,245,196,0.1);    color: var(--cyan);   border: 1px solid rgba(0,245,196,0.2); }
+.badge-suspended{ background: rgba(255,80,80,0.1);    color: var(--red);    border: 1px solid rgba(255,80,80,0.2); }
 
 .btn-delete {
   background: transparent;
@@ -270,18 +282,55 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 }
 .btn-delete:hover { background: rgba(255,80,80,0.1); border-color: var(--red); }
 
+.btn-approve {
+  background: transparent;
+  border: 1px solid rgba(0,245,196,0.3);
+  color: var(--cyan); padding: 4px 10px;
+  border-radius: 6px; font-size: 0.75rem;
+  cursor: pointer; transition: background 0.2s;
+  margin-right: 6px;
+}
+.btn-approve:hover { background: rgba(0,245,196,0.1); }
+
+.btn-suspend {
+  background: transparent;
+  border: 1px solid rgba(255,80,80,0.3);
+  color: var(--red); padding: 4px 10px;
+  border-radius: 6px; font-size: 0.75rem;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-suspend:hover { background: rgba(255,80,80,0.1); }
+
+.btn-reactivate {
+  background: transparent;
+  border: 1px solid rgba(74,158,255,0.3);
+  color: var(--blue); padding: 4px 10px;
+  border-radius: 6px; font-size: 0.75rem;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-reactivate:hover { background: rgba(74,158,255,0.1); }
+
 .table-footer {
   padding: 12px 16px;
   font-size: 0.75rem; color: var(--muted);
   border-top: 1px solid var(--border);
 }
 
+/* Pending badge on tab */
+.pending-count {
+  display: inline-block;
+  background: var(--yellow); color: var(--black);
+  font-size: 0.6rem; font-weight: 700;
+  padding: 1px 6px; border-radius: 100px;
+  margin-left: 6px; vertical-align: middle;
+}
+
 /* Modal */
 .modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.7);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 200; display: none;
+  display: none; align-items: center; justify-content: center;
+  z-index: 200;
 }
 .modal-overlay.visible { display: flex; }
 .modal {
@@ -323,20 +372,35 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   margin: 0 auto 12px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 32px; right: 32px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 20px;
+  font-size: 0.85rem; z-index: 999;
+  transform: translateY(80px); opacity: 0;
+  transition: transform 0.3s, opacity 0.3s;
+  pointer-events: none;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.toast-success { border-color: rgba(0,245,196,0.4); color: var(--cyan); }
+#toast.toast-error   { border-color: rgba(255,80,80,0.4);  color: var(--red); }
 </style>
 </head>
 <body>
 <div class="grid-bg"></div>
+<div id="toast"></div>
 
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
     <div class="logo">Face<span>Attend</span></div>
-    <h2>Admin Dashboard</h2>
+    <h2>Dashboard</h2>
     <p>Sign in with your admin account to continue</p>
     <div class="form-group">
       <label>Email</label>
-      <input type="email" id="login-email" placeholder="admin@faceattend.app" autocomplete="off"/>
+      <input type="email" id="login-email" placeholder="admin@university.edu" autocomplete="off"/>
     </div>
     <div class="form-group">
       <label>Password</label>
@@ -362,8 +426,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 <!-- DASHBOARD -->
 <div id="dashboard-screen">
   <nav>
-    <div class="nav-logo">Face<span>Attend</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:400;margin-left:8px;">ADMIN</span></div>
+    <div class="nav-logo">Face<span>Attend</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:400;margin-left:8px;">DASHBOARD</span></div>
     <div class="nav-right">
+      <span class="nav-superadmin" id="nav-superadmin" style="display:none">⚡ Super Admin</span>
       <span class="nav-inst" id="nav-inst" style="display:none"></span>
       <span class="nav-user" id="nav-user"></span>
       <button class="btn-logout" onclick="logout()">Sign Out</button>
@@ -375,8 +440,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="loading"><div class="spinner"></div>Loading...</div>
     </div>
 
-    <!-- Tabs -->
-    <div class="tabs">
+    <!-- Tabs — Admin tab injected dynamically for super admins -->
+    <div class="tabs" id="tabs">
       <button class="tab-btn active" onclick="switchTab('attendance')">Attendance Records</button>
       <button class="tab-btn" onclick="switchTab('students')">Students</button>
     </div>
@@ -410,6 +475,22 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <div class="loading"><div class="spinner"></div>Loading students...</div>
       </div>
     </div>
+
+    <!-- Super Admin Tab (injected if is_super_admin) -->
+    <div class="tab-panel" id="tab-superadmin">
+      <div class="filters" style="margin-bottom:20px;">
+        <select id="filter-inst-status" onchange="loadInstitutions()">
+          <option value="">All Institutions</option>
+          <option value="pending">Pending</option>
+          <option value="active">Active</option>
+          <option value="suspended">Suspended</option>
+        </select>
+        <button class="btn-refresh" onclick="loadInstitutions()">↺ Refresh</button>
+      </div>
+      <div class="table-wrap" id="institutions-table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading institutions...</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -425,21 +506,35 @@ const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentToken         = null;
 let currentInstitutionId = null;
+let isSuperAdmin         = false;
 let allRecords           = [];
 let pendingDeleteId      = null;
 let pendingDeleteName    = null;
 
-// ── Tab switching ──────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    b.classList.toggle('active', (i === 0 && tab === 'attendance') || (i === 1 && tab === 'students'));
-  });
-  document.getElementById('tab-attendance').classList.toggle('active', tab === 'attendance');
-  document.getElementById('tab-students').classList.toggle('active', tab === 'students');
-  if (tab === 'students') loadStudents();
+// ── Toast ─────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `show toast-${type}`;
+  setTimeout(() => { t.className = ''; }, 3000);
 }
 
-// ── Auto-login from Flutter WebView token injection ──────────────────────
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+  const tabMap = { attendance: 0, students: 1, superadmin: 2 };
+  const btns = document.querySelectorAll('.tab-btn');
+  const idx = tabMap[tab];
+  if (btns[idx]) btns[idx].classList.add('active');
+  document.getElementById(`tab-${tab}`)?.classList.add('active');
+
+  if (tab === 'students')   loadStudents();
+  if (tab === 'superadmin') loadInstitutions();
+}
+
+// ── Auto-login from Flutter WebView token injection ───────────────────────
 async function autoLoginWithToken(accessToken, refreshToken) {
   if (!accessToken) return;
   try {
@@ -447,23 +542,19 @@ async function autoLoginWithToken(accessToken, refreshToken) {
       access_token:  accessToken,
       refresh_token: refreshToken,
     });
-    if (data?.session) {
-      await initDashboard(data.session);
-    }
+    if (data?.session) await initDashboard(data.session);
   } catch (e) {
     console.error('Auto-login failed:', e);
   }
 }
 
-// ── Check existing session on page load ─────────────────────────────────
+// ── Check existing session on page load ──────────────────────────────────
 window.addEventListener('load', async () => {
   const { data: { session } } = await client.auth.getSession();
-  if (session) {
-    await initDashboard(session);
-  }
+  if (session) await initDashboard(session);
 });
 
-// ── Manual login ─────────────────────────────────────────────────────────
+// ── Manual login ──────────────────────────────────────────────────────────
 async function login() {
   const emailEl    = document.getElementById('login-email');
   const passwordEl = document.getElementById('login-password');
@@ -472,10 +563,7 @@ async function login() {
   const btn        = document.getElementById('login-btn');
   const errEl      = document.getElementById('login-error');
 
-  if (!email || !password) {
-    showLoginError("Please enter email and password.");
-    return;
-  }
+  if (!email || !password) { showLoginError("Please enter email and password."); return; }
 
   btn.disabled    = true;
   btn.textContent = 'Signing in...';
@@ -490,7 +578,6 @@ async function login() {
     return;
   }
 
-  // Check is_admin
   const { data: profile } = await client
     .from('profiles')
     .select('is_admin')
@@ -505,7 +592,6 @@ async function login() {
     return;
   }
 
-  // ✅ Clear fields after successful login
   emailEl.value    = '';
   passwordEl.value = '';
   btn.disabled     = false;
@@ -520,41 +606,85 @@ function showLoginError(msg) {
   el.style.display = 'block';
 }
 
-// ── Init dashboard ───────────────────────────────────────────────────────
+// ── Init dashboard ────────────────────────────────────────────────────────
 async function initDashboard(session) {
   currentToken = session.access_token;
 
   const { data: profile } = await client
     .from('profiles')
-    .select('institution_id')
+    .select('institution_id, is_super_admin')
     .eq('id', session.user.id)
     .single();
 
   currentInstitutionId = profile?.institution_id || null;
+  isSuperAdmin         = profile?.is_super_admin === true;
 
-  // ✅ Switch screens without refresh
   document.getElementById('login-screen').style.display    = 'none';
   document.getElementById('dashboard-screen').style.display = 'block';
   document.getElementById('nav-user').textContent = session.user.email;
 
-  if (currentInstitutionId) {
+  // Show super admin badge or institution badge
+  if (isSuperAdmin) {
+    document.getElementById('nav-superadmin').style.display = 'inline-block';
+  } else if (currentInstitutionId) {
     const instEl = document.getElementById('nav-inst');
-    instEl.textContent    = currentInstitutionId;
-    instEl.style.display  = 'inline-block';
+    instEl.textContent   = currentInstitutionId;
+    instEl.style.display = 'inline-block';
     document.getElementById('filter-inst').style.display = 'none';
   }
 
+  // Inject super admin tab if applicable
+  if (isSuperAdmin) {
+    const tabs = document.getElementById('tabs');
+    const adminTabBtn = document.createElement('button');
+    adminTabBtn.className   = 'tab-btn superadmin-tab';
+    adminTabBtn.id          = 'tab-btn-superadmin';
+    adminTabBtn.onclick     = () => switchTab('superadmin');
+    adminTabBtn.innerHTML   = '⚡ Admin <span class="pending-count" id="pending-count" style="display:none">0</span>';
+    tabs.appendChild(adminTabBtn);
+  }
+
   await loadData();
+  if (isSuperAdmin) await fetchPendingCount();
 }
 
-// ── Logout ───────────────────────────────────────────────────────────────
+// ── Pending count badge ───────────────────────────────────────────────────
+async function fetchPendingCount() {
+  try {
+    const resp = await fetch(`${DAZZLING_URL}/admin/institutions?status=pending`, {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const count = data.count || 0;
+    const badge = document.getElementById('pending-count');
+    if (badge && count > 0) {
+      badge.textContent    = count;
+      badge.style.display  = 'inline-block';
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ── Logout ────────────────────────────────────────────────────────────────
 async function logout() {
   await client.auth.signOut();
   currentToken         = null;
   currentInstitutionId = null;
+  isSuperAdmin         = false;
   allRecords           = [];
 
-  // ✅ Clear fields on logout so next user sees empty form
+  // Remove injected super admin tab button if present
+  const adminBtn = document.getElementById('tab-btn-superadmin');
+  if (adminBtn) adminBtn.remove();
+
+  // Reset tabs
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', i === 0));
+
+  document.getElementById('nav-superadmin').style.display = 'none';
+  document.getElementById('nav-inst').style.display       = 'none';
+  document.getElementById('filter-inst').style.display    = '';
+
   document.getElementById('login-email').value    = '';
   document.getElementById('login-password').value = '';
   document.getElementById('login-error').style.display = 'none';
@@ -563,7 +693,7 @@ async function logout() {
   document.getElementById('dashboard-screen').style.display = 'none';
 }
 
-// ── Load data ────────────────────────────────────────────────────────────
+// ── Load attendance data ──────────────────────────────────────────────────
 async function loadData() {
   if (!currentToken) return;
   const headers = { 'Authorization': `Bearer ${currentToken}` };
@@ -630,10 +760,10 @@ async function loadData() {
   }
 }
 
-// ── Load students tab ────────────────────────────────────────────────────
+// ── Load students ─────────────────────────────────────────────────────────
 async function loadStudents() {
   if (!currentToken) return;
-  const headers  = { 'Authorization': `Bearer ${currentToken}` };
+  const headers   = { 'Authorization': `Bearer ${currentToken}` };
   const instQuery = currentInstitutionId ? `?institution_id=${currentInstitutionId}` : '';
 
   document.getElementById('students-table-wrap').innerHTML =
@@ -667,10 +797,7 @@ async function loadStudents() {
       <table>
         <thead>
           <tr>
-            <th>Student ID</th>
-            <th>Name</th>
-            <th>Institution</th>
-            <th>Action</th>
+            <th>Student ID</th><th>Name</th><th>Institution</th><th>Action</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -683,7 +810,107 @@ async function loadStudents() {
   }
 }
 
-// ── Delete modal ─────────────────────────────────────────────────────────
+// ── Load institutions (super admin only) ──────────────────────────────────
+async function loadInstitutions() {
+  if (!currentToken || !isSuperAdmin) return;
+  const statusFilter = document.getElementById('filter-inst-status').value;
+  const query        = statusFilter ? `?status=${statusFilter}` : '';
+
+  document.getElementById('institutions-table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Loading institutions...</div>';
+
+  try {
+    const resp = await fetch(`${DAZZLING_URL}/admin/institutions${query}`, {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+    const data = resp.ok ? await resp.json() : { institutions: [] };
+    const institutions = data.institutions || [];
+
+    if (!institutions.length) {
+      document.getElementById('institutions-table-wrap').innerHTML =
+        '<div class="loading">No institutions found.</div>';
+      return;
+    }
+
+    const rows = institutions.map(inst => {
+      const statusBadge =
+        inst.status === 'active'    ? '<span class="badge badge-active">Active</span>'    :
+        inst.status === 'pending'   ? '<span class="badge badge-pending">Pending</span>'  :
+        inst.status === 'suspended' ? '<span class="badge badge-suspended">Suspended</span>' : '—';
+
+      let actions = '';
+      if (inst.status === 'pending') {
+        actions = `
+          <button class="btn-approve"  onclick="updateInstStatus('${inst.id}', 'active')">Approve</button>
+          <button class="btn-suspend"  onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>
+        `;
+      } else if (inst.status === 'active') {
+        actions = `<button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>`;
+      } else if (inst.status === 'suspended') {
+        actions = `<button class="btn-reactivate" onclick="updateInstStatus('${inst.id}', 'active')">Reactivate</button>`;
+      }
+
+      return `
+        <tr>
+          <td><strong>${inst.id}</strong></td>
+          <td>${inst.name || '—'}</td>
+          <td style="color:var(--muted)">${inst.admin_email || '—'}</td>
+          <td>${inst.plan || '—'}</td>
+          <td>${statusBadge}</td>
+          <td>${actions}</td>
+        </tr>
+      `;
+    }).join('');
+
+    document.getElementById('institutions-table-wrap').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>Name</th><th>Admin Email</th><th>Plan</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="table-footer">${institutions.length} institution${institutions.length !== 1 ? 's' : ''}</div>
+    `;
+  } catch (e) {
+    document.getElementById('institutions-table-wrap').innerHTML =
+      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+// ── Update institution status ─────────────────────────────────────────────
+async function updateInstStatus(institutionId, newStatus) {
+  if (!currentToken || !isSuperAdmin) return;
+
+  const actionLabel = newStatus === 'active' ? 'Approving' : newStatus === 'suspended' ? 'Suspending' : 'Updating';
+  showToast(`${actionLabel} ${institutionId}...`, 'success');
+
+  try {
+    const formData = new FormData();
+    formData.append('status', newStatus);
+
+    const resp = await fetch(`${DAZZLING_URL}/admin/institutions/${institutionId}/status`, {
+      method:  'PATCH',
+      headers: { 'Authorization': `Bearer ${currentToken}` },
+      body:    formData,
+    });
+
+    if (resp.ok) {
+      const label = newStatus === 'active' ? 'approved' : newStatus === 'suspended' ? 'suspended' : 'updated';
+      showToast(`✓ ${institutionId} ${label}`, 'success');
+      await loadInstitutions();
+      await fetchPendingCount();
+    } else {
+      const err = await resp.json();
+      showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Error: ${e.message}`, 'error');
+  }
+}
+
+// ── Delete modal ──────────────────────────────────────────────────────────
 function openDeleteModal(studentId, studentName) {
   pendingDeleteId   = studentId;
   pendingDeleteName = studentName;
@@ -700,30 +927,29 @@ function closeDeleteModal() {
 
 async function confirmDelete() {
   if (!pendingDeleteId || !currentToken) return;
-
-  const studentId   = pendingDeleteId;
-  const studentName = pendingDeleteName;
+  const studentId = pendingDeleteId;
   closeDeleteModal();
 
   try {
     const resp = await fetch(`${DAZZLING_URL}/students/${studentId}`, {
-      method: 'DELETE',
+      method:  'DELETE',
       headers: { 'Authorization': `Bearer ${currentToken}` },
     });
 
     if (resp.ok) {
+      showToast('Student deleted', 'success');
       await loadStudents();
-      await loadData(); // refresh metrics too
+      await loadData();
     } else {
       const err = await resp.json();
-      alert(`Failed to delete: ${err.detail || 'Unknown error'}`);
+      showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
     }
   } catch (e) {
-    alert(`Error: ${e.message}`);
+    showToast(`Error: ${e.message}`, 'error');
   }
 }
 
-// ── Filters ──────────────────────────────────────────────────────────────
+// ── Filters ───────────────────────────────────────────────────────────────
 function applyFilters() {
   const inst   = document.getElementById('filter-inst').value;
   const status = document.getElementById('filter-status').value;
@@ -745,7 +971,7 @@ function renderTable(records) {
     const ts   = r.timestamp
       ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })
       : '—';
-    const conf = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
+    const conf  = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
     const badge = r.verified === 'success'
       ? '<span class="badge badge-success">Success</span>'
       : r.verified === 'spoof'
@@ -765,11 +991,7 @@ function renderTable(records) {
     <table>
       <thead>
         <tr>
-          <th>Student ID</th>
-          <th>Status</th>
-          <th>Confidence</th>
-          <th>Institution</th>
-          <th>Time (EAT)</th>
+          <th>Student ID</th><th>Status</th><th>Confidence</th><th>Institution</th><th>Time (EAT)</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
