@@ -584,7 +584,10 @@ async function login() {
     .eq('id', data.user.id)
     .single();
 
-  if (!profile || !(profile.is_admin || profile.is_super_admin)) {
+  const isAdmin = profile && (profile.is_admin === true || profile.is_admin === 'true');
+  const isSuperAdmin = profile && (profile.is_super_admin === true || profile.is_super_admin === 'true');
+
+  if (!profile || !(isAdmin || isSuperAdmin)) {
     showLoginError("Access denied. Admin account required.");
     await client.auth.signOut();
     btn.disabled    = false;

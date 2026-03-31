@@ -82,7 +82,19 @@ async def check_admin(authorization: str = Header(None)):
         user_id = user_response.user.id
         resp = supabase_admin.table("profiles").select("is_admin, is_super_admin, institution_id") \
             .eq("id", user_id).limit(1).execute()
-        if not resp.data or not (resp.data[0].get("is_admin") or resp.data[0].get("is_super_admin")):
+
+        def _bool_flag(value):
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                return value.lower() in ("true", "1", "yes")
+            return bool(value)
+
+        profile_data = resp.data[0] if resp.data else None
+        is_admin = _bool_flag(profile_data.get("is_admin") if profile_data else None)
+        is_super_admin = _bool_flag(profile_data.get("is_super_admin") if profile_data else None)
+
+        if not profile_data or not (is_admin or is_super_admin):
             raise HTTPException(status_code=403, detail="Admin access required")
 
         # ✅ Check institution status
