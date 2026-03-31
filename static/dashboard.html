@@ -637,14 +637,16 @@ async function initDashboard(session) {
     document.getElementById('filter-inst').style.display = 'none';
   }
 
-  // Inject super admin tab if applicable
-  if (isSuperAdmin) {
+  // Inject admin institution tab for super admins and institution admins
+  if (isSuperAdmin || currentInstitutionId) {
     const tabs = document.getElementById('tabs');
     const adminTabBtn = document.createElement('button');
     adminTabBtn.className   = 'tab-btn superadmin-tab';
     adminTabBtn.id          = 'tab-btn-superadmin';
     adminTabBtn.onclick     = () => switchTab('superadmin');
-    adminTabBtn.innerHTML   = '⚡ Admin <span class="pending-count" id="pending-count" style="display:none">0</span>';
+    adminTabBtn.innerHTML   = isSuperAdmin ?
+      '⚡ Admin <span class="pending-count" id="pending-count" style="display:none">0</span>' :
+      '🏢 Institution';
     tabs.appendChild(adminTabBtn);
   }
 
@@ -816,9 +818,15 @@ async function loadStudents() {
 
 // ── Load institutions (super admin only) ──────────────────────────────────
 async function loadInstitutions() {
-  if (!currentToken || !isSuperAdmin) return;
+  if (!currentToken) return;
+  // Super admins see all institutions; regular institution admins see only their own
+  if (!isSuperAdmin && !currentInstitutionId) return;
+
   const statusFilter = document.getElementById('filter-inst-status').value;
-  const query        = statusFilter ? `?status=${statusFilter}` : '';
+  const filterQuery  = statusFilter ? `status=${statusFilter}` : '';
+  const instQuery    = !isSuperAdmin && currentInstitutionId ? `institution_id=${currentInstitutionId}` : '';
+  const sep          = filterQuery && instQuery ? '&' : '';
+  const query        = filterQuery || instQuery ? `?${filterQuery}${sep}${instQuery}` : '';
 
   document.getElementById('institutions-table-wrap').innerHTML =
     '<div class="loading"><div class="spinner"></div>Loading institutions...</div>';
