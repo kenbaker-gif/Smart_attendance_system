@@ -390,6 +390,179 @@ async def get_summary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Coordinator invite ─────────────────────────────────────────────────────
+
+@app.post("/invite-coordinator")
+async def invite_coordinator(
+    full_name:      str = Form(...),
+    email:          str = Form(...),
+    institution_id: str = Form(default=None),  # required for super admins
+    user=Depends(check_admin),
+):
+    profile_resp = supabase_admin.table("profiles") \
+        .select("institution_id, is_super_admin") \
+        .eq("id", user.id).single().execute()
+
+    profile = profile_resp.data
+    if not profile:
+        raise HTTPException(status_code=403, detail="Admin profile not found.")
+
+    is_super_admin   = _bool_flag(profile.get("is_super_admin"))
+    user_institution = profile.get("institution_id")
+
+    # Super admins must pass institution_id explicitly
+    if is_super_admin:
+        if not institution_id or not institution_id.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Super admins must provide institution_id when inviting a coordinator."
+            )
+        target_institution = institution_id.strip()
+    else:
+        if not user_institution:
+            raise HTTPException(status_code=400, detail="Your admin account is not linked to an institution.")
+        target_institution = user_institution
+
+    full_name = full_name.strip()
+    email     = email.strip().lower()
+
+    if not full_name:
+        raise HTTPException(status_code=400, detail="full_name cannot be empty.")
+    if not email or not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
+        raise HTTPException(status_code=400, detail="Invalid email address.")
+
+    try:
+        auth_response = supabase_admin.auth.admin.invite_user_by_email(
+            email,
+            options={
+                "data": {
+                    "full_name":      full_name,
+                    "institution_id": target_institution,
+                    "role":           "coordinator",
+                },
+                "redirect_to": f"{APP_URL}/set-password",
+            }
+        )
+        coordinator_user_id = auth_response.user.id
+    except Exception as e:
+        error_msg = str(e)
+        if "already registered" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=409, detail="This email is already registered.")
+        raise HTTPException(status_code=500, detail=f"Invite failed: {error_msg}")
+
+    try:
+        supabase_admin.table("profiles").insert({
+            "id":             coordinator_user_id,
+            "full_name":      full_name,
+            "institution_id": target_institution,
+            "is_admin":       False,
+            "is_super_admin": False,
+            "role":           "coordinator",
+        }).execute()
+    except Exception as e:
+        try:
+            supabase_admin.auth.admin.delete_user(coordinator_user_id)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Profile creation failed: {str(e)}")
+
+    return {
+        "success":        True,
+        "coordinator_id": coordinator_user_id,
+        "full_name":      full_name,
+        "email":          email,
+        "institution_id": target_institution,
+        "message":        f"Invite sent to {email}. They will receive an email to set their password.",
+    }
+
+
+# ── List coordinators ──────────────────────────────────────────────────────
+
+@app.get("/coordinators")
+async def list_coordinators(
+    institution_id: str = None,
+    user=Depends(check_admin),
+):
+    profile_resp = supabase_admin.table("profiles") \
+        .select("institution_id, is_super_admin") \
+        .eq("id", user.id).single().execute()
+
+    profile = profile_resp.data
+    if not profile:
+        raise HTTPException(status_code=403, detail="Admin profile not found.")
+
+    is_super_admin   = _bool_flag(profile.get("is_super_admin"))
+    user_institution = profile.get("institution_id")
+
+    try:
+        query = supabase_admin.table("profiles") \
+            .select("id, full_name, role, institution_id, created_at") \
+            .eq("role", "coordinator") \
+            .order("created_at", desc=True)
+
+        if is_super_admin:
+            # Super admin can filter by institution or see all
+            if institution_id:
+                query = query.eq("institution_id", institution_id)
+        else:
+            if not user_institution:
+                raise HTTPException(status_code=400, detail="Admin not linked to an institution.")
+            query = query.eq("institution_id", user_institution)
+
+        resp = query.execute()
+        coordinators = resp.data or []
+        return {"coordinators": coordinators, "count": len(coordinators)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Remove coordinator ─────────────────────────────────────────────────────
+
+@app.delete("/coordinators/{coordinator_id}")
+async def remove_coordinator(
+    coordinator_id: str,
+    user=Depends(check_admin),
+):
+    profile_resp = supabase_admin.table("profiles") \
+        .select("institution_id, is_super_admin") \
+        .eq("id", user.id).single().execute()
+
+    profile = profile_resp.data
+    if not profile:
+        raise HTTPException(status_code=403, detail="Admin profile not found.")
+
+    is_super_admin   = _bool_flag(profile.get("is_super_admin"))
+    user_institution = profile.get("institution_id")
+
+    # Verify the target is actually a coordinator
+    coord_resp = supabase_admin.table("profiles") \
+        .select("institution_id, role") \
+        .eq("id", coordinator_id).limit(1).execute()
+
+    coord = coord_resp.data[0] if coord_resp.data else None
+    if not coord:
+        raise HTTPException(status_code=404, detail="Coordinator not found.")
+    if coord.get("role") != "coordinator":
+        raise HTTPException(status_code=400, detail="Target user is not a coordinator.")
+
+    # Institution admins can only remove coordinators from their own institution
+    if not is_super_admin and coord.get("institution_id") != user_institution:
+        raise HTTPException(status_code=403, detail="Coordinator does not belong to your institution.")
+
+    try:
+        supabase_admin.table("profiles").delete().eq("id", coordinator_id).execute()
+        supabase_admin.auth.admin.delete_user(coordinator_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Removal failed: {str(e)}")
+
+    return {
+        "success":    True,
+        "removed_id": coordinator_id,
+    }
+
+
 # ── Institution registration (intentionally public) ────────────────────────
 
 def generate_institution_id(name: str) -> str:
