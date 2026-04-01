@@ -74,7 +74,7 @@ label {
   color: var(--muted); letter-spacing: 0.1em;
   text-transform: uppercase; margin-bottom: 8px;
 }
-input[type="email"], input[type="password"] {
+input[type="email"], input[type="password"], input[type="text"] {
   width: 100%; background: var(--black);
   border: 1px solid var(--border); border-radius: 8px;
   padding: 12px 16px; color: var(--white);
@@ -241,6 +241,23 @@ select:focus { border-color: var(--cyan); }
   cursor: pointer; margin-left: auto;
 }
 
+/* Invite button — mirrors btn-export but blue tint */
+.btn-invite {
+  background: transparent;
+  border: 1px solid rgba(0,245,196,0.4);
+  color: var(--cyan); padding: 8px 18px;
+  border-radius: 8px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 0.8rem;
+  cursor: pointer; margin-left: auto;
+  transition: background 0.2s, border-color 0.2s;
+  letter-spacing: 0.04em;
+}
+.btn-invite:hover {
+  background: rgba(0,245,196,0.08);
+  border-color: var(--cyan);
+}
+
 /* Table */
 .table-wrap {
   background: var(--surface);
@@ -273,6 +290,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .badge-pending  { background: rgba(245,196,0,0.1);    color: var(--yellow); border: 1px solid rgba(245,196,0,0.2); }
 .badge-active   { background: rgba(0,245,196,0.1);    color: var(--cyan);   border: 1px solid rgba(0,245,196,0.2); }
 .badge-suspended{ background: rgba(255,80,80,0.1);    color: var(--red);    border: 1px solid rgba(255,80,80,0.2); }
+.badge-coord    { background: rgba(74,158,255,0.1);   color: var(--blue);   border: 1px solid rgba(74,158,255,0.2); }
 
 .btn-delete {
   background: transparent;
@@ -359,6 +377,45 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   font-weight: 700; font-size: 0.85rem;
 }
 
+/* Invite modal — wider, has a form inside */
+#invite-modal .modal {
+  max-width: 420px;
+}
+#invite-modal .modal p {
+  margin-bottom: 20px;
+}
+.invite-form .form-group { margin-bottom: 16px; }
+.invite-form label {
+  display: block; font-size: 0.72rem;
+  color: var(--muted); letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.invite-form input {
+  width: 100%; background: var(--black);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 14px; color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.9rem; outline: none;
+  transition: border-color 0.2s;
+}
+.invite-form input:focus { border-color: var(--cyan); }
+.btn-send-invite {
+  background: var(--cyan); border: none;
+  color: var(--black); padding: 11px 22px;
+  border-radius: 8px; cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 0.85rem;
+  transition: opacity 0.2s;
+}
+.btn-send-invite:disabled { opacity: 0.5; cursor: not-allowed; }
+.invite-error {
+  background: rgba(255,80,80,0.08);
+  border: 1px solid rgba(255,80,80,0.2);
+  color: var(--red); border-radius: 8px;
+  padding: 10px 14px; font-size: 0.82rem;
+  margin-top: 12px; display: none;
+}
+
 /* Loading */
 .loading {
   text-align: center; padding: 48px;
@@ -424,6 +481,41 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
 </div>
 
+<!-- REMOVE COORDINATOR CONFIRM MODAL -->
+<div class="modal-overlay" id="remove-coord-modal">
+  <div class="modal">
+    <h3>Remove Coordinator</h3>
+    <p id="remove-coord-modal-msg">Are you sure? This coordinator will lose dashboard access immediately.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeRemoveCoordModal()">Cancel</button>
+      <button class="btn-confirm-delete" onclick="confirmRemoveCoord()">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVITE COORDINATOR MODAL -->
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal">
+    <h3>Invite Coordinator</h3>
+    <p>They'll receive an email to set their password and will be able to take attendance for your institution.</p>
+    <div class="invite-form">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="invite-name" placeholder="e.g. Sarah Nakato" autocomplete="off"/>
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="invite-email" placeholder="coordinator@university.edu" autocomplete="off"/>
+      </div>
+      <div class="invite-error" id="invite-error"></div>
+    </div>
+    <div class="modal-actions" style="margin-top:24px;">
+      <button class="btn-cancel" onclick="closeInviteModal()">Cancel</button>
+      <button class="btn-send-invite" id="send-invite-btn" onclick="sendInvite()">Send Invite</button>
+    </div>
+  </div>
+</div>
+
 <!-- DASHBOARD -->
 <div id="dashboard-screen">
   <nav>
@@ -441,7 +533,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="loading"><div class="spinner"></div>Loading...</div>
     </div>
 
-    <!-- Tabs — Admin tab injected dynamically for super admins -->
+    <!-- Tabs — Team tab injected for institution admins; Institutions tab for super admins -->
     <div class="tabs" id="tabs">
       <button class="tab-btn active" onclick="switchTab('attendance')">Attendance Records</button>
       <button class="tab-btn" onclick="switchTab('students')">Students</button>
@@ -474,6 +566,20 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </div>
       <div class="table-wrap" id="students-table-wrap">
         <div class="loading"><div class="spinner"></div>Loading students...</div>
+      </div>
+    </div>
+
+    <!-- Team Tab (all admins) -->
+    <div class="tab-panel" id="tab-team">
+      <div class="filters">
+        <select id="filter-team-inst" onchange="loadCoordinators()" style="display:none">
+          <option value="">All Institutions</option>
+        </select>
+        <button class="btn-refresh" onclick="loadCoordinators()">↺ Refresh</button>
+        <button class="btn-invite" onclick="openInviteModal()">+ Invite Coordinator</button>
+      </div>
+      <div class="table-wrap" id="team-table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading team...</div>
       </div>
     </div>
 
@@ -511,6 +617,8 @@ let isSuperAdmin         = false;
 let allRecords           = [];
 let pendingDeleteId      = null;
 let pendingDeleteName    = null;
+let pendingRemoveCoordId = null;
+let pendingRemoveCoordName = null;
 
 // ── Toast ─────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -525,14 +633,13 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
 
-  const tabMap = { attendance: 0, students: 1, superadmin: 2 };
-  const btns = document.querySelectorAll('.tab-btn');
-  const idx = tabMap[tab];
-  if (btns[idx]) btns[idx].classList.add('active');
+  const btn = document.getElementById(`tab-btn-${tab}`);
+  if (btn) btn.classList.add('active');
   document.getElementById(`tab-${tab}`)?.classList.add('active');
 
   if (tab === 'students')   loadStudents();
   if (tab === 'superadmin') loadInstitutions();
+  if (tab === 'team')       loadCoordinators();
 }
 
 // ── Auto-login from Flutter WebView token injection ───────────────────────
@@ -585,7 +692,6 @@ async function login() {
     .eq('id', data.user.id)
     .single();
 
-  // ── FIX: use distinct local variable names to avoid shadowing the global isSuperAdmin ──
   const isAdmin           = profile && (profile.is_admin === true || profile.is_admin === 'true');
   const isSuperAdminCheck = profile && (profile.is_super_admin === true || profile.is_super_admin === 'true');
 
@@ -621,18 +727,17 @@ async function initDashboard(session) {
     .eq('id', session.user.id)
     .single();
 
-    console.log('Profile:', profile);           // ← add this
-    console.log('is_super_admin:', profile?.is_super_admin);  // ← and this
+  console.log('Profile:', profile);
+  console.log('is_super_admin:', profile?.is_super_admin);
 
   currentInstitutionId = profile?.institution_id || null;
   isSuperAdmin         = profile?.is_super_admin === true;
-  console.log('isSuperAdmin flag:', isSuperAdmin);  // ← and this
+  console.log('isSuperAdmin flag:', isSuperAdmin);
 
   document.getElementById('login-screen').style.display    = 'none';
   document.getElementById('dashboard-screen').style.display = 'block';
   document.getElementById('nav-user').textContent = session.user.email;
 
-  // Show super admin badge or institution badge
   if (isSuperAdmin) {
     document.getElementById('nav-superadmin').style.display = 'inline-block';
   } else if (currentInstitutionId) {
@@ -642,7 +747,38 @@ async function initDashboard(session) {
     document.getElementById('filter-inst').style.display = 'none';
   }
 
-  // Inject institutions tab for super admins only
+  // Give each static tab a stable id for switchTab()
+  const staticBtns = document.querySelectorAll('#tabs .tab-btn');
+  staticBtns[0].id = 'tab-btn-attendance';
+  staticBtns[1].id = 'tab-btn-students';
+
+  // Inject Team tab for all admins
+  {
+    const tabs = document.getElementById('tabs');
+    const teamBtn = document.createElement('button');
+    teamBtn.className   = 'tab-btn';
+    teamBtn.id          = 'tab-btn-team';
+    teamBtn.onclick     = () => switchTab('team');
+    teamBtn.textContent = 'Team';
+    tabs.appendChild(teamBtn);
+
+    // Show institution filter in Team tab for super admins
+    if (isSuperAdmin) {
+      const teamInstFilter = document.getElementById('filter-team-inst');
+      teamInstFilter.style.display = '';
+      // Populate with institutions already fetched (or fetch on demand)
+      fetch(`${DAZZLING_URL}/admin/institutions`, {
+        headers: { 'Authorization': `Bearer ${currentToken}` }
+      }).then(r => r.json()).then(data => {
+        const insts = data.institutions || [];
+        teamInstFilter.innerHTML =
+          '<option value="">All Institutions</option>' +
+          insts.map(i => `<option value="${i.id}">${i.id} — ${i.name}</option>`).join('');
+      }).catch(() => {});
+    }
+  }
+
+  // Inject Institutions tab for super admins
   if (isSuperAdmin) {
     const tabs = document.getElementById('tabs');
     const adminTabBtn = document.createElement('button');
@@ -682,9 +818,10 @@ async function logout() {
   isSuperAdmin         = false;
   allRecords           = [];
 
-  // Remove injected super admin tab button if present
-  const adminBtn = document.getElementById('tab-btn-superadmin');
-  if (adminBtn) adminBtn.remove();
+  // Remove injected tabs
+  ['tab-btn-team', 'tab-btn-superadmin'].forEach(id => {
+    document.getElementById(id)?.remove();
+  });
 
   // Reset tabs
   document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
@@ -819,10 +956,188 @@ async function loadStudents() {
   }
 }
 
+// ── Load coordinators (Team tab) ──────────────────────────────────────────
+async function loadCoordinators() {
+  if (!currentToken) return;
+
+  document.getElementById('team-table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Loading team...</div>';
+
+  try {
+    const teamInstFilter = document.getElementById('filter-team-inst');
+    const teamInstVal = teamInstFilter ? teamInstFilter.value : '';
+    const teamInstQuery = teamInstVal ? `?institution_id=${teamInstVal}` : '';
+    const resp = await fetch(`${DAZZLING_URL}/coordinators${teamInstQuery}`, {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      document.getElementById('team-table-wrap').innerHTML =
+        `<div class="loading" style="color:var(--red)">${err.detail || 'Failed to load team.'}</div>`;
+      return;
+    }
+
+    const data = await resp.json();
+    const coordinators = data.coordinators || [];
+
+    if (!coordinators.length) {
+      document.getElementById('team-table-wrap').innerHTML = `
+        <div class="loading" style="padding:48px;">
+          <div style="margin-bottom:12px;font-size:1.5rem;">👥</div>
+          No coordinators yet. Invite someone to get started.
+        </div>
+      `;
+      return;
+    }
+
+    const rows = coordinators.map(c => {
+      const joined = c.created_at
+        ? new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '—';
+      const safeName = (c.full_name || '').replace(/'/g, "\\'");
+      const instCell = isSuperAdmin ? `<td style="color:var(--muted);font-size:0.8rem;">${c.institution_id || '—'}</td>` : '';
+      return `
+        <tr>
+          <td>${c.full_name || '<span style="color:var(--muted)">Pending setup</span>'}</td>
+          <td><span class="badge badge-coord">Coordinator</span></td>
+          ${instCell}
+          <td style="color:var(--muted);font-size:0.8rem;">${joined}</td>
+          <td>
+            <button class="btn-delete"
+              onclick="openRemoveCoordModal('${c.id}', '${safeName}')">
+              Remove
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    document.getElementById('team-table-wrap').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Role</th>${isSuperAdmin ? '<th>Institution</th>' : ''}<th>Added</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="table-footer">${coordinators.length} coordinator${coordinators.length !== 1 ? 's' : ''}</div>
+    `;
+  } catch (e) {
+    document.getElementById('team-table-wrap').innerHTML =
+      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+// ── Invite coordinator modal ──────────────────────────────────────────────
+function openInviteModal() {
+  document.getElementById('invite-name').value  = '';
+  document.getElementById('invite-email').value = '';
+  document.getElementById('invite-error').style.display = 'none';
+  document.getElementById('send-invite-btn').disabled   = false;
+  document.getElementById('send-invite-btn').textContent = 'Send Invite';
+  document.getElementById('invite-modal').classList.add('visible');
+  setTimeout(() => document.getElementById('invite-name').focus(), 100);
+}
+
+function closeInviteModal() {
+  document.getElementById('invite-modal').classList.remove('visible');
+}
+
+async function sendInvite() {
+  const nameEl  = document.getElementById('invite-name');
+  const emailEl = document.getElementById('invite-email');
+  const errEl   = document.getElementById('invite-error');
+  const btn     = document.getElementById('send-invite-btn');
+
+  const name  = nameEl.value.trim();
+  const email = emailEl.value.trim();
+
+  errEl.style.display = 'none';
+
+  if (!name)  { showInviteError('Please enter a full name.'); return; }
+  if (!email) { showInviteError('Please enter an email address.'); return; }
+
+  btn.disabled    = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    const formData = new FormData();
+    formData.append('full_name', name);
+    formData.append('email', email);
+
+    const resp = await fetch(`${DAZZLING_URL}/invite-coordinator`, {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${currentToken}` },
+      body:    formData,
+    });
+
+    const result = await resp.json();
+
+    if (resp.ok) {
+      closeInviteModal();
+      showToast(`✓ Invite sent to ${email}`, 'success');
+      await loadCoordinators();
+    } else {
+      showInviteError(result.detail || 'Invite failed. Please try again.');
+      btn.disabled    = false;
+      btn.textContent = 'Send Invite';
+    }
+  } catch (e) {
+    showInviteError(`Error: ${e.message}`);
+    btn.disabled    = false;
+    btn.textContent = 'Send Invite';
+  }
+}
+
+function showInviteError(msg) {
+  const el = document.getElementById('invite-error');
+  el.textContent   = msg;
+  el.style.display = 'block';
+}
+
+// ── Remove coordinator modal ──────────────────────────────────────────────
+function openRemoveCoordModal(coordId, coordName) {
+  pendingRemoveCoordId   = coordId;
+  pendingRemoveCoordName = coordName;
+  document.getElementById('remove-coord-modal-msg').textContent =
+    `Are you sure you want to remove ${coordName || 'this coordinator'}? They will lose access immediately.`;
+  document.getElementById('remove-coord-modal').classList.add('visible');
+}
+
+function closeRemoveCoordModal() {
+  pendingRemoveCoordId   = null;
+  pendingRemoveCoordName = null;
+  document.getElementById('remove-coord-modal').classList.remove('visible');
+}
+
+async function confirmRemoveCoord() {
+  if (!pendingRemoveCoordId || !currentToken) return;
+  const coordId = pendingRemoveCoordId;
+  closeRemoveCoordModal();
+
+  try {
+    const resp = await fetch(`${DAZZLING_URL}/coordinators/${coordId}`, {
+      method:  'DELETE',
+      headers: { 'Authorization': `Bearer ${currentToken}` },
+    });
+
+    if (resp.ok) {
+      showToast('Coordinator removed', 'success');
+      await loadCoordinators();
+    } else {
+      const err = await resp.json().catch(() => ({}));
+      showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Error: ${e.message}`, 'error');
+  }
+}
+
 // ── Load institutions (super admin only) ──────────────────────────────────
 async function loadInstitutions() {
   if (!currentToken) return;
-  // Super admins see all institutions; regular institution admins see only their own
   if (!isSuperAdmin && !currentInstitutionId) return;
 
   const statusFilter = document.getElementById('filter-inst-status').value;
@@ -866,8 +1181,7 @@ async function loadInstitutions() {
           actions = `<button class="btn-reactivate" onclick="updateInstStatus('${inst.id}', 'active')">Reactivate</button>`;
         }
       }
-      
-      console.log('inst:', inst.id, '| isSuperAdmin:', isSuperAdmin, '| actions:', actions); // ← add this
+
       return `
         <tr>
           <td><strong>${inst.id}</strong></td>
@@ -928,7 +1242,7 @@ async function updateInstStatus(institutionId, newStatus) {
   }
 }
 
-// ── Delete modal ──────────────────────────────────────────────────────────
+// ── Delete student modal ──────────────────────────────────────────────────
 function openDeleteModal(studentId, studentName) {
   pendingDeleteId   = studentId;
   pendingDeleteName = studentName;
