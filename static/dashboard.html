@@ -617,12 +617,17 @@ async function initDashboard(session) {
 
   const { data: profile } = await client
     .from('profiles')
+    .select('institution_id, is_super_admin, role')  // add role too
     .select('institution_id, is_super_admin')
     .eq('id', session.user.id)
     .single();
 
+    console.log('Profile:', profile);           // ← add this
+    console.log('is_super_admin:', profile?.is_super_admin);  // ← and this
+
   currentInstitutionId = profile?.institution_id || null;
   isSuperAdmin         = profile?.is_super_admin === true;
+  console.log('isSuperAdmin flag:', isSuperAdmin);  // ← and this
 
   document.getElementById('login-screen').style.display    = 'none';
   document.getElementById('dashboard-screen').style.display = 'block';
