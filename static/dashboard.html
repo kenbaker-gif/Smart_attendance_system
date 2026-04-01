@@ -643,16 +643,14 @@ async function initDashboard(session) {
     document.getElementById('filter-inst').style.display = 'none';
   }
 
-  // Inject admin institution tab for super admins and institution admins
-  if (isSuperAdmin || currentInstitutionId) {
+  // Inject institutions tab for super admins only
+  if (isSuperAdmin) {
     const tabs = document.getElementById('tabs');
     const adminTabBtn = document.createElement('button');
     adminTabBtn.className   = 'tab-btn superadmin-tab';
     adminTabBtn.id          = 'tab-btn-superadmin';
     adminTabBtn.onclick     = () => switchTab('superadmin');
-    adminTabBtn.innerHTML   = isSuperAdmin ?
-      '⚡ Admin <span class="pending-count" id="pending-count" style="display:none">0</span>' :
-      '🏢 Institution';
+    adminTabBtn.innerHTML   = '🏢 Institutions';
     tabs.appendChild(adminTabBtn);
   }
 
