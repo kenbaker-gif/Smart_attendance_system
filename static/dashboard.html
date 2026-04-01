@@ -868,6 +868,8 @@ async function loadInstitutions() {
         } else if (inst.status === 'suspended') {
           actions = `<button class="btn-reactivate" onclick="updateInstStatus('${inst.id}', 'active')">Reactivate</button>`;
         }
+
+        console.log('inst:', inst.id, '| isSuperAdmin:', isSuperAdmin, '| actions:', actions); // ← add this
       }
 
       return `
