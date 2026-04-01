@@ -667,6 +667,7 @@ async def register_institution(
             "id":             user_id,
             "is_admin":       True,
             "institution_id": inst_id,
+            "role":           "admin",   # ← add this
         }).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Profile creation failed: {str(e)}")
