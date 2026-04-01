@@ -617,8 +617,7 @@ async function initDashboard(session) {
 
   const { data: profile } = await client
     .from('profiles')
-    .select('institution_id, is_super_admin, role')  // add role too
-    .select('institution_id, is_super_admin')
+    .select('institution_id, is_super_admin, role')
     .eq('id', session.user.id)
     .single();
 
