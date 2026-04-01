@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0B1A2E"/>
+      <stop offset="100%" style="stop-color:#142334"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D4FF"/>
+      <stop offset="100%" style="stop-color:#0099CC"/>
+    </linearGradient>
+    <linearGradient id="person" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF"/>
+      <stop offset="100%" style="stop-color:#B8D9F0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" ry="100" fill="url(#bg)"/>
+
+  <!-- Subtle ring -->
+  <circle cx="230" cy="210" r="160" fill="none" stroke="#00D4FF" stroke-width="1" opacity="0.12"/>
+
+  <!-- Person head -->
+  <circle cx="230" cy="165" r="72" fill="url(#person)"/>
+
+  <!-- Person body / shoulders -->
+  <path d="M80 400 Q80 295 230 295 Q380 295 380 400 L380 430 Q380 460 350 460 L110 460 Q80 460 80 430 Z" fill="url(#person)"/>
+
+  <!-- Admin badge — bottom right -->
+  <circle cx="368" cy="364" r="88" fill="#0B1A2E"/>
+  <circle cx="368" cy="364" r="78" fill="url(#cyan)"/>
+  <circle cx="368" cy="364" r="66" fill="#0077AA"/>
+
+  <!-- Shield icon inside badge -->
+  <path d="M368 318 L340 330 L340 358 Q340 382 368 396 Q396 382 396 358 L396 330 Z" fill="white" opacity="0.95"/>
+  <!-- Shield tick -->
+  <path d="M353 360 L364 372 L386 345" stroke="#0077AA" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
