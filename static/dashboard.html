@@ -852,15 +852,17 @@ async function loadInstitutions() {
         inst.status === 'suspended' ? '<span class="badge badge-suspended">Suspended</span>' : '—';
 
       let actions = '';
-      if (inst.status === 'pending') {
-        actions = `
-          <button class="btn-approve"  onclick="updateInstStatus('${inst.id}', 'active')">Approve</button>
-          <button class="btn-suspend"  onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>
-        `;
-      } else if (inst.status === 'active') {
-        actions = `<button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>`;
-      } else if (inst.status === 'suspended') {
-        actions = `<button class="btn-reactivate" onclick="updateInstStatus('${inst.id}', 'active')">Reactivate</button>`;
+      if (isSuperAdmin) {
+        if (inst.status === 'pending') {
+          actions = `
+            <button class="btn-approve"  onclick="updateInstStatus('${inst.id}', 'active')">Approve</button>
+            <button class="btn-suspend"  onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>
+          `;
+        } else if (inst.status === 'active') {
+          actions = `<button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>`;
+        } else if (inst.status === 'suspended') {
+          actions = `<button class="btn-reactivate" onclick="updateInstStatus('${inst.id}', 'active')">Reactivate</button>`;
+        }
       }
 
       return `
