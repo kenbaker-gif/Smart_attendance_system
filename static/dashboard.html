@@ -1352,6 +1352,33 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
+// ── Idle timeout (30 mins) ────────────────────────────────────────────────
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+let idleTimer = null;
+
+function resetIdleTimer() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(async () => {
+    if (currentToken) {
+      showToast('Session expired due to inactivity. Signing out...', 'error');
+      await new Promise(r => setTimeout(r, 2000));
+      await logout();
+    }
+  }, IDLE_TIMEOUT_MS);
+}
+
+// Track user activity
+['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(event => {
+  document.addEventListener(event, resetIdleTimer, { passive: true });
+});
+
+// Start timer on dashboard init — patch initDashboard to call this
+const _origInitDashboard = initDashboard;
+initDashboard = async function(session) {
+  await _origInitDashboard(session);
+  resetIdleTimer();
+};
+
 // ── Enter key on login ────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
