@@ -50,7 +50,13 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-str
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 APP_URL = os.getenv("APP_URL", "https://faceattend.app")
-MVP_URL = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app")
+MVP_URL = os.getenv("MVP_URL", "").rstrip("/")
+
+# ✅ Warn at startup if MVP_URL is missing — auto-sync will be skipped silently otherwise
+if not MVP_URL:
+    print("⚠️  WARNING: MVP_URL is not set. Auto-sync after photo upload will be disabled.")
+else:
+    print(f"✅ MVP_URL = {MVP_URL}")
 
 
 # ── Auth dependencies ──────────────────────────────────────────────────────
@@ -87,22 +93,25 @@ async def check_admin(authorization: str = Header(None)):
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
         user_id = user_response.user.id
-        resp = supabase_admin.table("profiles").select("is_admin, is_super_admin, institution_id") \
+        resp = supabase_admin.table("profiles") \
+            .select("is_admin, is_super_admin, role, institution_id") \
             .eq("id", user_id).limit(1).execute()
 
         profile_data = resp.data[0] if resp.data else None
         if not profile_data:
             raise HTTPException(status_code=403, detail="Admin profile not found or incomplete")
 
-        is_admin = _bool_flag(profile_data.get("is_admin"))
+        is_admin       = _bool_flag(profile_data.get("is_admin"))
         is_super_admin = _bool_flag(profile_data.get("is_super_admin"))
+        role           = profile_data.get("role", "")
 
-        if not (is_admin or is_super_admin):
+        # ✅ Accept is_admin=True OR role in ('admin', 'super_admin')
+        if not (is_admin or is_super_admin or role in ("admin", "super_admin")):
             raise HTTPException(status_code=403, detail="Admin access required")
 
         # ✅ Check institution status for non-super admins only
-        institution_id = resp.data[0].get("institution_id")
-        if institution_id and not is_super_admin:
+        institution_id = profile_data.get("institution_id")
+        if institution_id and not (is_super_admin or role == "super_admin"):
             inst_resp = supabase_admin.table("institutions").select("status") \
                 .eq("id", institution_id).limit(1).execute()
             if inst_resp.data:
@@ -121,7 +130,8 @@ async def check_admin(authorization: str = Header(None)):
         return user_response.user
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print(f"[check_admin] error: {e!r}")
         raise HTTPException(status_code=401, detail="Token verification failed")
 
 
@@ -130,11 +140,14 @@ async def check_super_admin(authorization: str = Header(None)):
     user = await check_admin(authorization)
 
     user_id = user.id
-    resp = supabase_admin.table("profiles").select("is_super_admin").eq("id", user_id).limit(1).execute()
-    profile_data = resp.data[0] if resp.data else None
+    resp = supabase_admin.table("profiles") \
+        .select("is_super_admin, role") \
+        .eq("id", user_id).limit(1).execute()
+    profile_data   = resp.data[0] if resp.data else None
     is_super_admin = _bool_flag(profile_data.get("is_super_admin") if profile_data else None)
+    role           = profile_data.get("role", "") if profile_data else ""
 
-    if not is_super_admin:
+    if not (is_super_admin or role == "super_admin"):
         raise HTTPException(status_code=403, detail="Super admin access required")
 
     return user
@@ -143,15 +156,32 @@ async def check_super_admin(authorization: str = Header(None)):
 # ── Background sync ────────────────────────────────────────────────────────
 
 async def trigger_sync_in_background(token: str):
+    """
+    Hits the MVP /admin/sync-encodings endpoint with a raw JWT token.
+    Call this with the raw token string (not the full 'Bearer ...' header value).
+    """
+    if not MVP_URL:
+        print("⚠️  Auto-sync skipped: MVP_URL is not configured.")
+        return
+
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
                 f"{MVP_URL}/admin/sync-encodings",
                 headers={"Authorization": f"Bearer {token}"}
             )
-            print(f"✅ Auto-sync triggered: {resp.status_code}")
+            if resp.status_code == 200:
+                print(f"✅ Auto-sync complete: {resp.status_code}")
+            else:
+                print(f"⚠️  Auto-sync rejected: HTTP {resp.status_code} — {resp.text[:300]}")
+    except httpx.UnsupportedProtocol as e:
+        print(f"❌ Auto-sync failed: MVP_URL is invalid — {e!r} (MVP_URL={repr(MVP_URL)})")
+    except httpx.ConnectError as e:
+        print(f"❌ Auto-sync failed: cannot reach MVP server — {e!r}")
+    except httpx.TimeoutException:
+        print(f"❌ Auto-sync timed out after 60s (MVP_URL={repr(MVP_URL)})")
     except Exception as e:
-        print(f"❌ Auto-sync failed: {e}")
+        print(f"❌ Auto-sync failed ({type(e).__name__}): {e!r}")
 
 
 # ── Static files ───────────────────────────────────────────────────────────
@@ -232,9 +262,20 @@ async def upload_student(
             "institution_id": institution_id.strip(),
         }).execute()
 
+        sync_triggered = False
         if file.filename == "4.jpg":
-            print(f"📸 4th photo uploaded for {student_id} — triggering auto-sync...")
-            background_tasks.add_task(trigger_sync_in_background, authorization)
+            # ✅ Extract raw token from the Authorization header
+            token = authorization.replace("Bearer ", "").strip() if authorization else None
+
+            if token and MVP_URL:
+                print(f"📸 4th photo uploaded for {student_id} — triggering auto-sync...")
+                background_tasks.add_task(trigger_sync_in_background, token)
+                sync_triggered = True
+            else:
+                if not token:
+                    print(f"⚠️  Skipping auto-sync for {student_id}: no auth token available.")
+                if not MVP_URL:
+                    print(f"⚠️  Skipping auto-sync for {student_id}: MVP_URL not configured.")
 
         return {
             "success":        True,
@@ -243,7 +284,7 @@ async def upload_student(
             "institution_id": institution_id.strip(),
             "image_url":      image_url,
             "file_path":      file_path,
-            "sync_triggered": file.filename == "4.jpg",
+            "sync_triggered": sync_triggered,
         }
 
     except HTTPException:
@@ -261,18 +302,21 @@ async def list_students(
 ):
     try:
         profile_resp = supabase_admin.table("profiles") \
-            .select("institution_id, is_super_admin") \
+            .select("institution_id, is_super_admin, role") \
             .eq("id", user.id).single().execute()
 
         is_super_admin = _bool_flag(profile_resp.data.get("is_super_admin") if profile_resp.data else None)
+        role           = profile_resp.data.get("role", "") if profile_resp.data else ""
         user_institution_id = profile_resp.data.get("institution_id") if profile_resp.data else None
 
-        if not is_super_admin and not user_institution_id:
+        is_super = is_super_admin or role == "super_admin"
+
+        if not is_super and not user_institution_id:
             raise HTTPException(status_code=403, detail="Institution admin requires institution_id in profile")
 
         query = supabase_admin.table("students").select("*").order("name")
 
-        if is_super_admin:
+        if is_super:
             if institution_id:
                 query = query.eq("institution_id", institution_id)
         else:
@@ -321,13 +365,16 @@ async def get_attendance_records(
 ):
     try:
         profile_resp = supabase_admin.table("profiles") \
-            .select("institution_id, is_super_admin") \
+            .select("institution_id, is_super_admin, role") \
             .eq("id", user.id).single().execute()
 
         is_super_admin = _bool_flag(profile_resp.data.get("is_super_admin") if profile_resp.data else None)
+        role           = profile_resp.data.get("role", "") if profile_resp.data else ""
         user_institution_id = profile_resp.data.get("institution_id") if profile_resp.data else None
 
-        if not is_super_admin and not user_institution_id:
+        is_super = is_super_admin or role == "super_admin"
+
+        if not is_super and not user_institution_id:
             raise HTTPException(status_code=403, detail="Institution admin requires institution_id in profile")
 
         query = supabase_admin.table("attendance_records") \
@@ -335,7 +382,7 @@ async def get_attendance_records(
             .order("timestamp", desc=True) \
             .limit(limit)
 
-        if is_super_admin:
+        if is_super:
             if institution_id:
                 query = query.eq("institution_id", institution_id)
         else:
@@ -355,17 +402,20 @@ async def get_summary(
 ):
     try:
         profile_resp = supabase_admin.table("profiles") \
-            .select("institution_id, is_super_admin") \
+            .select("institution_id, is_super_admin, role") \
             .eq("id", user.id).single().execute()
 
         is_super_admin = _bool_flag(profile_resp.data.get("is_super_admin") if profile_resp.data else None)
+        role           = profile_resp.data.get("role", "") if profile_resp.data else ""
         user_institution_id = profile_resp.data.get("institution_id") if profile_resp.data else None
 
-        if not is_super_admin and not user_institution_id:
+        is_super = is_super_admin or role == "super_admin"
+
+        if not is_super and not user_institution_id:
             raise HTTPException(status_code=403, detail="Institution admin requires institution_id in profile")
 
         query = supabase_admin.table("attendance_records").select("*")
-        if is_super_admin:
+        if is_super:
             if institution_id:
                 query = query.eq("institution_id", institution_id)
         else:
@@ -400,7 +450,7 @@ async def invite_coordinator(
     user=Depends(check_admin),
 ):
     profile_resp = supabase_admin.table("profiles") \
-        .select("institution_id, is_super_admin") \
+        .select("institution_id, is_super_admin, role") \
         .eq("id", user.id).single().execute()
 
     profile = profile_resp.data
@@ -408,10 +458,12 @@ async def invite_coordinator(
         raise HTTPException(status_code=403, detail="Admin profile not found.")
 
     is_super_admin   = _bool_flag(profile.get("is_super_admin"))
+    role             = profile.get("role", "")
     user_institution = profile.get("institution_id")
+    is_super         = is_super_admin or role == "super_admin"
 
     # Super admins must pass institution_id explicitly
-    if is_super_admin:
+    if is_super:
         if not institution_id or not institution_id.strip():
             raise HTTPException(
                 status_code=400,
@@ -484,7 +536,7 @@ async def list_coordinators(
     user=Depends(check_admin),
 ):
     profile_resp = supabase_admin.table("profiles") \
-        .select("institution_id, is_super_admin") \
+        .select("institution_id, is_super_admin, role") \
         .eq("id", user.id).single().execute()
 
     profile = profile_resp.data
@@ -492,7 +544,9 @@ async def list_coordinators(
         raise HTTPException(status_code=403, detail="Admin profile not found.")
 
     is_super_admin   = _bool_flag(profile.get("is_super_admin"))
+    role             = profile.get("role", "")
     user_institution = profile.get("institution_id")
+    is_super         = is_super_admin or role == "super_admin"
 
     try:
         query = supabase_admin.table("profiles") \
@@ -500,7 +554,7 @@ async def list_coordinators(
             .eq("role", "coordinator") \
             .order("created_at", desc=True)
 
-        if is_super_admin:
+        if is_super:
             # Super admin can filter by institution or see all
             if institution_id:
                 query = query.eq("institution_id", institution_id)
@@ -526,7 +580,7 @@ async def remove_coordinator(
     user=Depends(check_admin),
 ):
     profile_resp = supabase_admin.table("profiles") \
-        .select("institution_id, is_super_admin") \
+        .select("institution_id, is_super_admin, role") \
         .eq("id", user.id).single().execute()
 
     profile = profile_resp.data
@@ -534,7 +588,9 @@ async def remove_coordinator(
         raise HTTPException(status_code=403, detail="Admin profile not found.")
 
     is_super_admin   = _bool_flag(profile.get("is_super_admin"))
+    role             = profile.get("role", "")
     user_institution = profile.get("institution_id")
+    is_super         = is_super_admin or role == "super_admin"
 
     # Verify the target is actually a coordinator
     coord_resp = supabase_admin.table("profiles") \
@@ -548,7 +604,7 @@ async def remove_coordinator(
         raise HTTPException(status_code=400, detail="Target user is not a coordinator.")
 
     # Institution admins can only remove coordinators from their own institution
-    if not is_super_admin and coord.get("institution_id") != user_institution:
+    if not is_super and coord.get("institution_id") != user_institution:
         raise HTTPException(status_code=403, detail="Coordinator does not belong to your institution.")
 
     try:
@@ -667,7 +723,7 @@ async def register_institution(
             "id":             user_id,
             "is_admin":       True,
             "institution_id": inst_id,
-            "role":           "admin",   # ← add this
+            "role":           "admin",
         }).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Profile creation failed: {str(e)}")
@@ -718,16 +774,18 @@ async def list_institutions(
     """List all institutions for super admins, or the current institution for normal admins."""
     try:
         profile_resp = supabase_admin.table("profiles") \
-            .select("institution_id, is_super_admin") \
+            .select("institution_id, is_super_admin, role") \
             .eq("id", user.id).single().execute()
 
         if not profile_resp.data:
             raise HTTPException(status_code=403, detail="Admin profile not found")
 
         is_super_admin = _bool_flag(profile_resp.data.get("is_super_admin"))
+        role           = profile_resp.data.get("role", "")
         institution_id = profile_resp.data.get("institution_id")
+        is_super       = is_super_admin or role == "super_admin"
 
-        if is_super_admin:
+        if is_super:
             query = supabase_admin.table("institutions") \
                 .select("id, name, admin_email, phone, plans, status, is_active, logo_url") \
                 .order("name")
@@ -789,7 +847,7 @@ def check_trial(institution_id: str):
 
         trial_ends = inst.get("trial_ends_at")
         is_active  = inst.get("is_active", False)
-        plans       = inst.get("plans", "trial")
+        plans      = inst.get("plans", "trial")
 
         if not is_active:
             return {"active": False, "reason": "Account suspended."}
