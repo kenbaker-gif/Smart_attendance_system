@@ -50,7 +50,7 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-str
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 APP_URL = os.getenv("APP_URL", "https://faceattend.app")
-MVP_URL = os.getenv("MVP_URL", "").rstrip("/")
+MVP_URL = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app/").rstrip("/")
 
 # ✅ Warn at startup if MVP_URL is missing — auto-sync will be skipped silently otherwise
 if not MVP_URL:
