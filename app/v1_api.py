@@ -180,7 +180,7 @@ async def create_api_key(
         "key_suffix": key_suffix,
         "org_id":     org_id,
         "name":       body.name,
-        "plans":       "enterprise",
+        "plan":       "enterprise",
         "is_active":  True,
     }).execute()
 
