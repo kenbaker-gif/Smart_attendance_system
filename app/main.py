@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 # FIX 3: All shared state lives in deps.py.  main.py and v1_api.py both
 # import from there, guaranteeing a single Limiter instance registered on
 # the app and no circular imports.
-from dep import (
+from .dep import (
     supabase,
     supabase_admin,
     limiter,
