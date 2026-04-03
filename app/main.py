@@ -1,13 +1,31 @@
 import os
 import re
 import httpx
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks, Depends, Header
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from supabase import create_client, Client
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
+
+# ── Shared dependencies (clients, limiter, auth) ───────────────────────────
+# FIX 3: All shared state lives in deps.py.  main.py and v1_api.py both
+# import from there, guaranteeing a single Limiter instance registered on
+# the app and no circular imports.
+from deps import (
+    supabase,
+    supabase_admin,
+    limiter,
+    _bool_flag,
+    verify_supabase_token,
+    check_admin,
+    check_super_admin,
+)
+
+# ── Enterprise API v1 router ───────────────────────────────────────────────
+from v1_api import router as v1_router
 
 load_dotenv()
 
@@ -19,6 +37,11 @@ FREE_EMAIL_DOMAINS = {
 
 app = FastAPI(title="Smart Attendance — Upload Service")
 
+# FIX 3: Register the single shared limiter on the app so @limiter.limit()
+# decorators work on ALL routes, including /v1/ routes in the included router.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -29,21 +52,8 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "PATCH"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
-
-SUPABASE_URL         = os.getenv("SUPABASE_URL")
-SUPABASE_KEY         = os.getenv("SUPABASE_KEY")         # anon key — for token verification
-SUPABASE_SERVICE_KEY = os.getenv("SERVICE_KEY")          # service role — for DB/storage ops
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in environment.")
-if not SUPABASE_SERVICE_KEY:
-    raise RuntimeError("Missing SERVICE_KEY in environment.")
-
-# ✅ Two clients — anon for auth verification, service role for data ops
-supabase: Client       = create_client(SUPABASE_URL, SUPABASE_KEY)
-supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 BUCKET        = "raw_faces"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-stream"}
@@ -52,105 +62,13 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 APP_URL = os.getenv("APP_URL", "https://faceattend.app")
 MVP_URL = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app/").rstrip("/")
 
-# ✅ Warn at startup if MVP_URL is missing — auto-sync will be skipped silently otherwise
 if not MVP_URL:
     print("⚠️  WARNING: MVP_URL is not set. Auto-sync after photo upload will be disabled.")
 else:
     print(f"✅ MVP_URL = {MVP_URL}")
 
-
-# ── Auth dependencies ──────────────────────────────────────────────────────
-
-async def verify_supabase_token(authorization: str = Header(None)):
-    """Verify that the request comes from a valid authenticated Supabase user."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    token = authorization.replace("Bearer ", "").strip()
-    try:
-        user_response = supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-        return user_response.user
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=401, detail="Token verification failed")
-
-def _bool_flag(value):
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.lower() in ("true", "1", "yes")
-    return bool(value)
-
-async def check_admin(authorization: str = Header(None)):
-    """Verify that the user is authenticated, is an admin, and their institution is active."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    token = authorization.replace("Bearer ", "").strip()
-    try:
-        user_response = supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-        user_id = user_response.user.id
-        resp = supabase_admin.table("profiles") \
-            .select("is_admin, is_super_admin, role, institution_id") \
-            .eq("id", user_id).limit(1).execute()
-
-        profile_data = resp.data[0] if resp.data else None
-        if not profile_data:
-            raise HTTPException(status_code=403, detail="Admin profile not found or incomplete")
-
-        is_admin       = _bool_flag(profile_data.get("is_admin"))
-        is_super_admin = _bool_flag(profile_data.get("is_super_admin"))
-        role           = profile_data.get("role", "")
-
-        # ✅ Accept is_admin=True OR role in ('admin', 'super_admin')
-        if not (is_admin or is_super_admin or role in ("admin", "super_admin")):
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        # ✅ Check institution status for non-super admins only
-        institution_id = profile_data.get("institution_id")
-        if institution_id and not (is_super_admin or role == "super_admin"):
-            inst_resp = supabase_admin.table("institutions").select("status") \
-                .eq("id", institution_id).limit(1).execute()
-            if inst_resp.data:
-                status = inst_resp.data[0].get("status", "active")
-                if status == "pending":
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Your institution is pending approval. You will be notified once approved."
-                    )
-                elif status == "suspended":
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Your institution account has been suspended. Contact support."
-                    )
-
-        return user_response.user
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"[check_admin] error: {e!r}")
-        raise HTTPException(status_code=401, detail="Token verification failed")
-
-
-async def check_super_admin(authorization: str = Header(None)):
-    """Verify that the user is a super admin."""
-    user = await check_admin(authorization)
-
-    user_id = user.id
-    resp = supabase_admin.table("profiles") \
-        .select("is_super_admin, role") \
-        .eq("id", user_id).limit(1).execute()
-    profile_data   = resp.data[0] if resp.data else None
-    is_super_admin = _bool_flag(profile_data.get("is_super_admin") if profile_data else None)
-    role           = profile_data.get("role", "") if profile_data else ""
-
-    if not (is_super_admin or role == "super_admin"):
-        raise HTTPException(status_code=403, detail="Super admin access required")
-
-    return user
+# ── Mount Enterprise API v1 ────────────────────────────────────────────────
+app.include_router(v1_router)
 
 
 # ── Background sync ────────────────────────────────────────────────────────
@@ -264,7 +182,6 @@ async def upload_student(
 
         sync_triggered = False
         if file.filename == "4.jpg":
-            # ✅ Extract raw token from the Authorization header
             token = authorization.replace("Bearer ", "").strip() if authorization else None
 
             if token and MVP_URL:
@@ -446,7 +363,7 @@ async def get_summary(
 async def invite_coordinator(
     full_name:      str = Form(...),
     email:          str = Form(...),
-    institution_id: str = Form(default=None),  # required for super admins
+    institution_id: str = Form(default=None),
     user=Depends(check_admin),
 ):
     profile_resp = supabase_admin.table("profiles") \
@@ -462,7 +379,6 @@ async def invite_coordinator(
     user_institution = profile.get("institution_id")
     is_super         = is_super_admin or role == "super_admin"
 
-    # Super admins must pass institution_id explicitly
     if is_super:
         if not institution_id or not institution_id.strip():
             raise HTTPException(
@@ -555,7 +471,6 @@ async def list_coordinators(
             .order("created_at", desc=True)
 
         if is_super:
-            # Super admin can filter by institution or see all
             if institution_id:
                 query = query.eq("institution_id", institution_id)
         else:
@@ -592,7 +507,6 @@ async def remove_coordinator(
     user_institution = profile.get("institution_id")
     is_super         = is_super_admin or role == "super_admin"
 
-    # Verify the target is actually a coordinator
     coord_resp = supabase_admin.table("profiles") \
         .select("institution_id, role") \
         .eq("id", coordinator_id).limit(1).execute()
@@ -603,7 +517,6 @@ async def remove_coordinator(
     if coord.get("role") != "coordinator":
         raise HTTPException(status_code=400, detail="Target user is not a coordinator.")
 
-    # Institution admins can only remove coordinators from their own institution
     if not is_super and coord.get("institution_id") != user_institution:
         raise HTTPException(status_code=403, detail="Coordinator does not belong to your institution.")
 
@@ -649,7 +562,6 @@ async def register_institution(
     if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
         raise HTTPException(status_code=400, detail="Invalid email address.")
 
-    # ✅ Block free email domains
     domain = email.split("@")[-1]
     if domain in FREE_EMAIL_DOMAINS:
         raise HTTPException(
@@ -685,9 +597,9 @@ async def register_institution(
         supabase_admin.table("institutions").insert({
             "id":          inst_id,
             "name":        university_name.strip(),
-            "plan":        "trial",
+            "plans":       "trial",            # FIX 4: was "plan" (wrong column name)
             "is_active":   True,
-            "status":      "pending",           # ✅ All new signups start as pending
+            "status":      "pending",
             "admin_email": email,
             "phone":       phone.strip(),
             "logo_url":    logo_url,
@@ -745,7 +657,6 @@ async def update_institution_status(
     status: str = Form(...),
     user=Depends(check_super_admin),
 ):
-    """Approve, suspend, or reactivate an institution. status: pending | active | suspended"""
     if status not in ("pending", "active", "suspended"):
         raise HTTPException(status_code=400, detail="status must be one of: pending, active, suspended")
     try:
@@ -771,7 +682,6 @@ async def list_institutions(
     status: str = None,
     user=Depends(check_admin),
 ):
-    """List all institutions for super admins, or the current institution for normal admins."""
     try:
         profile_resp = supabase_admin.table("profiles") \
             .select("institution_id, is_super_admin, role") \
@@ -812,7 +722,6 @@ async def list_institutions(
 
 @app.get("/plans")
 def get_plans():
-    """Public endpoint — returns active pricing plans for the landing page."""
     try:
         resp = supabase_admin.table("plans") \
             .select("*") \
@@ -836,9 +745,7 @@ def check_trial(institution_id: str):
         if not resp.data:
             raise HTTPException(status_code=404, detail="Institution not found.")
         inst = resp.data[0]
-        from datetime import datetime, timezone
 
-        # ✅ Check approval status first
         status = inst.get("status", "active")
         if status == "pending":
             return {"active": False, "reason": "Institution pending approval."}

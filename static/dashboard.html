@@ -198,6 +198,8 @@ nav {
 .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
 .tab-btn.superadmin-tab { color: var(--purple); }
 .tab-btn.superadmin-tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+.tab-btn.dev-tab { color: var(--orange); }
+.tab-btn.dev-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
@@ -241,7 +243,6 @@ select:focus { border-color: var(--cyan); }
   cursor: pointer; margin-left: auto;
 }
 
-/* Invite button — mirrors btn-export but blue tint */
 .btn-invite {
   background: transparent;
   border: 1px solid rgba(0,245,196,0.4);
@@ -291,6 +292,10 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .badge-active   { background: rgba(0,245,196,0.1);    color: var(--cyan);   border: 1px solid rgba(0,245,196,0.2); }
 .badge-suspended{ background: rgba(255,80,80,0.1);    color: var(--red);    border: 1px solid rgba(255,80,80,0.2); }
 .badge-coord    { background: rgba(74,158,255,0.1);   color: var(--blue);   border: 1px solid rgba(74,158,255,0.2); }
+.badge-revoked  { background: rgba(90,90,122,0.15);   color: var(--muted);  border: 1px solid rgba(90,90,122,0.3); }
+.badge-starter  { background: rgba(74,158,255,0.1);   color: var(--blue);   border: 1px solid rgba(74,158,255,0.2); }
+.badge-pro      { background: rgba(0,245,196,0.1);    color: var(--cyan);   border: 1px solid rgba(0,245,196,0.2); }
+.badge-enterprise { background: rgba(167,139,250,0.1); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
 
 .btn-delete {
   background: transparent;
@@ -344,6 +349,119 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   margin-left: 6px; vertical-align: middle;
 }
 
+/* ── API KEYS TAB ─────────────────────────────────────────────────────── */
+.apikeys-header {
+  display: flex; align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.apikeys-header-text h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem; font-weight: 800;
+  margin-bottom: 6px;
+}
+.apikeys-header-text p {
+  font-size: 0.82rem; color: var(--muted);
+  line-height: 1.6; max-width: 520px;
+}
+.btn-gen-key {
+  flex-shrink: 0;
+  background: var(--orange); color: var(--black);
+  border: none; padding: 10px 20px;
+  border-radius: 8px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+  white-space: nowrap;
+}
+.btn-gen-key:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(255,107,53,0.35);
+}
+.btn-gen-key:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* New key reveal banner */
+.new-key-banner {
+  background: rgba(255,107,53,0.06);
+  border: 1px solid rgba(255,107,53,0.25);
+  border-radius: 12px; padding: 20px 24px;
+  margin-bottom: 24px; display: none;
+}
+.new-key-banner.visible { display: block; }
+.new-key-banner-title {
+  font-size: 0.7rem; color: var(--orange);
+  letter-spacing: 0.15em; text-transform: uppercase;
+  font-weight: 600; margin-bottom: 10px;
+}
+.new-key-banner p {
+  font-size: 0.8rem; color: var(--muted);
+  margin-bottom: 14px; line-height: 1.5;
+}
+.key-reveal-row {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+}
+.key-reveal-value {
+  font-family: 'DM Mono', 'Courier New', monospace;
+  font-size: 0.82rem; color: var(--white);
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 14px;
+  flex: 1; min-width: 0;
+  word-break: break-all;
+  letter-spacing: 0.03em;
+}
+.btn-copy-key {
+  background: transparent;
+  border: 1px solid rgba(255,107,53,0.4);
+  color: var(--orange); padding: 8px 16px;
+  border-radius: 6px; font-size: 0.78rem;
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+.btn-copy-key:hover { background: rgba(255,107,53,0.1); border-color: var(--orange); }
+.btn-copy-key.copied { color: var(--cyan); border-color: rgba(0,245,196,0.4); }
+
+/* Key name field inside generate modal */
+.key-name-input {
+  width: 100%; background: var(--black);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 14px; color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.9rem; outline: none;
+  transition: border-color 0.2s; margin-top: 6px;
+}
+.key-name-input:focus { border-color: var(--orange); }
+
+/* Key table specifics */
+.key-masked {
+  font-family: 'DM Mono', 'Courier New', monospace;
+  font-size: 0.78rem; color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.last-used-cell { font-size: 0.78rem; color: var(--muted); }
+.btn-revoke {
+  background: transparent;
+  border: 1px solid rgba(255,80,80,0.3);
+  color: var(--red); padding: 4px 10px;
+  border-radius: 6px; font-size: 0.75rem;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-revoke:hover { background: rgba(255,80,80,0.1); border-color: var(--red); }
+
+/* Empty state */
+.empty-state {
+  text-align: center; padding: 56px 24px;
+  color: var(--muted);
+}
+.empty-state-icon { font-size: 2rem; margin-bottom: 12px; opacity: 0.5; }
+.empty-state p { font-size: 0.88rem; line-height: 1.6; }
+
 /* Modal */
 .modal-overlay {
   position: fixed; inset: 0;
@@ -377,13 +495,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   font-weight: 700; font-size: 0.85rem;
 }
 
-/* Invite modal — wider, has a form inside */
-#invite-modal .modal {
-  max-width: 420px;
-}
-#invite-modal .modal p {
-  margin-bottom: 20px;
-}
+#invite-modal .modal { max-width: 420px; }
+#invite-modal .modal p { margin-bottom: 20px; }
 .invite-form .form-group { margin-bottom: 16px; }
 .invite-form label {
   display: block; font-size: 0.72rem;
@@ -415,6 +528,28 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   padding: 10px 14px; font-size: 0.82rem;
   margin-top: 12px; display: none;
 }
+
+/* Generate key modal */
+#genkey-modal .modal { max-width: 400px; }
+.genkey-error {
+  background: rgba(255,80,80,0.08);
+  border: 1px solid rgba(255,80,80,0.2);
+  color: var(--red); border-radius: 8px;
+  padding: 10px 14px; font-size: 0.82rem;
+  margin-top: 12px; display: none;
+}
+.btn-confirm-gen {
+  background: var(--orange); border: none;
+  color: var(--black); padding: 8px 18px;
+  border-radius: 8px; cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 0.85rem;
+  transition: opacity 0.2s;
+}
+.btn-confirm-gen:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Revoke confirm modal */
+#revoke-modal .modal { max-width: 380px; }
 
 /* Loading */
 .loading {
@@ -516,6 +651,35 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
 </div>
 
+<!-- GENERATE API KEY MODAL -->
+<div class="modal-overlay" id="genkey-modal">
+  <div class="modal">
+    <h3>Generate API Key</h3>
+    <p>Give this key a name so you can identify it later (e.g. "Production", "Mobile App").</p>
+    <div class="form-group">
+      <label>Key Name</label>
+      <input type="text" class="key-name-input" id="genkey-name" placeholder="e.g. Production" autocomplete="off" maxlength="60"/>
+    </div>
+    <div class="genkey-error" id="genkey-error"></div>
+    <div class="modal-actions" style="margin-top:24px;">
+      <button class="btn-cancel" onclick="closeGenKeyModal()">Cancel</button>
+      <button class="btn-confirm-gen" id="confirm-gen-btn" onclick="confirmGenerateKey()">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVOKE API KEY CONFIRM MODAL -->
+<div class="modal-overlay" id="revoke-modal">
+  <div class="modal">
+    <h3>Revoke API Key</h3>
+    <p id="revoke-modal-msg">Are you sure? Any integration using this key will stop working immediately. This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeRevokeModal()">Cancel</button>
+      <button class="btn-confirm-delete" onclick="confirmRevoke()">Revoke Key</button>
+    </div>
+  </div>
+</div>
+
 <!-- DASHBOARD -->
 <div id="dashboard-screen">
   <nav>
@@ -533,7 +697,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="loading"><div class="spinner"></div>Loading...</div>
     </div>
 
-    <!-- Tabs — Team tab injected for institution admins; Institutions tab for super admins -->
     <div class="tabs" id="tabs">
       <button class="tab-btn active" onclick="switchTab('attendance')">Attendance Records</button>
       <button class="tab-btn" onclick="switchTab('students')">Students</button>
@@ -569,7 +732,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </div>
     </div>
 
-    <!-- Team Tab (all admins) -->
+    <!-- Team Tab -->
     <div class="tab-panel" id="tab-team">
       <div class="filters">
         <select id="filter-team-inst" onchange="loadCoordinators()" style="display:none">
@@ -583,7 +746,32 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </div>
     </div>
 
-    <!-- Super Admin Tab (injected if is_super_admin) -->
+    <!-- API Keys Tab -->
+    <div class="tab-panel" id="tab-apikeys">
+      <div class="apikeys-header">
+        <div class="apikeys-header-text">
+          <h2>API Keys</h2>
+          <p>Use API keys to authenticate requests to the FaceAttend Enterprise API. Keep your keys secret — anyone with a key can mark attendance on behalf of your institution.</p>
+        </div>
+        <button class="btn-gen-key" id="gen-key-btn" onclick="openGenKeyModal()">+ Generate Key</button>
+      </div>
+
+      <!-- New key one-time reveal banner -->
+      <div class="new-key-banner" id="new-key-banner">
+        <div class="new-key-banner-title">⚠ Save this key now — it won't be shown again</div>
+        <p>Copy and store your API key in a safe place. For security, we only show it once.</p>
+        <div class="key-reveal-row">
+          <div class="key-reveal-value" id="new-key-value">fa_live_...</div>
+          <button class="btn-copy-key" id="copy-key-btn" onclick="copyNewKey()">Copy</button>
+        </div>
+      </div>
+
+      <div class="table-wrap" id="apikeys-table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading keys...</div>
+      </div>
+    </div>
+
+    <!-- Super Admin Tab -->
     <div class="tab-panel" id="tab-superadmin">
       <div class="filters" style="margin-bottom:20px;">
         <select id="filter-inst-status" onchange="loadInstitutions()">
@@ -619,6 +807,9 @@ let pendingDeleteId      = null;
 let pendingDeleteName    = null;
 let pendingRemoveCoordId = null;
 let pendingRemoveCoordName = null;
+let pendingRevokeKeyId   = null;
+let pendingRevokeKeyName = null;
+let newKeyRawValue       = null;
 
 // ── Toast ─────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -640,6 +831,7 @@ function switchTab(tab) {
   if (tab === 'students')   loadStudents();
   if (tab === 'superadmin') loadInstitutions();
   if (tab === 'team')       loadCoordinators();
+  if (tab === 'apikeys')    loadApiKeys();
 }
 
 // ── Auto-login from Flutter WebView token injection ───────────────────────
@@ -727,12 +919,8 @@ async function initDashboard(session) {
     .eq('id', session.user.id)
     .single();
 
-  console.log('Profile:', profile);
-  console.log('is_super_admin:', profile?.is_super_admin);
-
   currentInstitutionId = profile?.institution_id || null;
   isSuperAdmin         = profile?.is_super_admin === true;
-  console.log('isSuperAdmin flag:', isSuperAdmin);
 
   document.getElementById('login-screen').style.display    = 'none';
   document.getElementById('dashboard-screen').style.display = 'block';
@@ -747,12 +935,11 @@ async function initDashboard(session) {
     document.getElementById('filter-inst').style.display = 'none';
   }
 
-  // Give each static tab a stable id for switchTab()
   const staticBtns = document.querySelectorAll('#tabs .tab-btn');
   staticBtns[0].id = 'tab-btn-attendance';
   staticBtns[1].id = 'tab-btn-students';
 
-  // Inject Team tab for all admins
+  // Inject Team tab
   {
     const tabs = document.getElementById('tabs');
     const teamBtn = document.createElement('button');
@@ -762,11 +949,9 @@ async function initDashboard(session) {
     teamBtn.textContent = 'Team';
     tabs.appendChild(teamBtn);
 
-    // Show institution filter in Team tab for super admins
     if (isSuperAdmin) {
       const teamInstFilter = document.getElementById('filter-team-inst');
       teamInstFilter.style.display = '';
-      // Populate with institutions already fetched (or fetch on demand)
       fetch(`${DAZZLING_URL}/admin/institutions`, {
         headers: { 'Authorization': `Bearer ${currentToken}` }
       }).then(r => r.json()).then(data => {
@@ -778,6 +963,17 @@ async function initDashboard(session) {
     }
   }
 
+  // Inject API Keys tab (all admins)
+  {
+    const tabs = document.getElementById('tabs');
+    const apiBtn = document.createElement('button');
+    apiBtn.className   = 'tab-btn dev-tab';
+    apiBtn.id          = 'tab-btn-apikeys';
+    apiBtn.onclick     = () => switchTab('apikeys');
+    apiBtn.textContent = '⚙ API Keys';
+    tabs.appendChild(apiBtn);
+  }
+
   // Inject Institutions tab for super admins
   if (isSuperAdmin) {
     const tabs = document.getElementById('tabs');
@@ -785,7 +981,8 @@ async function initDashboard(session) {
     adminTabBtn.className   = 'tab-btn superadmin-tab';
     adminTabBtn.id          = 'tab-btn-superadmin';
     adminTabBtn.onclick     = () => switchTab('superadmin');
-    adminTabBtn.innerHTML   = '🏢 Institutions';
+    // FIX 3: pending-count badge element now exists in the DOM
+    adminTabBtn.innerHTML   = '🏢 Institutions <span class="pending-count" id="pending-count" style="display:none"></span>';
     tabs.appendChild(adminTabBtn);
   }
 
@@ -818,12 +1015,10 @@ async function logout() {
   isSuperAdmin         = false;
   allRecords           = [];
 
-  // Remove injected tabs
-  ['tab-btn-team', 'tab-btn-superadmin'].forEach(id => {
+  ['tab-btn-team', 'tab-btn-apikeys', 'tab-btn-superadmin'].forEach(id => {
     document.getElementById(id)?.remove();
   });
 
-  // Reset tabs
   document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
   document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', i === 0));
 
@@ -834,6 +1029,10 @@ async function logout() {
   document.getElementById('login-email').value    = '';
   document.getElementById('login-password').value = '';
   document.getElementById('login-error').style.display = 'none';
+
+  // Reset API keys state
+  document.getElementById('new-key-banner').classList.remove('visible');
+  newKeyRawValue = null;
 
   document.getElementById('login-screen').style.display    = 'flex';
   document.getElementById('dashboard-screen').style.display = 'none';
@@ -942,9 +1141,7 @@ async function loadStudents() {
     document.getElementById('students-table-wrap').innerHTML = `
       <table>
         <thead>
-          <tr>
-            <th>Student ID</th><th>Name</th><th>Institution</th><th>Action</th>
-          </tr>
+          <tr><th>Student ID</th><th>Name</th><th>Institution</th><th>Action</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -956,7 +1153,7 @@ async function loadStudents() {
   }
 }
 
-// ── Load coordinators (Team tab) ──────────────────────────────────────────
+// ── Load coordinators ─────────────────────────────────────────────────────
 async function loadCoordinators() {
   if (!currentToken) return;
 
@@ -1004,10 +1201,7 @@ async function loadCoordinators() {
           ${instCell}
           <td style="color:var(--muted);font-size:0.8rem;">${joined}</td>
           <td>
-            <button class="btn-delete"
-              onclick="openRemoveCoordModal('${c.id}', '${safeName}')">
-              Remove
-            </button>
+            <button class="btn-delete" onclick="openRemoveCoordModal('${c.id}', '${safeName}')">Remove</button>
           </td>
         </tr>
       `;
@@ -1027,6 +1221,244 @@ async function loadCoordinators() {
   } catch (e) {
     document.getElementById('team-table-wrap').innerHTML =
       `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+// ── API KEYS ──────────────────────────────────────────────────────────────
+
+async function loadApiKeys() {
+  if (!currentToken) return;
+
+  document.getElementById('apikeys-table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Loading keys...</div>';
+
+  try {
+    const orgId = currentInstitutionId;
+    const query = orgId ? `?org_id=${orgId}` : '';
+    const resp = await fetch(`${DAZZLING_URL}/v1/keys${query}`, {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      document.getElementById('apikeys-table-wrap').innerHTML =
+        `<div class="loading" style="color:var(--red)">${err.detail || 'Failed to load API keys.'}</div>`;
+      return;
+    }
+
+    const data = await resp.json();
+    const keys = data.keys || [];
+
+    if (!keys.length) {
+      document.getElementById('apikeys-table-wrap').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🔑</div>
+          <p>No API keys yet.<br>Generate your first key to start using the FaceAttend Enterprise API.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const rows = keys.map(k => {
+      const created = k.created_at
+        ? new Date(k.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '—';
+      const lastUsed = k.last_used_at
+        ? new Date(k.last_used_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'Never';
+
+      const planBadge = k.plan === 'enterprise'
+        ? '<span class="badge badge-enterprise">Enterprise</span>'
+        : k.plan === 'pro'
+          ? '<span class="badge badge-pro">Pro</span>'
+          : '<span class="badge badge-starter">Starter</span>';
+
+      const statusBadge = k.is_active
+        ? '<span class="badge badge-active">Active</span>'
+        : '<span class="badge badge-revoked">Revoked</span>';
+
+      const revokeBtn = k.is_active
+        ? `<button class="btn-revoke" onclick="openRevokeModal('${k.id}', '${(k.name || '').replace(/'/g, "\\'")}')">Revoke</button>`
+        : `<span style="color:var(--muted);font-size:0.75rem;">—</span>`;
+
+      const instCell = isSuperAdmin
+        ? `<td style="color:var(--muted);font-size:0.78rem;">${k.org_id || '—'}</td>`
+        : '';
+
+      return `
+        <tr>
+          <td><strong>${k.name || 'Unnamed Key'}</strong></td>
+          <td><span class="key-masked">fa_live_••••••••••••${(k.key_suffix || '????')}</span></td>
+          <td>${planBadge}</td>
+          <td>${statusBadge}</td>
+          ${instCell}
+          <td class="last-used-cell">${lastUsed}</td>
+          <td style="color:var(--muted);font-size:0.78rem;">${created}</td>
+          <td>${revokeBtn}</td>
+        </tr>
+      `;
+    }).join('');
+
+    document.getElementById('apikeys-table-wrap').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Key</th>
+            <th>Plan</th>
+            <th>Status</th>
+            ${isSuperAdmin ? '<th>Org</th>' : ''}
+            <th>Last Used</th>
+            <th>Created</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="table-footer">${keys.length} key${keys.length !== 1 ? 's' : ''}</div>
+    `;
+  } catch (e) {
+    document.getElementById('apikeys-table-wrap').innerHTML =
+      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+// ── Generate key modal ────────────────────────────────────────────────────
+function openGenKeyModal() {
+  document.getElementById('genkey-name').value = '';
+  document.getElementById('genkey-error').style.display = 'none';
+  document.getElementById('confirm-gen-btn').disabled = false;
+  document.getElementById('confirm-gen-btn').textContent = 'Generate';
+  document.getElementById('genkey-modal').classList.add('visible');
+  setTimeout(() => document.getElementById('genkey-name').focus(), 100);
+}
+
+function closeGenKeyModal() {
+  document.getElementById('genkey-modal').classList.remove('visible');
+}
+
+async function confirmGenerateKey() {
+  const nameEl  = document.getElementById('genkey-name');
+  const errEl   = document.getElementById('genkey-error');
+  const btn     = document.getElementById('confirm-gen-btn');
+  const name    = nameEl.value.trim();
+
+  errEl.style.display = 'none';
+
+  if (!name) {
+    errEl.textContent   = 'Please enter a name for this key.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Generating...';
+
+  try {
+    // FIX 1: removed dead formData lines — sending JSON directly
+    const resp = await fetch(`${DAZZLING_URL}/v1/keys`, {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${currentToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+    });
+
+    const result = await resp.json();
+
+    // FIX 2: use result.raw_key (plaintext) consistently for both storing and displaying
+    // FIX 4: close the modal on success before showing the banner
+    if (resp.ok && result.api_key) {
+      newKeyRawValue = result.api_key;
+      closeGenKeyModal();
+
+      const banner = document.getElementById('new-key-banner');
+      document.getElementById('new-key-value').textContent = result.raw_key;
+      document.getElementById('copy-key-btn').textContent = 'Copy';
+      document.getElementById('copy-key-btn').classList.remove('copied');
+      banner.classList.add('visible');
+      banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      showToast('✓ API key generated', 'success');
+      await loadApiKeys();
+    } else {
+      errEl.textContent   = result.detail || 'Failed to generate key. Try again.';
+      errEl.style.display = 'block';
+      btn.disabled    = false;
+      btn.textContent = 'Generate';
+    }
+  } catch (e) {
+    errEl.textContent   = `Error: ${e.message}`;
+    errEl.style.display = 'block';
+    btn.disabled    = false;
+    btn.textContent = 'Generate';
+  }
+}
+
+function copyNewKey() {
+  if (!newKeyRawValue) return;
+  navigator.clipboard.writeText(newKeyRawValue).then(() => {
+    const btn = document.getElementById('copy-key-btn');
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2500);
+  }).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = newKeyRawValue;
+    el.style.position = 'fixed'; el.style.opacity = '0';
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    const btn = document.getElementById('copy-key-btn');
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2500);
+  });
+}
+
+// ── Revoke key modal ──────────────────────────────────────────────────────
+function openRevokeModal(keyId, keyName) {
+  pendingRevokeKeyId   = keyId;
+  pendingRevokeKeyName = keyName;
+  document.getElementById('revoke-modal-msg').textContent =
+    `Are you sure you want to revoke "${keyName || 'this key'}"? Any integration using it will stop working immediately. This cannot be undone.`;
+  document.getElementById('revoke-modal').classList.add('visible');
+}
+
+function closeRevokeModal() {
+  pendingRevokeKeyId   = null;
+  pendingRevokeKeyName = null;
+  document.getElementById('revoke-modal').classList.remove('visible');
+}
+
+async function confirmRevoke() {
+  if (!pendingRevokeKeyId || !currentToken) return;
+  const keyId = pendingRevokeKeyId;
+  closeRevokeModal();
+
+  try {
+    const resp = await fetch(`${DAZZLING_URL}/v1/keys/${keyId}`, {
+      method:  'DELETE',
+      headers: { 'Authorization': `Bearer ${currentToken}` },
+    });
+
+    if (resp.ok) {
+      showToast('API key revoked', 'success');
+      await loadApiKeys();
+    } else {
+      const err = await resp.json().catch(() => ({}));
+      showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Error: ${e.message}`, 'error');
   }
 }
 
@@ -1172,8 +1604,8 @@ async function loadInstitutions() {
       if (isSuperAdmin) {
         if (inst.status === 'pending') {
           actions = `
-            <button class="btn-approve"  onclick="updateInstStatus('${inst.id}', 'active')">Approve</button>
-            <button class="btn-suspend"  onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>
+            <button class="btn-approve" onclick="updateInstStatus('${inst.id}', 'active')">Approve</button>
+            <button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>
           `;
         } else if (inst.status === 'active') {
           actions = `<button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>`;
