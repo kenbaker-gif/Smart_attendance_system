@@ -15,28 +15,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 
 
-# ── Shared limiter ───────────────────────────────────────────────────────────
-# FIX 3: Import the single Limiter instance from main.py instead of creating
-# a second one here.  Two separate Limiter objects — even with different
-# key_funcs — both need to be registered on the FastAPI app via
-# app.state.limiter.  Only the one in main.py is registered, so any
-# @limiter.limit() decorators referencing a local instance were silently
-# no-ops (or raised errors on some slowapi versions).
-#
-# The shared limiter in main.py uses get_remote_address as its key_func.
-# For enterprise routes we want to rate-limit by org_id where available,
-# so we set request.state.org_id in validate_api_key and the key management
-# routes set request.state.org_id from the JWT profile — the limiter will
-# pick it up automatically via rate_limit_key in main.py if you switch the
-# key_func there.  For now, IP-based limiting is active and correct.
-from .dep import limiter  # ✅ single shared instance (see deps.py)
-
-# ── Auth dependency from main app ────────────────────────────────────────────
-# FIX 2: Import check_admin and supabase_admin so key-management routes
-# can authenticate callers and resolve their institution (org_id).
-# Previously these routes read org_id from request.state which was never
-# populated, always returning 400.
-from .dep import supabase, supabase_admin, check_admin
+from .dep import limiter, supabase, supabase_admin, check_admin, _bool_flag
 
 # ── Router ───────────────────────────────────────────────────────────────────
 
@@ -57,13 +36,23 @@ def generate_api_key() -> tuple[str, str]:
 
 # ── Helper: resolve org_id from JWT user ─────────────────────────────────────
 
-def _get_org_id(user) -> str:
-    """Fetch institution_id from profiles for the given authenticated user."""
+def _get_org_id(user, requested_org_id: Optional[str] = None) -> Optional[str]:
+    """
+    Super admin: returns requested_org_id if provided, else None (= no filter).
+    Regular admin: always returns their own institution_id.
+    """
     resp = supabase_admin.table("profiles") \
-        .select("institution_id") \
+        .select("institution_id, is_super_admin") \
         .eq("id", user.id) \
         .limit(1).execute()
-    org_id = resp.data[0].get("institution_id") if resp.data else None
+
+    profile = resp.data[0] if resp.data else None
+    is_super = _bool_flag(profile.get("is_super_admin") if profile else None)
+
+    if is_super:
+        return requested_org_id or None  # None = super admin, no org filter
+
+    org_id = profile.get("institution_id") if profile else None
     if not org_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -80,14 +69,14 @@ async def validate_api_key(
 ) -> dict:
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing X-API-Key header.")
-    
+
     if not x_api_key.startswith("fa_live_"):
         raise HTTPException(status_code=401, detail="Invalid API key format.")
 
     key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
-    
+
     result = (
-        supabase_admin.table("api_keys")  # <--- Change 'supabase' to 'supabase_admin'
+        supabase_admin.table("api_keys")
         .select("id, org_id, plan, is_active, name")
         .eq("key_hash", key_hash)
         .limit(1)
@@ -99,7 +88,7 @@ async def validate_api_key(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or revoked API key.",
         )
-    
+
     key_row = result.data[0]
 
     if not key_row["is_active"]:
@@ -108,10 +97,8 @@ async def validate_api_key(
             detail="This API key has been deactivated.",
         )
 
-    # Expose org_id on request state so the rate limiter can use it
     request.state.org_id = key_row["org_id"]
 
-    # Fire-and-forget: update last_used_at
     supabase_admin.table("api_keys").update(
         {"last_used_at": datetime.now(timezone.utc).isoformat()}
     ).eq("id", key_row["id"]).execute()
@@ -122,15 +109,15 @@ async def validate_api_key(
 # ── Schemas ──────────────────────────────────────────────────────────────────
 
 class CreateKeyRequest(BaseModel):
-    name: str = "Default Key"  # e.g. "Production", "Staging"
+    name: str = "Default Key"
 
 
 class MarkAttendanceRequest(BaseModel):
     session_id: str
     student_id: str
-    confidence_score: float          # face recognition confidence 0.0–1.0
+    confidence_score: float
     anti_spoof_passed: bool
-    marked_at: Optional[str] = None  # ISO timestamp; defaults to now() in DB
+    marked_at: Optional[str] = None
 
 
 class AttendanceRecord(BaseModel):
@@ -140,34 +127,37 @@ class AttendanceRecord(BaseModel):
     confidence_score: float
     anti_spoof_passed: bool
     marked_at: str
-    status: str  # present | late | absent
+    status: str
 
 
 # ── Key Management Routes ────────────────────────────────────────────────────
-# FIX 2: All three routes now use Depends(check_admin) for JWT auth and call
-# _get_org_id() to resolve the institution.  Previously org_id was read from
-# request.state which was never set, so every call returned 400.
 
 @router.post("/keys", status_code=status.HTTP_201_CREATED)
 async def create_api_key(
     body: CreateKeyRequest,
-    user=Depends(check_admin),  # ✅ JWT auth wired in
+    org_id: Optional[str] = None,  # super admin passes ?org_id=XXX
+    user=Depends(check_admin),
 ):
     """
     Generate a new API key for the authenticated institution.
     The raw key is returned ONCE — store it securely. Only the hash is saved.
+    Super admin must pass ?org_id=<institution_id>.
 
     Auth: JWT (institution admin). Not protected by X-API-Key.
     """
-    org_id = _get_org_id(user)  # ✅ resolved from JWT profile
+    resolved = _get_org_id(user, org_id)
+    if not resolved:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Super admin must provide ?org_id=<institution_id>.",
+        )
 
     raw_key, key_hash = generate_api_key()
-    key_suffix = raw_key[-4:]
 
     result = supabase_admin.table("api_keys").insert({
         "key_hash":   key_hash,
-        "key_suffix": key_suffix,
-        "org_id":     org_id,
+        "key_suffix": raw_key[-4:],
+        "org_id":     resolved,
         "name":       body.name,
         "plan":       "enterprise",
         "is_active":  True,
@@ -180,7 +170,7 @@ async def create_api_key(
         )
 
     return {
-        "api_key": raw_key,          # shown ONCE — not stored
+        "api_key": raw_key,
         "key_id":  result.data[0]["id"],
         "name":    body.name,
         "warning": "Save this key now. It will not be shown again.",
@@ -189,48 +179,51 @@ async def create_api_key(
 
 @router.get("/keys")
 async def list_api_keys(
-    user=Depends(check_admin),  # ✅ JWT auth wired in
+    org_id: Optional[str] = None,  # super admin filter; omit = all keys
+    user=Depends(check_admin),
 ):
     """
     List all API keys for the authenticated institution.
+    Super admin: returns all keys, or filtered by ?org_id=XXX.
     key_hash is never returned — only metadata.
 
     Auth: JWT (institution admin).
     """
-    org_id = _get_org_id(user)  # ✅ resolved from JWT profile
+    resolved = _get_org_id(user, org_id)
 
-    result = (
-        supabase_admin.table("api_keys")
+    query = supabase_admin.table("api_keys") \
         .select("id, name, plan, is_active, created_at, last_used_at, key_suffix")
-        .eq("org_id", org_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
 
+    if resolved:  # None = super admin with no filter = all keys
+        query = query.eq("org_id", resolved)
+
+    result = query.order("created_at", desc=True).execute()
     return {"keys": result.data}
 
 
 @router.delete("/keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_api_key(
     key_id: str,
-    user=Depends(check_admin),  # ✅ JWT auth wired in
+    user=Depends(check_admin),
 ):
     """
     Revoke (deactivate) an API key by ID.
-    Scoped to the requesting institution — cannot revoke another org's key.
+    Regular admin: scoped to their institution — cannot revoke another org's key.
+    Super admin: can revoke any key.
 
     Auth: JWT (institution admin).
     """
-    org_id = _get_org_id(user)  # ✅ resolved from JWT profile
+    resolved = _get_org_id(user)
 
-    result = (
-        supabase_admin.table("api_keys")
-        .update({"is_active": False})
+    query = supabase_admin.table("api_keys") \
+        .update({"is_active": False}) \
         .eq("id", key_id)
-        .eq("org_id", org_id)   # prevent cross-org revocation
-        .execute()
-    )
 
+    if resolved:  # regular admin: scope to their org
+        query = query.eq("org_id", resolved)
+    # super admin: no org filter, can revoke any key
+
+    result = query.execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
