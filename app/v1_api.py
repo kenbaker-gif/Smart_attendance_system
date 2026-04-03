@@ -78,27 +78,16 @@ async def validate_api_key(
     request: Request,
     x_api_key: Optional[str] = Header(default=None),
 ) -> dict:
-    """
-    Validates the incoming API key against Supabase api_keys table.
-    Returns the api_key row (includes org_id, plan, etc.) if valid.
-    Also sets request.state.org_id for the rate limiter.
-    """
     if not x_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing X-API-Key header.",
-        )
-
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header.")
+    
     if not x_api_key.startswith("fa_live_"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key format.",
-        )
+        raise HTTPException(status_code=401, detail="Invalid API key format.")
 
     key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
-
+    
     result = (
-        supabase.table("api_keys")
+        supabase_admin.table("api_keys")  # <--- Change 'supabase' to 'supabase_admin'
         .select("id, org_id, plan, is_active, name")
         .eq("key_hash", key_hash)
         .limit(1)
@@ -110,7 +99,7 @@ async def validate_api_key(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or revoked API key.",
         )
-
+    
     key_row = result.data[0]
 
     if not key_row["is_active"]:
@@ -123,7 +112,7 @@ async def validate_api_key(
     request.state.org_id = key_row["org_id"]
 
     # Fire-and-forget: update last_used_at
-    supabase.table("api_keys").update(
+    supabase_admin.table("api_keys").update(
         {"last_used_at": datetime.now(timezone.utc).isoformat()}
     ).eq("id", key_row["id"]).execute()
 
@@ -300,7 +289,7 @@ async def mark_attendance(
     if body.marked_at:
         payload["marked_at"] = body.marked_at
 
-    result = supabase.table("attendance_records").insert(payload).execute()
+    result = supabase_admin.table("attendance_records").insert(payload).execute()
 
     if not result.data:
         raise HTTPException(
@@ -323,7 +312,7 @@ async def get_session_attendance(
     Scoped to the org that owns the session.
     """
     result = (
-        supabase.table("attendance_records")
+        supabase_admin.table("attendance_records")
         .select("*")
         .eq("session_id", session_id)
         .eq("org_id", api_key["org_id"])
@@ -353,7 +342,7 @@ async def get_student_attendance(
     limit = min(limit, 100)
 
     result = (
-        supabase.table("attendance_records")
+        supabase_admin.table("attendance_records")
         .select("*")
         .eq("student_id", student_id)
         .eq("org_id", api_key["org_id"])
