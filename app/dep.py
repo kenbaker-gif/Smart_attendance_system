@@ -1,54 +1,36 @@
-"""
-deps.py — Shared dependencies for FaceAttend API
-Centralises: Supabase clients, rate limiter, and auth dependencies.
-
-Both main.py and v1_api.py import from here to avoid circular imports
-and to ensure there is exactly ONE Limiter instance registered on the app.
-"""
-
 import os
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi import Request
 from supabase import create_client, Client
 from dotenv import load_dotenv
-#from .utils.supabase_utils import supabase_admin
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
+# 1. Load environment variables FIRST
 load_dotenv()
 
-# ── Supabase clients ─────────────────────────────────────────────────────────
-
+# 2. Define the constants from the environment
 SUPABASE_URL         = os.getenv("SUPABASE_URL")
-SUPABASE_KEY         = os.getenv("SUPABASE_KEY")          # anon key — auth verification
-SUPABASE_SERVICE_KEY = os.getenv("SERVICE_KEY")            # service role — DB/storage ops
+SUPABASE_KEY         = os.getenv("SUPABASE_KEY")          # anon key
+SUPABASE_SERVICE_KEY = os.getenv("SERVICE_KEY")            # service role
 
+# 3. Check that they exist
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in environment.")
 if not SUPABASE_SERVICE_KEY:
     raise RuntimeError("Missing SERVICE_KEY in environment.")
 
+# 4. Initialize the clients (after the variables are defined)
+# This replaces the line you had at the top and fixes the "supabase_admin" import error
 supabase: Client       = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # ── Rate limiter ─────────────────────────────────────────────────────────────
-# Single shared instance. main.py attaches this to app.state.limiter so
-# slowapi can enforce limits on all routes — including /v1/ routes — through
-# the one registered exception handler.
-#
-# Key function: use org_id from request.state when available (set by
-# validate_api_key in v1_api.py), otherwise fall back to remote IP.
-# This means enterprise clients behind NAT/proxies are bucketed by org,
-# not by the shared egress IP.
-
 def rate_limit_key(request: Request) -> str:
     return getattr(request.state, "org_id", None) or get_remote_address(request)
 
 limiter = Limiter(key_func=rate_limit_key)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
-
 def _bool_flag(value) -> bool:
     if isinstance(value, bool):
         return value
