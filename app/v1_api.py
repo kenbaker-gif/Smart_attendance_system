@@ -29,14 +29,14 @@ from pydantic import BaseModel
 # routes set request.state.org_id from the JWT profile — the limiter will
 # pick it up automatically via rate_limit_key in main.py if you switch the
 # key_func there.  For now, IP-based limiting is active and correct.
-from deps import limiter  # ✅ single shared instance (see deps.py)
+from dep import limiter  # ✅ single shared instance (see deps.py)
 
 # ── Auth dependency from main app ────────────────────────────────────────────
 # FIX 2: Import check_admin and supabase_admin so key-management routes
 # can authenticate callers and resolve their institution (org_id).
 # Previously these routes read org_id from request.state which was never
 # populated, always returning 400.
-from deps import supabase, supabase_admin, check_admin
+from dep import supabase, supabase_admin, check_admin
 
 # ── Router ───────────────────────────────────────────────────────────────────
 
