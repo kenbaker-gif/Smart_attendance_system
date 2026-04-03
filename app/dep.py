@@ -13,7 +13,9 @@ from slowapi.util import get_remote_address
 from fastapi import Request
 from supabase import create_client, Client
 from dotenv import load_dotenv
-from .utils.supabase_utils import supabase_admin
+#from .utils.supabase_utils import supabase_admin
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 load_dotenv()
 

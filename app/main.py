@@ -25,7 +25,7 @@ from .dep import (
 )
 
 # ── Enterprise API v1 router ───────────────────────────────────────────────
-from v1_api import router as v1_router
+from .v1_api import router as v1_router
 
 load_dotenv()
 
