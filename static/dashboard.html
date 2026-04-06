@@ -1964,10 +1964,10 @@ function exportCSV() {
 // ── Pesapal Payment Handler ────────────────────────────────────────────────
 
 async function handleUpgrade(plan) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await client.auth.getUser();
   if (!user) return alert('Please log in first.');
 
-  const { data: profile } = await supabase.from('profiles')
+  const { data: profile } = await client.from('profiles')
     .select('full_name, institution_id')
     .eq('id', user.id)
     .single();
