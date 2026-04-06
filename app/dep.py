@@ -121,3 +121,22 @@ async def check_super_admin(authorization: str = Header(None)):
         raise HTTPException(status_code=403, detail="Super admin access required")
 
     return user
+
+def require_enterprise(org_id: str):
+    """Raise 403 if the institution is not on the enterprise plan."""
+    resp = supabase_admin.table("institutions") \
+        .select("plans") \
+        .eq("id", org_id) \
+        .limit(1).execute()
+
+    inst = resp.data[0] if resp.data else None
+    if not inst:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Institution not found.",
+        )
+    if inst.get("plans") != "enterprise":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API access requires an Enterprise plan. Please upgrade your institution.",
+        )

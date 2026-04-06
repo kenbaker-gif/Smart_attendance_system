@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 
 
-from .dep import limiter, supabase, supabase_admin, check_admin, _bool_flag
+from .dep import limiter, supabase, supabase_admin, check_admin, _bool_flag, require_enterprise
 
 # ── Router ───────────────────────────────────────────────────────────────────
 
@@ -97,6 +97,12 @@ async def validate_api_key(
             detail="This API key has been deactivated.",
         )
 
+    if key_row.get("plan") != "enterprise":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API access requires an Enterprise plan.",
+        )
+
     request.state.org_id = key_row["org_id"]
 
     supabase_admin.table("api_keys").update(
@@ -142,6 +148,7 @@ async def create_api_key(
     Generate a new API key for the authenticated institution.
     The raw key is returned ONCE — store it securely. Only the hash is saved.
     Super admin must pass ?org_id=<institution_id>.
+    Institution must be on the Enterprise plan.
 
     Auth: JWT (institution admin). Not protected by X-API-Key.
     """
@@ -151,6 +158,8 @@ async def create_api_key(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Super admin must provide ?org_id=<institution_id>.",
         )
+
+    require_enterprise(resolved)
 
     raw_key, key_hash = generate_api_key()
 
@@ -186,15 +195,19 @@ async def list_api_keys(
     List all API keys for the authenticated institution.
     Super admin: returns all keys, or filtered by ?org_id=XXX.
     key_hash is never returned — only metadata.
+    Institution must be on the Enterprise plan (skipped for super admin listing all).
 
     Auth: JWT (institution admin).
     """
     resolved = _get_org_id(user, org_id)
 
+    if resolved:  # None = super admin with no filter — skip plan check
+        require_enterprise(resolved)
+
     query = supabase_admin.table("api_keys") \
         .select("id, name, plan, is_active, created_at, last_used_at, key_suffix")
 
-    if resolved:  # None = super admin with no filter = all keys
+    if resolved:
         query = query.eq("org_id", resolved)
 
     result = query.order("created_at", desc=True).execute()
@@ -210,10 +223,14 @@ async def revoke_api_key(
     Revoke (deactivate) an API key by ID.
     Regular admin: scoped to their institution — cannot revoke another org's key.
     Super admin: can revoke any key.
+    Institution must be on the Enterprise plan (skipped for super admin).
 
     Auth: JWT (institution admin).
     """
     resolved = _get_org_id(user)
+
+    if resolved:  # None = super admin — skip plan check
+        require_enterprise(resolved)
 
     query = supabase_admin.table("api_keys") \
         .update({"is_active": False}) \
