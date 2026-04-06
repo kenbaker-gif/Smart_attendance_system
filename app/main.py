@@ -26,6 +26,7 @@ from .dep import (
 
 # ── Enterprise API v1 router ───────────────────────────────────────────────
 from .v1_api import router as v1_router
+from .pesapal import router as pesapal_router
 
 load_dotenv()
 
@@ -69,6 +70,7 @@ else:
 
 # ── Mount Enterprise API v1 ────────────────────────────────────────────────
 app.include_router(v1_router)
+app.include_router(pesapal_router)
 
 
 # ── Background sync ────────────────────────────────────────────────────────
