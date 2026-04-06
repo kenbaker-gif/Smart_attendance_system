@@ -1961,6 +1961,40 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
+// ── Pesapal Payment Handler ────────────────────────────────────────────────
+
+async function handleUpgrade(plan) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return alert('Please log in first.');
+
+  const { data: profile } = await supabase.from('profiles')
+    .select('full_name, institution_id')
+    .eq('id', user.id)
+    .single();
+
+  const nameParts = (profile?.full_name || 'User Name').split(' ');
+
+  const resp = await fetch('/api/cart/create-cart', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      plan,
+      email: user.email,
+      first_name: nameParts[0] || 'User',
+      last_name: nameParts[1] || 'Name',
+      phone: '',
+      institution_id: profile?.institution_id || ''
+    })
+  });
+
+  const data = await resp.json();
+  if (data.redirect_url) {
+    window.location.href = data.redirect_url;
+  } else {
+    alert('Payment failed: ' + JSON.stringify(data));
+  }
+}
+
 // ── Idle timeout (30 mins) ────────────────────────────────────────────────
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 let idleTimer = null;
