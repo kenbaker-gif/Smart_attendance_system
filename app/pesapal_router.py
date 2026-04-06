@@ -72,8 +72,8 @@ class CartRequest(BaseModel):
 
 
 PLAN_PRICES = {
-    "standard":   {"amount": 1.00,  "currency": "USD", "description": "FaceAttend Standard Plan"},
-    "enterprise": {"amount": 1.00, "currency": "USD", "description": "FaceAttend Enterprise Plan"},
+    "standard":   {"amount": 30.00,  "currency": "USD", "description": "FaceAttend Standard Plan"},
+    "enterprise": {"amount": 150.00, "currency": "USD", "description": "FaceAttend Enterprise Plan"},
 }
 
 
