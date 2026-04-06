@@ -1,5 +1,5 @@
 import os
-from fastapi import Header, HTTPException, Request
+from fastapi import Header, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from supabase import create_client, Client
