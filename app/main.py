@@ -26,7 +26,7 @@ from .dep import (
 
 # ── Enterprise API v1 router ───────────────────────────────────────────────
 from .v1_api import router as v1_router
-from .pesapal import router as pesapal_router
+from .pesapal_router import router as pesapal_router
 
 load_dotenv()
 
