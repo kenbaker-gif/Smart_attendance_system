@@ -200,6 +200,8 @@ nav {
 .tab-btn.superadmin-tab.active { color: var(--purple); border-bottom-color: var(--purple); }
 .tab-btn.dev-tab { color: var(--orange); }
 .tab-btn.dev-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+.tab-btn.billing-tab { color: var(--cyan); }
+.tab-btn.billing-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
@@ -383,7 +385,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 }
 .btn-gen-key:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* New key reveal banner */
 .new-key-banner {
   background: rgba(255,107,53,0.06);
   border: 1px solid rgba(255,107,53,0.25);
@@ -427,7 +428,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .btn-copy-key:hover { background: rgba(255,107,53,0.1); border-color: var(--orange); }
 .btn-copy-key.copied { color: var(--cyan); border-color: rgba(0,245,196,0.4); }
 
-/* Key name field inside generate modal */
 .key-name-input {
   width: 100%; background: var(--black);
   border: 1px solid var(--border); border-radius: 8px;
@@ -438,7 +438,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 }
 .key-name-input:focus { border-color: var(--orange); }
 
-/* Key table specifics */
 .key-masked {
   font-family: 'DM Mono', 'Courier New', monospace;
   font-size: 0.78rem; color: var(--muted);
@@ -454,13 +453,94 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 }
 .btn-revoke:hover { background: rgba(255,80,80,0.1); border-color: var(--red); }
 
-/* Empty state */
 .empty-state {
   text-align: center; padding: 56px 24px;
   color: var(--muted);
 }
 .empty-state-icon { font-size: 2rem; margin-bottom: 12px; opacity: 0.5; }
 .empty-state p { font-size: 0.88rem; line-height: 1.6; }
+
+/* ── BILLING TAB ─────────────────────────────────────────────────────── */
+.billing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px; margin-bottom: 24px;
+}
+.billing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px;
+  position: relative; overflow: hidden;
+}
+.billing-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+}
+.billing-card.cyan::before   { background: var(--cyan); }
+.billing-card.orange::before { background: var(--orange); }
+.upgrade-section {
+  background: var(--surface);
+  border: 1px solid rgba(0,245,196,0.15);
+  border-radius: 12px; padding: 28px;
+}
+.upgrade-plan-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(0,245,196,0.06);
+  border: 1px solid rgba(0,245,196,0.15);
+  border-radius: 8px; padding: 6px 14px;
+  font-size: 0.8rem; color: var(--cyan);
+  margin-bottom: 16px;
+}
+.upgrade-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem; font-weight: 800; margin-bottom: 8px;
+}
+.upgrade-desc {
+  font-size: 0.85rem; color: var(--muted);
+  line-height: 1.6; margin-bottom: 20px; max-width: 480px;
+}
+.upgrade-features {
+  display: flex; flex-wrap: wrap;
+  gap: 8px 20px; margin-bottom: 24px;
+}
+.upgrade-feature {
+  font-size: 0.82rem; color: var(--cyan);
+  display: flex; align-items: center; gap: 6px;
+}
+.upgrade-feature::before {
+  content: ''; display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--cyan); flex-shrink: 0;
+}
+.pesapal-row {
+  display: flex; align-items: center;
+  gap: 16px; flex-wrap: wrap;
+}
+.pesapal-note { font-size: 0.75rem; color: var(--muted); }
+.enterprise-cta {
+  background: rgba(167,139,250,0.06);
+  border: 1px solid rgba(167,139,250,0.2);
+  border-radius: 10px; padding: 20px 24px;
+  margin-top: 24px;
+}
+.enterprise-cta p {
+  font-size: 0.85rem; color: var(--muted);
+  line-height: 1.6; margin-bottom: 14px;
+}
+.btn-contact-enterprise {
+  background: transparent;
+  border: 1px solid rgba(167,139,250,0.4);
+  color: var(--purple); padding: 9px 20px;
+  border-radius: 8px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 0.82rem;
+  cursor: pointer; letter-spacing: 0.04em;
+  transition: background 0.2s, border-color 0.2s;
+}
+.btn-contact-enterprise:hover {
+  background: rgba(167,139,250,0.08);
+  border-color: var(--purple);
+}
 
 /* Modal */
 .modal-overlay {
@@ -529,7 +609,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   margin-top: 12px; display: none;
 }
 
-/* Generate key modal */
 #genkey-modal .modal { max-width: 400px; }
 .genkey-error {
   background: rgba(255,80,80,0.08);
@@ -548,10 +627,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 }
 .btn-confirm-gen:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Revoke confirm modal */
 #revoke-modal .modal { max-width: 380px; }
 
-/* Loading */
 .loading {
   text-align: center; padding: 48px;
   color: var(--muted); font-size: 0.9rem;
@@ -566,7 +643,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Toast */
 #toast {
   position: fixed; bottom: 32px; right: 32px;
   background: var(--surface); border: 1px solid var(--border);
@@ -755,8 +831,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         </div>
         <button class="btn-gen-key" id="gen-key-btn" onclick="openGenKeyModal()">+ Generate Key</button>
       </div>
-
-      <!-- New key one-time reveal banner -->
       <div class="new-key-banner" id="new-key-banner">
         <div class="new-key-banner-title">⚠ Save this key now — it won't be shown again</div>
         <p>Copy and store your API key in a safe place. For security, we only show it once.</p>
@@ -765,9 +839,15 @@ tr:hover td { background: rgba(255,255,255,0.02); }
           <button class="btn-copy-key" id="copy-key-btn" onclick="copyNewKey()">Copy</button>
         </div>
       </div>
-
       <div class="table-wrap" id="apikeys-table-wrap">
         <div class="loading"><div class="spinner"></div>Loading keys...</div>
+      </div>
+    </div>
+
+    <!-- Billing Tab -->
+    <div class="tab-panel" id="tab-billing">
+      <div id="billing-wrap">
+        <div class="loading"><div class="spinner"></div>Loading billing info...</div>
       </div>
     </div>
 
@@ -832,6 +912,7 @@ function switchTab(tab) {
   if (tab === 'superadmin') loadInstitutions();
   if (tab === 'team')       loadCoordinators();
   if (tab === 'apikeys')    loadApiKeys();
+  if (tab === 'billing')    loadBilling();
 }
 
 // ── Auto-login from Flutter WebView token injection ───────────────────────
@@ -963,6 +1044,17 @@ async function initDashboard(session) {
     }
   }
 
+  // Inject Billing tab (non-super admins only)
+  if (!isSuperAdmin) {
+    const tabs = document.getElementById('tabs');
+    const billingBtn = document.createElement('button');
+    billingBtn.className   = 'tab-btn billing-tab';
+    billingBtn.id          = 'tab-btn-billing';
+    billingBtn.onclick     = () => switchTab('billing');
+    billingBtn.textContent = '💳 Billing';
+    tabs.appendChild(billingBtn);
+  }
+
   // Inject API Keys tab (all admins)
   {
     const tabs = document.getElementById('tabs');
@@ -981,7 +1073,6 @@ async function initDashboard(session) {
     adminTabBtn.className   = 'tab-btn superadmin-tab';
     adminTabBtn.id          = 'tab-btn-superadmin';
     adminTabBtn.onclick     = () => switchTab('superadmin');
-    // FIX 3: pending-count badge element now exists in the DOM
     adminTabBtn.innerHTML   = '🏢 Institutions <span class="pending-count" id="pending-count" style="display:none"></span>';
     tabs.appendChild(adminTabBtn);
   }
@@ -1015,7 +1106,7 @@ async function logout() {
   isSuperAdmin         = false;
   allRecords           = [];
 
-  ['tab-btn-team', 'tab-btn-apikeys', 'tab-btn-superadmin'].forEach(id => {
+  ['tab-btn-team', 'tab-btn-billing', 'tab-btn-apikeys', 'tab-btn-superadmin'].forEach(id => {
     document.getElementById(id)?.remove();
   });
 
@@ -1030,7 +1121,6 @@ async function logout() {
   document.getElementById('login-password').value = '';
   document.getElementById('login-error').style.display = 'none';
 
-  // Reset API keys state
   document.getElementById('new-key-banner').classList.remove('visible');
   newKeyRawValue = null;
 
@@ -1224,8 +1314,114 @@ async function loadCoordinators() {
   }
 }
 
-// ── API KEYS ──────────────────────────────────────────────────────────────
+// ── Load billing ──────────────────────────────────────────────────────────
+async function loadBilling() {
+  if (!currentToken || !currentInstitutionId) return;
 
+  document.getElementById('billing-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Loading billing info...</div>';
+
+  try {
+    const { data: inst, error } = await client
+      .from('institutions')
+      .select('plans, status, trial_ends_at, name')
+      .eq('id', currentInstitutionId)
+      .limit(1)
+      .single();
+
+    if (error || !inst) {
+      document.getElementById('billing-wrap').innerHTML =
+        '<div class="loading" style="color:var(--red)">Failed to load billing info.</div>';
+      return;
+    }
+
+    const plan = (inst.plans || 'trial').toLowerCase();
+    const trialEnds = inst.trial_ends_at ? new Date(inst.trial_ends_at) : null;
+    const daysLeft = trialEnds
+      ? Math.max(0, Math.ceil((trialEnds - Date.now()) / (1000 * 60 * 60 * 24)))
+      : null;
+
+    const planLabel =
+      plan === 'enterprise' ? 'Enterprise' :
+      plan === 'standard'   ? 'Standard'   :
+      plan === 'starter'    ? 'Starter'    : 'Trial';
+
+    const planColor =
+      plan === 'enterprise' ? 'var(--purple)' :
+      plan === 'standard'   ? 'var(--cyan)'   : 'var(--yellow)';
+
+    const expiryCard = trialEnds ? `
+      <div class="billing-card orange">
+        <div class="metric-label">Trial Expires</div>
+        <div class="metric-value" style="font-size:1.1rem;">
+          ${trialEnds.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+        </div>
+        <div class="metric-sub" style="margin-top:8px;">
+          ${daysLeft > 0
+            ? `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`
+            : 'Expired — upgrade to restore access'}
+        </div>
+      </div>
+    ` : '';
+
+    const upgradeBlock = (plan === 'trial' || plan === 'starter') ? `
+      <div class="upgrade-section">
+        <div class="upgrade-plan-tag">Standard Plan — $30 / month</div>
+        <div class="upgrade-title">Upgrade to Standard</div>
+        <div class="upgrade-desc">Get full access to all FaceAttend features — unlimited attendance records, coordinator invites, and priority support.</div>
+        <div class="upgrade-features">
+          <span class="upgrade-feature">Unlimited attendance records</span>
+          <span class="upgrade-feature">Up to 5 coordinators</span>
+          <span class="upgrade-feature">CSV export</span>
+          <span class="upgrade-feature">Priority support</span>
+        </div>
+        <div class="pesapal-row">
+          <iframe
+            width="200" height="40"
+            src="https://store.pesapal.com/embed-code?pageUrl=https://store.pesapal.com/standard"
+            frameborder="0" allowfullscreen
+            style="border-radius:6px;display:block;">
+          </iframe>
+          <span class="pesapal-note">Secure payment via Pesapal · MoMo, cards &amp; bank</span>
+        </div>
+      </div>
+    ` : plan === 'standard' ? `
+      <div class="enterprise-cta">
+        <p>You're on the Standard plan. Need custom integrations, a dedicated account manager, or direct API access? Upgrade to Enterprise.</p>
+        <button class="btn-contact-enterprise"
+          onclick="window.open('mailto:abubaker@faceattend.app?subject=Enterprise Plan Inquiry','_blank')">
+          Contact Us for Enterprise
+        </button>
+      </div>
+    ` : `
+      <div class="enterprise-cta" style="border-color:rgba(167,139,250,0.3);">
+        <p style="color:var(--purple);">You're on the Enterprise plan. For billing inquiries or changes, contact us directly.</p>
+        <button class="btn-contact-enterprise"
+          onclick="window.open('mailto:abubaker@faceattend.app?subject=Enterprise Billing','_blank')">
+          Contact Support
+        </button>
+      </div>
+    `;
+
+    document.getElementById('billing-wrap').innerHTML = `
+      <div class="billing-grid">
+        <div class="billing-card cyan">
+          <div class="metric-label">Current Plan</div>
+          <div class="metric-value" style="color:${planColor};">${planLabel}</div>
+          <div class="metric-sub" style="margin-top:8px;">${inst.name || currentInstitutionId}</div>
+        </div>
+        ${expiryCard}
+      </div>
+      ${upgradeBlock}
+    `;
+
+  } catch (e) {
+    document.getElementById('billing-wrap').innerHTML =
+      `<div class="loading" style="color:var(--red)">Error: ${e.message}</div>`;
+  }
+}
+
+// ── API KEYS ──────────────────────────────────────────────────────────────
 async function loadApiKeys() {
   if (!currentToken) return;
 
@@ -1303,14 +1499,9 @@ async function loadApiKeys() {
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Key</th>
-            <th>Plan</th>
-            <th>Status</th>
+            <th>Name</th><th>Key</th><th>Plan</th><th>Status</th>
             ${isSuperAdmin ? '<th>Org</th>' : ''}
-            <th>Last Used</th>
-            <th>Created</th>
-            <th>Action</th>
+            <th>Last Used</th><th>Created</th><th>Action</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -1355,7 +1546,6 @@ async function confirmGenerateKey() {
   btn.textContent = 'Generating...';
 
   try {
-    // FIX 1: removed dead formData lines — sending JSON directly
     const resp = await fetch(`${DAZZLING_URL}/v1/keys`, {
       method:  'POST',
       headers: {
@@ -1367,8 +1557,6 @@ async function confirmGenerateKey() {
 
     const result = await resp.json();
 
-    // FIX 2: use result.raw_key (plaintext) consistently for both storing and displaying
-    // FIX 4: close the modal on success before showing the banner
     if (resp.ok && result.api_key) {
       newKeyRawValue = result.api_key;
       closeGenKeyModal();
@@ -1402,10 +1590,7 @@ function copyNewKey() {
     const btn = document.getElementById('copy-key-btn');
     btn.textContent = '✓ Copied';
     btn.classList.add('copied');
-    setTimeout(() => {
-      btn.textContent = 'Copy';
-      btn.classList.remove('copied');
-    }, 2500);
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2500);
   }).catch(() => {
     const el = document.createElement('textarea');
     el.value = newKeyRawValue;
@@ -1417,10 +1602,7 @@ function copyNewKey() {
     const btn = document.getElementById('copy-key-btn');
     btn.textContent = '✓ Copied';
     btn.classList.add('copied');
-    setTimeout(() => {
-      btn.textContent = 'Copy';
-      btn.classList.remove('copied');
-    }, 2500);
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2500);
   });
 }
 
@@ -1813,7 +1995,6 @@ initDashboard = async function(session) {
     await logout();
     return;
   }
-
   await _origInitDashboard(session);
   resetIdleTimer();
 };
