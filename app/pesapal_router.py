@@ -139,10 +139,11 @@ async def ipn_handler(request: Request):
     params = dict(request.query_params)
     print("IPN received:", params)
 
-    order_tracking_id  = params.get("OrderTrackingId")
-    merchant_reference = params.get("OrderMerchantReference")  # this is our order_id
+    order_tracking_id  = params.get("OrderTrackingId") or params.get("orderTrackingId")
+    merchant_reference = params.get("OrderMerchantReference") or params.get("orderMerchantReference")
 
     if not order_tracking_id:
+        print("IPN params:", params)
         return {"status": "ignored", "reason": "no OrderTrackingId"}
 
     # Step 1: Authenticate with Pesapal
