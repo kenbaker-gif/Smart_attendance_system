@@ -18,6 +18,11 @@ CONSUMER_SECRET = os.getenv("PESAPAL_CONSUMER_SECRET")
 CALLBACK_URL = os.getenv("PESAPAL_CALLBACK_URL", "https://faceattend.app/dashboard")
 IPN_URL = os.getenv("PESAPAL_IPN_URL", "https://faceattend.app/api/cart/ipn")
 
+# ── Order store: maps order_id → institution_id ────────────────────────────
+# Survives within a single Railway container session.
+# For multi-instance deployments, replace with a Supabase table.
+order_store: dict = {}
+
 
 async def get_pesapal_token() -> str:
     async with httpx.AsyncClient() as client:
@@ -67,10 +72,12 @@ class CartRequest(BaseModel):
 
 
 PLAN_PRICES = {
-    "standard": {"amount": 30.00, "currency": "USD", "description": "FaceAttend Standard Plan"},
+    "standard":   {"amount": 30.00,  "currency": "USD", "description": "FaceAttend Standard Plan"},
     "enterprise": {"amount": 149.00, "currency": "USD", "description": "FaceAttend Enterprise Plan"},
 }
 
+
+# ── Create cart ────────────────────────────────────────────────────────────
 
 @router.post("/create-cart")
 async def create_cart(payload: CartRequest):
@@ -78,22 +85,28 @@ async def create_cart(payload: CartRequest):
     if not plan:
         raise HTTPException(status_code=400, detail="Invalid plan. Choose 'standard' or 'enterprise'.")
 
-    token = await get_pesapal_token()
+    token  = await get_pesapal_token()
     ipn_id = await get_ipn_id(token)
     order_id = str(uuid.uuid4())
 
+    # Store mapping so IPN handler can look up institution
+    order_store[order_id] = {
+        "institution_id": payload.institution_id,
+        "plan":           payload.plan.lower(),
+    }
+
     order_payload = {
-        "id": order_id,
-        "currency": plan["currency"],
-        "amount": plan["amount"],
-        "description": plan["description"],
+        "id":           order_id,
+        "currency":     plan["currency"],
+        "amount":       plan["amount"],
+        "description":  plan["description"],
         "callback_url": CALLBACK_URL,
         "notification_id": ipn_id,
         "billing_address": {
             "email_address": payload.email,
-            "first_name": payload.first_name,
-            "last_name": payload.last_name,
-            "phone_number": payload.phone,
+            "first_name":    payload.first_name,
+            "last_name":     payload.last_name,
+            "phone_number":  payload.phone,
         },
     }
 
@@ -103,8 +116,8 @@ async def create_cart(payload: CartRequest):
             json=order_payload,
             headers={
                 "Authorization": f"Bearer {token}",
-                "Accept": "application/json",
-                "Content-Type": "application/json",
+                "Accept":        "application/json",
+                "Content-Type":  "application/json",
             },
         )
         data = resp.json()
@@ -113,15 +126,74 @@ async def create_cart(payload: CartRequest):
         raise HTTPException(status_code=500, detail=f"Pesapal order failed: {data}")
 
     return {
-        "redirect_url": data["redirect_url"],
+        "redirect_url":      data["redirect_url"],
         "order_tracking_id": data.get("order_tracking_id"),
-        "order_id": order_id,
+        "order_id":          order_id,
     }
 
+
+# ── IPN handler ────────────────────────────────────────────────────────────
 
 @router.get("/ipn")
 async def ipn_handler(request: Request):
     params = dict(request.query_params)
-    # TODO: verify transaction status and update institution plan in Supabase
     print("IPN received:", params)
-    return {"status": "ok"}
+
+    order_tracking_id  = params.get("OrderTrackingId")
+    merchant_reference = params.get("OrderMerchantReference")  # this is our order_id
+
+    if not order_tracking_id:
+        return {"status": "ignored", "reason": "no OrderTrackingId"}
+
+    # Step 1: Authenticate with Pesapal
+    try:
+        token = await get_pesapal_token()
+    except Exception as e:
+        print(f"IPN auth failed: {e}")
+        return {"status": "error", "reason": "auth failed"}
+
+    # Step 2: Verify transaction status
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{PESAPAL_BASE}/api/Transactions/GetTransactionStatus",
+            params={"orderTrackingId": order_tracking_id},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept":        "application/json",
+            },
+        )
+        status_data = resp.json()
+
+    print("Transaction status:", status_data)
+
+    # payment_status_code: 1=COMPLETED, 0=INVALID, 2=FAILED, 3=REVERSED
+    payment_status_code = status_data.get("payment_status_code")
+    if payment_status_code != 1:
+        print(f"Payment not completed: status_code={payment_status_code}")
+        return {"status": "ignored", "payment_status_code": payment_status_code}
+
+    # Step 3: Look up institution from order store
+    order = order_store.get(merchant_reference)
+    if not order:
+        print(f"Order {merchant_reference} not found in store")
+        return {"status": "error", "reason": "order not found"}
+
+    institution_id = order["institution_id"]
+    plan           = order["plan"]  # "standard" or "enterprise"
+
+    # Step 4: Upgrade institution plan in Supabase
+    from .dep import supabase_admin
+    try:
+        supabase_admin.table("institutions").update({
+            "plans": plan
+        }).eq("id", institution_id).execute()
+        print(f"✅ Institution {institution_id} upgraded to {plan}")
+
+        # Clean up order store
+        del order_store[merchant_reference]
+
+    except Exception as e:
+        print(f"❌ Failed to upgrade institution {institution_id}: {e}")
+        return {"status": "error", "reason": str(e)}
+
+    return {"status": "ok", "upgraded": institution_id, "plan": plan}
