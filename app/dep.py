@@ -138,5 +138,5 @@ def require_enterprise(org_id: str):
     if inst.get("plans") != "enterprise":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="API access requires an Enterprise plan. Please upgrade your institution.",
+            detail="API access requires an Enterprise plan. To upgrade, contact abubaker@faceattend.app.",
         )
