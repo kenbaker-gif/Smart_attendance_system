@@ -198,6 +198,8 @@ nav {
 .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
 .tab-btn.superadmin-tab { color: var(--purple); }
 .tab-btn.superadmin-tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+.tab-btn.security-tab { color: var(--red); }
+.tab-btn.security-tab.active { color: var(--red); border-bottom-color: var(--red); }
 .tab-btn.dev-tab { color: var(--orange); }
 .tab-btn.dev-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
 .tab-btn.billing-tab { color: var(--cyan); }
@@ -542,6 +544,81 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   border-color: var(--purple);
 }
 
+/* ── SECURITY TAB ─────────────────────────────────────────────────────── */
+.security-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 16px; margin-bottom: 28px;
+}
+.security-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px;
+  position: relative; overflow: hidden;
+}
+.security-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+}
+.security-card.red::before    { background: var(--red); }
+.security-card.orange::before { background: var(--orange); }
+.security-card.cyan::before   { background: var(--cyan); }
+.security-card.yellow::before { background: var(--yellow); }
+
+.flag-row { background: rgba(255,80,80,0.03); }
+.flag-row td { border-bottom-color: rgba(255,80,80,0.1) !important; }
+
+.spoof-rate-bg {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden; min-width: 60px;
+}
+.spoof-rate-fill {
+  height: 6px; border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.spoof-rate-row {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.drill-btn {
+  background: transparent;
+  border: 1px solid rgba(74,158,255,0.3);
+  color: var(--blue); padding: 4px 10px;
+  border-radius: 6px; font-size: 0.75rem;
+  cursor: pointer; transition: background 0.2s;
+  white-space: nowrap;
+}
+.drill-btn:hover { background: rgba(74,158,255,0.1); }
+.drill-btn.active {
+  background: rgba(74,158,255,0.12);
+  border-color: var(--blue);
+}
+
+.drill-panel {
+  background: rgba(0,0,0,0.25);
+  border-top: 1px solid var(--border);
+}
+.drill-panel table { margin: 0; }
+.drill-panel th {
+  font-size: 0.65rem; padding: 8px 16px;
+  background: rgba(0,0,0,0.2);
+}
+.drill-panel td { font-size: 0.78rem; padding: 8px 16px; }
+
+.flag-badge {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--red);
+  margin-right: 6px; vertical-align: middle;
+  box-shadow: 0 0 6px rgba(255,80,80,0.6);
+}
+.security-note {
+  font-size: 0.75rem; color: var(--muted);
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+
 /* Modal */
 .modal-overlay {
   position: fixed; inset: 0;
@@ -866,6 +943,24 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <div class="loading"><div class="spinner"></div>Loading institutions...</div>
       </div>
     </div>
+
+    <!-- Security Tab (super admin only) -->
+    <div class="tab-panel" id="tab-security">
+      <div class="filters" style="margin-bottom:20px;">
+        <select id="security-filter-period" onchange="loadSecurityData()">
+          <option value="all">All Time</option>
+          <option value="7">Last 7 Days</option>
+          <option value="30">Last 30 Days</option>
+        </select>
+        <button class="btn-refresh" onclick="loadSecurityData()">↺ Refresh</button>
+        <button class="btn-export" style="margin-left:auto;" onclick="exportSecurityCSV()">↓ Export CSV</button>
+      </div>
+      <div id="security-summary-grid" class="security-summary-grid"></div>
+      <div class="table-wrap" id="security-table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading security data...</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -883,6 +978,7 @@ let currentToken         = null;
 let currentInstitutionId = null;
 let isSuperAdmin         = false;
 let allRecords           = [];
+let allSecurityData      = [];
 let pendingDeleteId      = null;
 let pendingDeleteName    = null;
 let pendingRemoveCoordId = null;
@@ -913,6 +1009,7 @@ function switchTab(tab) {
   if (tab === 'team')       loadCoordinators();
   if (tab === 'apikeys')    loadApiKeys();
   if (tab === 'billing')    loadBilling();
+  if (tab === 'security')   loadSecurityData();
 }
 
 // ── Auto-login from Flutter WebView token injection ───────────────────────
@@ -1075,6 +1172,14 @@ async function initDashboard(session) {
     adminTabBtn.onclick     = () => switchTab('superadmin');
     adminTabBtn.innerHTML   = '🏢 Institutions <span class="pending-count" id="pending-count" style="display:none"></span>';
     tabs.appendChild(adminTabBtn);
+
+    // ── Inject Security tab for super admins ──
+    const secBtn = document.createElement('button');
+    secBtn.className   = 'tab-btn security-tab';
+    secBtn.id          = 'tab-btn-security';
+    secBtn.onclick     = () => switchTab('security');
+    secBtn.textContent = '🛡 Security';
+    tabs.appendChild(secBtn);
   }
 
   await loadData();
@@ -1105,8 +1210,9 @@ async function logout() {
   currentInstitutionId = null;
   isSuperAdmin         = false;
   allRecords           = [];
+  allSecurityData      = [];
 
-  ['tab-btn-team', 'tab-btn-billing', 'tab-btn-apikeys', 'tab-btn-superadmin'].forEach(id => {
+  ['tab-btn-team', 'tab-btn-billing', 'tab-btn-apikeys', 'tab-btn-superadmin', 'tab-btn-security'].forEach(id => {
     document.getElementById(id)?.remove();
   });
 
@@ -1193,6 +1299,228 @@ async function loadData() {
     document.getElementById('table-wrap').innerHTML =
       `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
   }
+}
+
+// ── SECURITY TAB ──────────────────────────────────────────────────────────
+async function loadSecurityData() {
+  if (!currentToken || !isSuperAdmin) return;
+
+  document.getElementById('security-table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Loading security data...</div>';
+  document.getElementById('security-summary-grid').innerHTML = '';
+
+  try {
+    // Fetch all spoof + failed records
+    const periodDays = document.getElementById('security-filter-period').value;
+    const resp = await fetch(`${API_URL}/admin/attendance-records?limit=5000`, {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+    if (!resp.ok) throw new Error('Failed to fetch records');
+    let records = await resp.json();
+    records = Array.isArray(records) ? records : [];
+
+    // Apply period filter
+    if (periodDays !== 'all') {
+      const cutoff = Date.now() - parseInt(periodDays) * 24 * 60 * 60 * 1000;
+      records = records.filter(r => r.timestamp && new Date(r.timestamp).getTime() >= cutoff);
+    }
+
+    allSecurityData = records;
+
+    // Aggregate by institution
+    const byInst = {};
+    for (const r of records) {
+      const id = r.institution_id || 'Unknown';
+      if (!byInst[id]) byInst[id] = { spoof: 0, failed: 0, success: 0, total: 0 };
+      byInst[id].total++;
+      if (r.verified === 'spoof')   byInst[id].spoof++;
+      if (r.verified === 'failed')  byInst[id].failed++;
+      if (r.verified === 'success') byInst[id].success++;
+    }
+
+    const rows = Object.entries(byInst)
+      .sort((a, b) => b[1].spoof - a[1].spoof);
+
+    const totalSpoofs  = rows.reduce((s, [, v]) => s + v.spoof, 0);
+    const totalFailed  = rows.reduce((s, [, v]) => s + v.failed, 0);
+    const totalSuccess = rows.reduce((s, [, v]) => s + v.success, 0);
+    const flagged      = rows.filter(([, v]) => v.total > 0 && (v.spoof / v.total) >= 0.1).length;
+
+    // Summary cards
+    document.getElementById('security-summary-grid').innerHTML = `
+      <div class="security-card red">
+        <div class="metric-label">Total Spoofs</div>
+        <div class="metric-value" style="color:var(--red)">${totalSpoofs}</div>
+        <div class="metric-sub">spoof attempts</div>
+      </div>
+      <div class="security-card orange">
+        <div class="metric-label">Total Failed</div>
+        <div class="metric-value" style="color:var(--orange)">${totalFailed}</div>
+        <div class="metric-sub">failed verifications</div>
+      </div>
+      <div class="security-card cyan">
+        <div class="metric-label">Successful</div>
+        <div class="metric-value" style="color:var(--cyan)">${totalSuccess}</div>
+        <div class="metric-sub">verified scans</div>
+      </div>
+      <div class="security-card yellow">
+        <div class="metric-label">Flagged Institutions</div>
+        <div class="metric-value" style="color:var(--yellow)">${flagged}</div>
+        <div class="metric-sub">spoof rate ≥ 10%</div>
+      </div>
+    `;
+
+    if (!rows.length) {
+      document.getElementById('security-table-wrap').innerHTML =
+        '<div class="loading">No security records found for this period.</div>';
+      return;
+    }
+
+    const maxSpoof = Math.max(...rows.map(([, v]) => v.spoof), 1);
+
+    const tableRows = rows.map(([instId, v]) => {
+      const spoofRate   = v.total > 0 ? ((v.spoof / v.total) * 100).toFixed(1) : '0.0';
+      const isFlagged   = v.total > 0 && (v.spoof / v.total) >= 0.1;
+      const barWidth    = Math.round((v.spoof / maxSpoof) * 100);
+      const barColor    = isFlagged ? 'var(--red)' : v.spoof > 0 ? 'var(--orange)' : 'var(--muted)';
+      const flagMark    = isFlagged ? '<span class="flag-badge"></span>' : '';
+      const rowClass    = isFlagged ? 'flag-row' : '';
+
+      return `
+        <tr class="${rowClass}" id="row-${instId}">
+          <td><strong>${flagMark}${instId}</strong></td>
+          <td style="color:var(--red);font-weight:600;">${v.spoof}</td>
+          <td style="color:var(--orange)">${v.failed}</td>
+          <td style="color:var(--cyan)">${v.success}</td>
+          <td>
+            <div class="spoof-rate-row">
+              <div class="spoof-rate-bg">
+                <div class="spoof-rate-fill" style="width:${barWidth}%;background:${barColor};"></div>
+              </div>
+              <span style="font-size:0.78rem;color:${isFlagged ? 'var(--red)' : 'var(--muted)'};min-width:38px;">${spoofRate}%</span>
+            </div>
+          </td>
+          <td>
+            <button class="drill-btn" id="drill-btn-${instId}"
+              onclick="toggleDrill('${instId}', ${JSON.stringify(v.spoof)})">
+              View Logs
+            </button>
+          </td>
+        </tr>
+        <tr id="drill-${instId}" style="display:none;">
+          <td colspan="6" style="padding:0;">
+            <div class="drill-panel" id="drill-content-${instId}"></div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    document.getElementById('security-table-wrap').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Institution</th>
+            <th>Spoof Attempts</th>
+            <th>Failed Verifications</th>
+            <th>Successful Scans</th>
+            <th>Spoof Rate</th>
+            <th>Drill Down</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      <div class="security-note">
+        <span class="flag-badge"></span>
+        Institutions with spoof rate ≥ 10% are flagged in red. Click "View Logs" to see individual attempts with timestamps.
+      </div>
+    `;
+
+  } catch (e) {
+    document.getElementById('security-table-wrap').innerHTML =
+      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+// ── Drill down — show spoof/failed records for one institution ─────────────
+function toggleDrill(instId, spoofCount) {
+  const drillRow     = document.getElementById(`drill-${instId}`);
+  const drillContent = document.getElementById(`drill-content-${instId}`);
+  const drillBtn     = document.getElementById(`drill-btn-${instId}`);
+
+  const isOpen = drillRow.style.display !== 'none';
+  if (isOpen) {
+    drillRow.style.display = 'none';
+    drillBtn.classList.remove('active');
+    drillBtn.textContent = 'View Logs';
+    return;
+  }
+
+  drillRow.style.display = 'table-row';
+  drillBtn.classList.add('active');
+  drillBtn.textContent = 'Hide Logs';
+
+  const periodDays = document.getElementById('security-filter-period').value;
+  let cutoff = null;
+  if (periodDays !== 'all') {
+    cutoff = Date.now() - parseInt(periodDays) * 24 * 60 * 60 * 1000;
+  }
+
+  const records = allSecurityData.filter(r => {
+    const matchInst   = (r.institution_id || 'Unknown') === instId;
+    const matchStatus = r.verified === 'spoof' || r.verified === 'failed';
+    const matchTime   = !cutoff || (r.timestamp && new Date(r.timestamp).getTime() >= cutoff);
+    return matchInst && matchStatus && matchTime;
+  }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 50);
+
+  if (!records.length) {
+    drillContent.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:0.82rem;">No spoof or failed records found for this period.</div>';
+    return;
+  }
+
+  const rows = records.map(r => {
+    const ts = r.timestamp
+      ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })
+      : '—';
+    const badge = r.verified === 'spoof'
+      ? '<span class="badge badge-spoof">Spoof</span>'
+      : '<span class="badge badge-failed">Failed</span>';
+    const conf = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
+    return `<tr>
+      <td>${badge}</td>
+      <td>${r.student_id || '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${conf}</td>
+      <td style="color:var(--muted)">${ts}</td>
+    </tr>`;
+  }).join('');
+
+  drillContent.innerHTML = `
+    <table>
+      <thead>
+        <tr><th>Type</th><th>Student ID</th><th>Confidence</th><th>Time (EAT)</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="table-footer" style="border-top:1px solid var(--border);">
+      Showing ${records.length} most recent record${records.length !== 1 ? 's' : ''}
+      ${records.length === 50 ? ' (capped at 50)' : ''}
+    </div>
+  `;
+}
+
+// ── Export security CSV ───────────────────────────────────────────────────
+function exportSecurityCSV() {
+  const records = allSecurityData.filter(r => r.verified === 'spoof' || r.verified === 'failed');
+  if (!records.length) { showToast('No security records to export', 'error'); return; }
+  const header = ['institution_id', 'verified', 'student_id', 'confidence', 'timestamp'];
+  const rows   = records.map(r => header.map(k => r[k] ?? '').join(','));
+  const csv    = [header.join(','), ...rows].join('\n');
+  const blob   = new Blob([csv], { type: 'text/csv' });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement('a');
+  a.href       = url;
+  a.download   = `security_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Load students ─────────────────────────────────────────────────────────
@@ -1962,7 +2290,6 @@ function exportCSV() {
 }
 
 // ── Pesapal Payment Handler ────────────────────────────────────────────────
-
 async function handleUpgrade(plan) {
   const { data: { user } } = await client.auth.getUser();
   if (!user) return alert('Please log in first.');
