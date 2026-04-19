@@ -1196,13 +1196,15 @@ async function initDashboard(session) {
   document.getElementById('dashboard-screen').style.display = 'block';
   document.getElementById('nav-user').textContent = session.user.email;
 
-  if (isSuperAdmin) {
-    document.getElementById('nav-superadmin').style.display = 'inline-block';
-  } else if (currentInstitutionId) {
-    const instEl = document.getElementById('nav-inst');
-    instEl.textContent   = currentInstitutionId;
-    instEl.style.display = 'inline-block';
-    document.getElementById('filter-inst').style.display = 'none';
+  // ── NEW: Inject Course Units tab (institution admins only, not super admin) ──
+  if (!isSuperAdmin && currentInstitutionId) {
+    const tabs = document.getElementById('tabs');
+    const unitsBtn = document.createElement('button');
+    unitsBtn.className   = 'tab-btn units-tab';
+    unitsBtn.id          = 'tab-btn-units';
+    unitsBtn.onclick     = () => switchTab('units');
+    unitsBtn.textContent = '📚 Course Units';
+    tabs.appendChild(unitsBtn);
   }
 
   const staticBtns = document.querySelectorAll('#tabs .tab-btn');
@@ -1283,6 +1285,16 @@ async function initDashboard(session) {
     secBtn.onclick     = () => switchTab('security');
     secBtn.textContent = '🛡 Security';
     tabs.appendChild(secBtn);
+  }
+
+  // Preload course units cache so Team tab dropdown works without visiting Course Units first
+  if (!isSuperAdmin && currentInstitutionId) {
+    const { data } = await client
+      .from('course_units')
+      .select('id, name, code')
+      .eq('institution_id', currentInstitutionId)
+      .order('created_at', { ascending: true });
+    courseUnitsCache = data || [];
   }
 
   await loadData();
@@ -1689,12 +1701,7 @@ async function loadCoordinators() {
       return;
     }
 
-    // Build units options HTML for the assign dropdown (uses cache)
-    const unitOptions = courseUnitsCache.length
-      ? '<option value="">— Unassigned —</option>' +
-        courseUnitsCache.map(u => `<option value="${u.id}">${u.name}${u.code ? ' ('+u.code+')' : ''}</option>`).join('')
-      : '<option value="">— No units created —</option>';
-
+    // Build rows
     const rows = coordinators.map(c => {
       const joined   = c.created_at
         ? new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -1705,15 +1712,18 @@ async function loadCoordinators() {
         : '';
 
       // Unit assign cell — only show for institution admins (not super admin)
-      const unitCell = !isSuperAdmin && courseUnitsCache.length
+      const unitCell = !isSuperAdmin
         ? `<td>
             <select class="unit-assign-select" onchange="assignCoordinatorUnit('${c.id}', this.value)">
-              ${unitOptions.replace(`value="${c.course_unit_id}"`, `value="${c.course_unit_id}" selected`)}
+              <option value="">— Unassigned —</option>
+              ${courseUnitsCache.map(u =>
+                `<option value="${u.id}" ${u.id === c.course_unit_id ? 'selected' : ''}>
+                  ${u.name}${u.code ? ' (' + u.code + ')' : ''}
+                </option>`
+              ).join('')}
             </select>
            </td>`
-        : !isSuperAdmin
-          ? `<td style="color:var(--muted);font-size:0.78rem;">—</td>`
-          : '';
+        : '';
 
       return `
         <tr>
