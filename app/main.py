@@ -542,10 +542,10 @@ async def update_coordinator_course_unit(
         print(f"[update_coordinator_course_unit] update failed: {error_detail}")
         raise HTTPException(status_code=500, detail=error_detail)
 
-    if not hasattr(update_resp, 'status_code') or update_resp.status_code >= 400:
-        detail = getattr(update_resp, 'data', None)
-        error_detail = str(detail) if detail else 'Failed to update coordinator course unit.'
-        print(f"[update_coordinator_course_unit] bad response: {error_detail}")
+    # Supabase update returns the updated data on success
+    if not update_resp.data:
+        error_detail = "No data returned from update operation"
+        print(f"[update_coordinator_course_unit] {error_detail}")
         raise HTTPException(status_code=500, detail=error_detail)
 
     return {
