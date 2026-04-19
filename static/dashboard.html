@@ -1900,7 +1900,13 @@ async function assignCoordinatorUnit(coordId, unitId) {
       body,
     });
 
-    const result = await resp.json();
+    let result;
+    try {
+      result = await resp.json();
+    } catch (err) {
+      const text = await resp.text();
+      result = { detail: text || 'Failed to parse server response.' };
+    }
     if (!resp.ok) {
       throw new Error(result.detail || 'Failed to update course unit assignment.');
     }

@@ -533,12 +533,20 @@ async def update_coordinator_course_unit(
         if not is_super and unit.get("institution_id") != user_institution:
             raise HTTPException(status_code=403, detail="Course unit does not belong to your institution.")
 
-    update_resp = supabase_admin.table("profiles") \
-        .update({"course_unit_id": course_unit_id}) \
-        .eq("id", coordinator_id).execute()
+    try:
+        update_resp = supabase_admin.table("profiles") \
+            .update({"course_unit_id": course_unit_id}) \
+            .eq("id", coordinator_id).execute()
+    except Exception as e:
+        error_detail = str(e)
+        print(f"[update_coordinator_course_unit] update failed: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
+
     if not hasattr(update_resp, 'status_code') or update_resp.status_code >= 400:
         detail = getattr(update_resp, 'data', None)
-        raise HTTPException(status_code=500, detail=(str(detail) if detail else 'Failed to update coordinator course unit.'))
+        error_detail = str(detail) if detail else 'Failed to update coordinator course unit.'
+        print(f"[update_coordinator_course_unit] bad response: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
     return {
         "success": True,
