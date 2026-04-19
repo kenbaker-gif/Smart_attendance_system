@@ -471,7 +471,7 @@ async def list_coordinators(
 
     try:
         query = supabase_admin.table("profiles") \
-            .select("id, full_name, role, institution_id, course_unit_id, created_at")  # ← NEW: course_unit_id \
+            .select("id, full_name, role, institution_id, course_unit_id, created_at") \
             .eq("role", "coordinator") \
             .order("created_at", desc=True)
 
