@@ -1736,10 +1736,25 @@ async function loadCoordinators() {
 
       return `
         <tr>
-          <td>${c.full_name || '<span style="color:var(--muted)">Pending setup</span>'}</td>
+          <td>
+            ${c.full_name || '<span style="color:var(--muted)">Pending setup</span>'}
+            <br><small style="color:var(--muted);font-size:0.8rem;">
+              Currently: ${assignedUnit ? `${assignedUnit.name}${assignedUnit.code ? ' (' + assignedUnit.code + ')' : ''}` : c.course_unit_id ? 'Assigned unit unavailable' : 'Unassigned'}
+            </small>
+          </td>
           <td><span class="badge badge-coord">Coordinator</span></td>
           ${instCell}
-          ${unitCell}
+          <td>
+            <select class="unit-assign-select" onchange="assignCoordinatorUnit('${c.id}', this.value)">
+              <option value="">— Assign to unit —</option>
+              ${courseUnitsCache.map(u =>
+                `<option value="${u.id}">
+                  ${u.name}${u.code ? ' (' + u.code + ')' : ''}
+                </option>`
+              ).join('')}
+              ${missingAssignedUnit}
+            </select>
+          </td>
           <td style="color:var(--muted);font-size:0.8rem;">${joined}</td>
           <td>
             <button class="btn-delete" onclick="openRemoveCoordModal('${c.id}', '${safeName}')">Remove</button>
