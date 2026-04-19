@@ -5,15 +5,14 @@ from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTa
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi import Form
+from typing import Optional
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 
 # ── Shared dependencies (clients, limiter, auth) ───────────────────────────
-# FIX 3: All shared state lives in deps.py.  main.py and v1_api.py both
-# import from there, guaranteeing a single Limiter instance registered on
-# the app and no circular imports.
 from .dep import (
     supabase,
     supabase_admin,
@@ -38,8 +37,6 @@ FREE_EMAIL_DOMAINS = {
 
 app = FastAPI(title="Smart Attendance — Upload Service")
 
-# FIX 3: Register the single shared limiter on the app so @limiter.limit()
-# decorators work on ALL routes, including /v1/ routes in the included router.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -76,10 +73,6 @@ app.include_router(pesapal_router)
 # ── Background sync ────────────────────────────────────────────────────────
 
 async def trigger_sync_in_background(token: str):
-    """
-    Hits the MVP /admin/sync-encodings endpoint with a raw JWT token.
-    Call this with the raw token string (not the full 'Bearer ...' header value).
-    """
     if not MVP_URL:
         print("⚠️  Auto-sync skipped: MVP_URL is not configured.")
         return
@@ -363,9 +356,10 @@ async def get_summary(
 
 @app.post("/invite-coordinator")
 async def invite_coordinator(
-    full_name:      str = Form(...),
-    email:          str = Form(...),
-    institution_id: str = Form(default=None),
+    full_name:       str           = Form(...),
+    email:           str           = Form(...),
+    institution_id:  str           = Form(default=None),
+    course_unit_id:  Optional[str] = Form(None),          # ← NEW
     user=Depends(check_admin),
 ):
     profile_resp = supabase_admin.table("profiles") \
@@ -401,6 +395,9 @@ async def invite_coordinator(
     if not email or not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
         raise HTTPException(status_code=400, detail="Invalid email address.")
 
+    # Normalise course_unit_id — treat blank string as None
+    course_unit_id = course_unit_id.strip() if course_unit_id and course_unit_id.strip() else None
+
     try:
         auth_response = supabase_admin.auth.admin.invite_user_by_email(
             email,
@@ -409,6 +406,7 @@ async def invite_coordinator(
                     "full_name":      full_name,
                     "institution_id": target_institution,
                     "role":           "coordinator",
+                    "course_unit_id": course_unit_id,     # ← NEW (None is fine here)
                 },
                 "redirect_to": f"{APP_URL}/set-password",
             }
@@ -421,14 +419,18 @@ async def invite_coordinator(
         raise HTTPException(status_code=500, detail=f"Invite failed: {error_msg}")
 
     try:
-        supabase_admin.table("profiles").insert({
+        profile_data = {
             "id":             coordinator_user_id,
             "full_name":      full_name,
             "institution_id": target_institution,
             "is_admin":       False,
             "is_super_admin": False,
             "role":           "coordinator",
-        }).execute()
+        }
+        if course_unit_id:
+            profile_data["course_unit_id"] = course_unit_id   # ← NEW
+
+        supabase_admin.table("profiles").insert(profile_data).execute()
     except Exception as e:
         try:
             supabase_admin.auth.admin.delete_user(coordinator_user_id)
@@ -442,6 +444,7 @@ async def invite_coordinator(
         "full_name":      full_name,
         "email":          email,
         "institution_id": target_institution,
+        "course_unit_id": course_unit_id,                     # ← NEW
         "message":        f"Invite sent to {email}. They will receive an email to set their password.",
     }
 
@@ -468,7 +471,7 @@ async def list_coordinators(
 
     try:
         query = supabase_admin.table("profiles") \
-            .select("id, full_name, role, institution_id, created_at") \
+            .select("id, full_name, role, institution_id, course_unit_id, created_at") \  # ← NEW: course_unit_id
             .eq("role", "coordinator") \
             .order("created_at", desc=True)
 
@@ -599,7 +602,7 @@ async def register_institution(
         supabase_admin.table("institutions").insert({
             "id":          inst_id,
             "name":        university_name.strip(),
-            "plans":       "trial",            # FIX 4: was "plan" (wrong column name)
+            "plans":       "trial",
             "is_active":   True,
             "status":      "pending",
             "admin_email": email,
