@@ -492,7 +492,59 @@ async def list_coordinators(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Remove coordinator ─────────────────────────────────────────────────────
+@app.patch("/admin/coordinators/{coordinator_id}/course-unit")
+async def update_coordinator_course_unit(
+    coordinator_id: str,
+    course_unit_id: Optional[str] = Form(None),
+    user=Depends(check_admin),
+):
+    profile_resp = supabase_admin.table("profiles") \
+        .select("institution_id, is_super_admin, role") \
+        .eq("id", user.id).single().execute()
+
+    profile = profile_resp.data
+    if not profile:
+        raise HTTPException(status_code=403, detail="Admin profile not found.")
+
+    is_super_admin   = _bool_flag(profile.get("is_super_admin"))
+    role             = profile.get("role", "")
+    user_institution = profile.get("institution_id")
+    is_super         = is_super_admin or role == "super_admin"
+
+    coord_resp = supabase_admin.table("profiles") \
+        .select("institution_id, role") \
+        .eq("id", coordinator_id).single().execute()
+    coord = coord_resp.data
+    if not coord:
+        raise HTTPException(status_code=404, detail="Coordinator not found.")
+    if coord.get("role") != "coordinator":
+        raise HTTPException(status_code=400, detail="Target user is not a coordinator.")
+    if not is_super and coord.get("institution_id") != user_institution:
+        raise HTTPException(status_code=403, detail="Coordinator does not belong to your institution.")
+
+    course_unit_id = course_unit_id.strip() if course_unit_id and course_unit_id.strip() else None
+    if course_unit_id:
+        unit_resp = supabase_admin.table("course_units") \
+            .select("id, institution_id") \
+            .eq("id", course_unit_id).single().execute()
+        unit = unit_resp.data
+        if not unit:
+            raise HTTPException(status_code=404, detail="Course unit not found.")
+        if not is_super and unit.get("institution_id") != user_institution:
+            raise HTTPException(status_code=403, detail="Course unit does not belong to your institution.")
+
+    update_resp = supabase_admin.table("profiles") \
+        .update({"course_unit_id": course_unit_id}) \
+        .eq("id", coordinator_id).execute()
+    if update_resp.error:
+        raise HTTPException(status_code=500, detail=str(update_resp.error))
+
+    return {
+        "success": True,
+        "coordinator_id": coordinator_id,
+        "course_unit_id": course_unit_id,
+    }
+
 
 @app.delete("/coordinators/{coordinator_id}")
 async def remove_coordinator(

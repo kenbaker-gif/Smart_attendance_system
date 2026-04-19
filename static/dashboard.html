@@ -1235,17 +1235,6 @@ async function initDashboard(session) {
     }
   }
 
-  // ── NEW: Inject Course Units tab (institution admins only, not super admin) ──
-  if (!isSuperAdmin && currentInstitutionId) {
-    const tabs = document.getElementById('tabs');
-    const unitsBtn = document.createElement('button');
-    unitsBtn.className   = 'tab-btn units-tab';
-    unitsBtn.id          = 'tab-btn-units';
-    unitsBtn.onclick     = () => switchTab('units');
-    unitsBtn.textContent = '📚 Course Units';
-    tabs.appendChild(unitsBtn);
-  }
-
   // Inject Billing tab (non-super admins only)
   if (!isSuperAdmin) {
     const tabs = document.getElementById('tabs');
@@ -1701,6 +1690,17 @@ async function loadCoordinators() {
       return;
     }
 
+    if (!isSuperAdmin && !courseUnitsCache.length && currentInstitutionId) {
+      const { data: units, error } = await client
+        .from('course_units')
+        .select('id, name, code')
+        .eq('institution_id', currentInstitutionId)
+        .order('created_at', { ascending: true });
+      if (!error) {
+        courseUnitsCache = units || [];
+      }
+    }
+
     // Build rows
     const rows = coordinators.map(c => {
       const joined   = c.created_at
@@ -1711,16 +1711,22 @@ async function loadCoordinators() {
         ? `<td style="color:var(--muted);font-size:0.8rem;">${c.institution_id || '—'}</td>`
         : '';
 
+      const assignedUnit = courseUnitsCache.find(u => u.id == c.course_unit_id);
+      const missingAssignedUnit = c.course_unit_id && !assignedUnit
+        ? `<option value="${c.course_unit_id}" selected>Assigned unit unavailable</option>`
+        : '';
+
       // Unit assign cell — only show for institution admins (not super admin)
       const unitCell = !isSuperAdmin
         ? `<td>
             <select class="unit-assign-select" onchange="assignCoordinatorUnit('${c.id}', this.value)">
               <option value="">— Unassigned —</option>
               ${courseUnitsCache.map(u =>
-                `<option value="${u.id}" ${u.id === c.course_unit_id ? 'selected' : ''}>
+                `<option value="${u.id}" ${u.id == c.course_unit_id ? 'selected' : ''}>
                   ${u.name}${u.code ? ' (' + u.code + ')' : ''}
                 </option>`
               ).join('')}
+              ${missingAssignedUnit}
             </select>
            </td>`
         : '';
@@ -1882,16 +1888,26 @@ async function deleteCourseUnit(unitId, unitName) {
 
 async function assignCoordinatorUnit(coordId, unitId) {
   try {
-    const { error } = await client
-      .from('profiles')
-      .update({ course_unit_id: unitId || null })
-      .eq('id', coordId);
+    const body = new URLSearchParams();
+    body.append('course_unit_id', unitId || '');
 
-    if (error) throw error;
+    const resp = await fetch(`${DAZZLING_URL}/admin/coordinators/${coordId}/course-unit`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${currentToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
 
-    const unit = courseUnitsCache.find(u => u.id === unitId);
-    showToast(unitId ? `✓ Assigned to "${unit?.name}"` : '✓ Unassigned', 'success');
+    const result = await resp.json();
+    if (!resp.ok) {
+      throw new Error(result.detail || 'Failed to update course unit assignment.');
+    }
 
+    const unit = courseUnitsCache.find(u => u.id == unitId);
+    showToast(unitId ? `✓ Assigned to "${unit?.name || 'selected unit'}"` : '✓ Unassigned', 'success');
+    await loadCoordinators();
   } catch (e) {
     showToast(`Failed: ${e.message}`, 'error');
     await loadCoordinators(); // revert UI on failure
