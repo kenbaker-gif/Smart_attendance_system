@@ -204,6 +204,9 @@ nav {
 .tab-btn.dev-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
 .tab-btn.billing-tab { color: var(--cyan); }
 .tab-btn.billing-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+/* ── NEW: course units tab color ── */
+.tab-btn.units-tab { color: var(--blue); }
+.tab-btn.units-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
@@ -619,6 +622,60 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   display: flex; align-items: center; gap: 8px;
 }
 
+/* ── COURSE UNITS TAB ─────────────────────────────────────────────────── */
+.units-create-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px;
+  margin-bottom: 24px;
+}
+.units-create-box h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.95rem; font-weight: 700;
+  margin-bottom: 16px; color: var(--blue);
+}
+.units-create-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  align-items: flex-end;
+}
+.units-create-row .form-group {
+  margin-bottom: 0; flex: 1; min-width: 160px;
+}
+.units-create-row input {
+  padding: 10px 14px; font-size: 0.88rem;
+}
+.units-create-row input:focus { border-color: var(--blue); }
+.btn-add-unit {
+  background: var(--blue); color: var(--black);
+  border: none; padding: 10px 22px;
+  border-radius: 8px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 0.82rem;
+  cursor: pointer; white-space: nowrap;
+  transition: opacity 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+.btn-add-unit:hover:not(:disabled) {
+  opacity: 0.85; transform: translateY(-1px);
+}
+.btn-add-unit:disabled { opacity: 0.5; cursor: not-allowed; }
+.units-create-error {
+  color: var(--red); font-size: 0.8rem;
+  margin-top: 10px; display: none;
+}
+
+/* inline assign select in coordinator table */
+.unit-assign-select {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 10px;
+  color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.8rem; outline: none; cursor: pointer;
+  max-width: 200px;
+}
+.unit-assign-select:focus { border-color: var(--blue); }
+
 /* Modal */
 .modal-overlay {
   position: fixed; inset: 0;
@@ -660,7 +717,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   color: var(--muted); letter-spacing: 0.1em;
   text-transform: uppercase; margin-bottom: 8px;
 }
-.invite-form input {
+.invite-form input, .invite-form select {
   width: 100%; background: var(--black);
   border: 1px solid var(--border); border-radius: 8px;
   padding: 11px 14px; color: var(--white);
@@ -668,7 +725,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   font-size: 0.9rem; outline: none;
   transition: border-color 0.2s;
 }
-.invite-form input:focus { border-color: var(--cyan); }
+.invite-form input:focus,
+.invite-form select:focus { border-color: var(--cyan); }
 .btn-send-invite {
   background: var(--cyan); border: none;
   color: var(--black); padding: 11px 22px;
@@ -795,6 +853,13 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <label>Email Address</label>
         <input type="email" id="invite-email" placeholder="coordinator@university.edu" autocomplete="off"/>
       </div>
+      <!-- NEW: course unit assignment at invite time -->
+      <div class="form-group">
+        <label>Assign to Course Unit <span style="color:var(--muted);font-size:0.7rem;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <select id="invite-unit">
+          <option value="">— Select a unit —</option>
+        </select>
+      </div>
       <div class="invite-error" id="invite-error"></div>
     </div>
     <div class="modal-actions" style="margin-top:24px;">
@@ -899,6 +964,30 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </div>
     </div>
 
+    <!-- ── NEW: Course Units Tab ── -->
+    <div class="tab-panel" id="tab-units">
+      <!-- Create box -->
+      <div class="units-create-box">
+        <h3>📚 Add Course Unit</h3>
+        <div class="units-create-row">
+          <div class="form-group">
+            <label>Unit Name</label>
+            <input type="text" id="unit-name-input" placeholder="e.g. Database Systems" maxlength="80" autocomplete="off"/>
+          </div>
+          <div class="form-group">
+            <label>Code <span style="color:var(--muted);font-size:0.7rem;text-transform:none;letter-spacing:0;">(optional)</span></label>
+            <input type="text" id="unit-code-input" placeholder="e.g. BIST2201" maxlength="20" autocomplete="off"/>
+          </div>
+          <button class="btn-add-unit" id="add-unit-btn" onclick="createCourseUnit()">+ Add Unit</button>
+        </div>
+        <div class="units-create-error" id="units-create-error"></div>
+      </div>
+      <!-- Units list -->
+      <div class="table-wrap" id="units-table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading course units...</div>
+      </div>
+    </div>
+
     <!-- API Keys Tab -->
     <div class="tab-panel" id="tab-apikeys">
       <div class="apikeys-header">
@@ -986,6 +1075,8 @@ let pendingRemoveCoordName = null;
 let pendingRevokeKeyId   = null;
 let pendingRevokeKeyName = null;
 let newKeyRawValue       = null;
+// NEW: cache of course units for current institution
+let courseUnitsCache     = [];
 
 // ── Toast ─────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -1010,6 +1101,7 @@ function switchTab(tab) {
   if (tab === 'apikeys')    loadApiKeys();
   if (tab === 'billing')    loadBilling();
   if (tab === 'security')   loadSecurityData();
+  if (tab === 'units')      loadCourseUnits();
 }
 
 // ── Auto-login from Flutter WebView token injection ───────────────────────
@@ -1141,6 +1233,17 @@ async function initDashboard(session) {
     }
   }
 
+  // ── NEW: Inject Course Units tab (institution admins only, not super admin) ──
+  if (!isSuperAdmin && currentInstitutionId) {
+    const tabs = document.getElementById('tabs');
+    const unitsBtn = document.createElement('button');
+    unitsBtn.className   = 'tab-btn units-tab';
+    unitsBtn.id          = 'tab-btn-units';
+    unitsBtn.onclick     = () => switchTab('units');
+    unitsBtn.textContent = '📚 Course Units';
+    tabs.appendChild(unitsBtn);
+  }
+
   // Inject Billing tab (non-super admins only)
   if (!isSuperAdmin) {
     const tabs = document.getElementById('tabs');
@@ -1211,8 +1314,9 @@ async function logout() {
   isSuperAdmin         = false;
   allRecords           = [];
   allSecurityData      = [];
+  courseUnitsCache     = [];
 
-  ['tab-btn-team', 'tab-btn-billing', 'tab-btn-apikeys', 'tab-btn-superadmin', 'tab-btn-security'].forEach(id => {
+  ['tab-btn-team', 'tab-btn-units', 'tab-btn-billing', 'tab-btn-apikeys', 'tab-btn-superadmin', 'tab-btn-security'].forEach(id => {
     document.getElementById(id)?.remove();
   });
 
@@ -1310,7 +1414,6 @@ async function loadSecurityData() {
   document.getElementById('security-summary-grid').innerHTML = '';
 
   try {
-    // Fetch all spoof + failed records
     const periodDays = document.getElementById('security-filter-period').value;
     const resp = await fetch(`${API_URL}/admin/attendance-records?limit=5000`, {
       headers: { 'Authorization': `Bearer ${currentToken}` }
@@ -1319,7 +1422,6 @@ async function loadSecurityData() {
     let records = await resp.json();
     records = Array.isArray(records) ? records : [];
 
-    // Apply period filter
     if (periodDays !== 'all') {
       const cutoff = Date.now() - parseInt(periodDays) * 24 * 60 * 60 * 1000;
       records = records.filter(r => r.timestamp && new Date(r.timestamp).getTime() >= cutoff);
@@ -1327,7 +1429,6 @@ async function loadSecurityData() {
 
     allSecurityData = records;
 
-    // Aggregate by institution
     const byInst = {};
     for (const r of records) {
       const id = r.institution_id || 'Unknown';
@@ -1338,15 +1439,13 @@ async function loadSecurityData() {
       if (r.verified === 'success') byInst[id].success++;
     }
 
-    const rows = Object.entries(byInst)
-      .sort((a, b) => b[1].spoof - a[1].spoof);
+    const rows = Object.entries(byInst).sort((a, b) => b[1].spoof - a[1].spoof);
 
     const totalSpoofs  = rows.reduce((s, [, v]) => s + v.spoof, 0);
     const totalFailed  = rows.reduce((s, [, v]) => s + v.failed, 0);
     const totalSuccess = rows.reduce((s, [, v]) => s + v.success, 0);
     const flagged      = rows.filter(([, v]) => v.total > 0 && (v.spoof / v.total) >= 0.1).length;
 
-    // Summary cards
     document.getElementById('security-summary-grid').innerHTML = `
       <div class="security-card red">
         <div class="metric-label">Total Spoofs</div>
@@ -1379,12 +1478,12 @@ async function loadSecurityData() {
     const maxSpoof = Math.max(...rows.map(([, v]) => v.spoof), 1);
 
     const tableRows = rows.map(([instId, v]) => {
-      const spoofRate   = v.total > 0 ? ((v.spoof / v.total) * 100).toFixed(1) : '0.0';
-      const isFlagged   = v.total > 0 && (v.spoof / v.total) >= 0.1;
-      const barWidth    = Math.round((v.spoof / maxSpoof) * 100);
-      const barColor    = isFlagged ? 'var(--red)' : v.spoof > 0 ? 'var(--orange)' : 'var(--muted)';
-      const flagMark    = isFlagged ? '<span class="flag-badge"></span>' : '';
-      const rowClass    = isFlagged ? 'flag-row' : '';
+      const spoofRate = v.total > 0 ? ((v.spoof / v.total) * 100).toFixed(1) : '0.0';
+      const isFlagged = v.total > 0 && (v.spoof / v.total) >= 0.1;
+      const barWidth  = Math.round((v.spoof / maxSpoof) * 100);
+      const barColor  = isFlagged ? 'var(--red)' : v.spoof > 0 ? 'var(--orange)' : 'var(--muted)';
+      const flagMark  = isFlagged ? '<span class="flag-badge"></span>' : '';
+      const rowClass  = isFlagged ? 'flag-row' : '';
 
       return `
         <tr class="${rowClass}" id="row-${instId}">
@@ -1431,7 +1530,7 @@ async function loadSecurityData() {
       </table>
       <div class="security-note">
         <span class="flag-badge"></span>
-        Institutions with spoof rate ≥ 10% are flagged in red. Click "View Logs" to see individual attempts with timestamps.
+        Institutions with spoof rate ≥ 10% are flagged in red. Click "View Logs" to see individual attempts.
       </div>
     `;
 
@@ -1441,7 +1540,7 @@ async function loadSecurityData() {
   }
 }
 
-// ── Drill down — show spoof/failed records for one institution ─────────────
+// ── Drill down ────────────────────────────────────────────────────────────
 function toggleDrill(instId, spoofCount) {
   const drillRow     = document.getElementById(`drill-${instId}`);
   const drillContent = document.getElementById(`drill-content-${instId}`);
@@ -1461,9 +1560,7 @@ function toggleDrill(instId, spoofCount) {
 
   const periodDays = document.getElementById('security-filter-period').value;
   let cutoff = null;
-  if (periodDays !== 'all') {
-    cutoff = Date.now() - parseInt(periodDays) * 24 * 60 * 60 * 1000;
-  }
+  if (periodDays !== 'all') cutoff = Date.now() - parseInt(periodDays) * 24 * 60 * 60 * 1000;
 
   const records = allSecurityData.filter(r => {
     const matchInst   = (r.institution_id || 'Unknown') === instId;
@@ -1473,37 +1570,25 @@ function toggleDrill(instId, spoofCount) {
   }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 50);
 
   if (!records.length) {
-    drillContent.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:0.82rem;">No spoof or failed records found for this period.</div>';
+    drillContent.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:0.82rem;">No records found.</div>';
     return;
   }
 
   const rows = records.map(r => {
-    const ts = r.timestamp
-      ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })
-      : '—';
+    const ts    = r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' }) : '—';
     const badge = r.verified === 'spoof'
       ? '<span class="badge badge-spoof">Spoof</span>'
       : '<span class="badge badge-failed">Failed</span>';
     const conf = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
-    return `<tr>
-      <td>${badge}</td>
-      <td>${r.student_id || '<span style="color:var(--muted)">—</span>'}</td>
-      <td>${conf}</td>
-      <td style="color:var(--muted)">${ts}</td>
-    </tr>`;
+    return `<tr><td>${badge}</td><td>${r.student_id || '—'}</td><td>${conf}</td><td style="color:var(--muted)">${ts}</td></tr>`;
   }).join('');
 
   drillContent.innerHTML = `
     <table>
-      <thead>
-        <tr><th>Type</th><th>Student ID</th><th>Confidence</th><th>Time (EAT)</th></tr>
-      </thead>
+      <thead><tr><th>Type</th><th>Student ID</th><th>Confidence</th><th>Time (EAT)</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="table-footer" style="border-top:1px solid var(--border);">
-      Showing ${records.length} most recent record${records.length !== 1 ? 's' : ''}
-      ${records.length === 50 ? ' (capped at 50)' : ''}
-    </div>
+    <div class="table-footer">Showing ${records.length} record${records.length !== 1 ? 's' : ''}${records.length === 50 ? ' (capped at 50)' : ''}</div>
   `;
 }
 
@@ -1558,9 +1643,7 @@ async function loadStudents() {
 
     document.getElementById('students-table-wrap').innerHTML = `
       <table>
-        <thead>
-          <tr><th>Student ID</th><th>Name</th><th>Institution</th><th>Action</th></tr>
-        </thead>
+        <thead><tr><th>Student ID</th><th>Name</th><th>Institution</th><th>Action</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       <div class="table-footer">${students.length} students</div>
@@ -1580,8 +1663,8 @@ async function loadCoordinators() {
 
   try {
     const teamInstFilter = document.getElementById('filter-team-inst');
-    const teamInstVal = teamInstFilter ? teamInstFilter.value : '';
-    const teamInstQuery = teamInstVal ? `?institution_id=${teamInstVal}` : '';
+    const teamInstVal    = teamInstFilter ? teamInstFilter.value : '';
+    const teamInstQuery  = teamInstVal ? `?institution_id=${teamInstVal}` : '';
     const resp = await fetch(`${DAZZLING_URL}/coordinators${teamInstQuery}`, {
       headers: { 'Authorization': `Bearer ${currentToken}` }
     });
@@ -1606,17 +1689,38 @@ async function loadCoordinators() {
       return;
     }
 
+    // Build units options HTML for the assign dropdown (uses cache)
+    const unitOptions = courseUnitsCache.length
+      ? '<option value="">— Unassigned —</option>' +
+        courseUnitsCache.map(u => `<option value="${u.id}">${u.name}${u.code ? ' ('+u.code+')' : ''}</option>`).join('')
+      : '<option value="">— No units created —</option>';
+
     const rows = coordinators.map(c => {
-      const joined = c.created_at
+      const joined   = c.created_at
         ? new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
         : '—';
       const safeName = (c.full_name || '').replace(/'/g, "\\'");
-      const instCell = isSuperAdmin ? `<td style="color:var(--muted);font-size:0.8rem;">${c.institution_id || '—'}</td>` : '';
+      const instCell = isSuperAdmin
+        ? `<td style="color:var(--muted);font-size:0.8rem;">${c.institution_id || '—'}</td>`
+        : '';
+
+      // Unit assign cell — only show for institution admins (not super admin)
+      const unitCell = !isSuperAdmin && courseUnitsCache.length
+        ? `<td>
+            <select class="unit-assign-select" onchange="assignCoordinatorUnit('${c.id}', this.value)">
+              ${unitOptions.replace(`value="${c.course_unit_id}"`, `value="${c.course_unit_id}" selected`)}
+            </select>
+           </td>`
+        : !isSuperAdmin
+          ? `<td style="color:var(--muted);font-size:0.78rem;">—</td>`
+          : '';
+
       return `
         <tr>
           <td>${c.full_name || '<span style="color:var(--muted)">Pending setup</span>'}</td>
           <td><span class="badge badge-coord">Coordinator</span></td>
           ${instCell}
+          ${unitCell}
           <td style="color:var(--muted);font-size:0.8rem;">${joined}</td>
           <td>
             <button class="btn-delete" onclick="openRemoveCoordModal('${c.id}', '${safeName}')">Remove</button>
@@ -1625,11 +1729,13 @@ async function loadCoordinators() {
       `;
     }).join('');
 
+    const unitHeader = !isSuperAdmin ? '<th>Course Unit</th>' : '';
+
     document.getElementById('team-table-wrap').innerHTML = `
       <table>
         <thead>
           <tr>
-            <th>Name</th><th>Role</th>${isSuperAdmin ? '<th>Institution</th>' : ''}<th>Added</th><th>Action</th>
+            <th>Name</th><th>Role</th>${isSuperAdmin ? '<th>Institution</th>' : ''}${unitHeader}<th>Added</th><th>Action</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -1640,6 +1746,154 @@ async function loadCoordinators() {
     document.getElementById('team-table-wrap').innerHTML =
       `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
   }
+}
+
+// ── COURSE UNITS ──────────────────────────────────────────────────────────
+
+async function loadCourseUnits() {
+  if (!currentToken || !currentInstitutionId) return;
+
+  document.getElementById('units-table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Loading course units...</div>';
+
+  try {
+    const { data: units, error } = await client
+      .from('course_units')
+      .select('id, name, code, created_at')
+      .eq('institution_id', currentInstitutionId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    courseUnitsCache = units || [];
+
+    if (!courseUnitsCache.length) {
+      document.getElementById('units-table-wrap').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📚</div>
+          <p>No course units yet.<br>Add your first unit above — e.g. "Database Systems" or "BIST 2201".</p>
+        </div>
+      `;
+      return;
+    }
+
+    const rows = courseUnitsCache.map(u => {
+      const created = new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `
+        <tr>
+          <td><strong>${u.name}</strong></td>
+          <td style="color:var(--muted)">${u.code || '—'}</td>
+          <td style="color:var(--muted);font-size:0.78rem;">${created}</td>
+          <td>
+            <button class="btn-delete" onclick="deleteCourseUnit('${u.id}', '${u.name.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    document.getElementById('units-table-wrap').innerHTML = `
+      <table>
+        <thead>
+          <tr><th>Unit Name</th><th>Code</th><th>Created</th><th>Action</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="table-footer">${courseUnitsCache.length} unit${courseUnitsCache.length !== 1 ? 's' : ''}</div>
+    `;
+
+  } catch (e) {
+    document.getElementById('units-table-wrap').innerHTML =
+      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+async function createCourseUnit() {
+  const nameEl  = document.getElementById('unit-name-input');
+  const codeEl  = document.getElementById('unit-code-input');
+  const errEl   = document.getElementById('units-create-error');
+  const btn     = document.getElementById('add-unit-btn');
+
+  const name = nameEl.value.trim();
+  const code = codeEl.value.trim();
+
+  errEl.style.display = 'none';
+
+  if (!name) {
+    errEl.textContent   = 'Unit name is required.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Adding...';
+
+  try {
+    const { error } = await client
+      .from('course_units')
+      .insert({ institution_id: currentInstitutionId, name, code: code || null });
+
+    if (error) throw error;
+
+    nameEl.value = '';
+    codeEl.value = '';
+    showToast(`✓ "${name}" added`, 'success');
+    await loadCourseUnits();
+    // Refresh invite modal unit dropdown in case it's open
+    populateInviteUnitDropdown();
+
+  } catch (e) {
+    errEl.textContent   = e.message || 'Failed to create unit.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '+ Add Unit';
+  }
+}
+
+async function deleteCourseUnit(unitId, unitName) {
+  if (!confirm(`Delete "${unitName}"? Coordinators assigned to it will become unassigned.`)) return;
+
+  try {
+    const { error } = await client
+      .from('course_units')
+      .delete()
+      .eq('id', unitId);
+
+    if (error) throw error;
+
+    showToast(`"${unitName}" deleted`, 'success');
+    await loadCourseUnits();
+    populateInviteUnitDropdown();
+
+  } catch (e) {
+    showToast(`Failed: ${e.message}`, 'error');
+  }
+}
+
+async function assignCoordinatorUnit(coordId, unitId) {
+  try {
+    const { error } = await client
+      .from('profiles')
+      .update({ course_unit_id: unitId || null })
+      .eq('id', coordId);
+
+    if (error) throw error;
+
+    const unit = courseUnitsCache.find(u => u.id === unitId);
+    showToast(unitId ? `✓ Assigned to "${unit?.name}"` : '✓ Unassigned', 'success');
+
+  } catch (e) {
+    showToast(`Failed: ${e.message}`, 'error');
+    await loadCoordinators(); // revert UI on failure
+  }
+}
+
+// ── Populate invite modal unit dropdown ───────────────────────────────────
+function populateInviteUnitDropdown() {
+  const sel = document.getElementById('invite-unit');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select a unit —</option>' +
+    courseUnitsCache.map(u => `<option value="${u.id}">${u.name}${u.code ? ' ('+u.code+')' : ''}</option>`).join('');
 }
 
 // ── Load billing ──────────────────────────────────────────────────────────
@@ -1779,12 +2033,8 @@ async function loadApiKeys() {
     }
 
     const rows = keys.map(k => {
-      const created = k.created_at
-        ? new Date(k.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-        : '—';
-      const lastUsed = k.last_used_at
-        ? new Date(k.last_used_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-        : 'Never';
+      const created  = k.created_at ? new Date(k.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+      const lastUsed = k.last_used_at ? new Date(k.last_used_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never';
 
       const planBadge = k.plan === 'enterprise'
         ? '<span class="badge badge-enterprise">Enterprise</span>'
@@ -1858,12 +2108,7 @@ async function confirmGenerateKey() {
   const name    = nameEl.value.trim();
 
   errEl.style.display = 'none';
-
-  if (!name) {
-    errEl.textContent   = 'Please enter a name for this key.';
-    errEl.style.display = 'block';
-    return;
-  }
+  if (!name) { errEl.textContent = 'Please enter a name.'; errEl.style.display = 'block'; return; }
 
   btn.disabled    = true;
   btn.textContent = 'Generating...';
@@ -1871,11 +2116,8 @@ async function confirmGenerateKey() {
   try {
     const resp = await fetch(`${DAZZLING_URL}/v1/keys`, {
       method:  'POST',
-      headers: {
-        'Authorization': `Bearer ${currentToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name }),
+      headers: { 'Authorization': `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name }),
     });
 
     const result = await resp.json();
@@ -1894,7 +2136,7 @@ async function confirmGenerateKey() {
       showToast('✓ API key generated', 'success');
       await loadApiKeys();
     } else {
-      errEl.textContent   = result.detail || 'Failed to generate key. Try again.';
+      errEl.textContent   = result.detail || 'Failed to generate key.';
       errEl.style.display = 'block';
       btn.disabled    = false;
       btn.textContent = 'Generate';
@@ -1916,15 +2158,11 @@ function copyNewKey() {
     setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2500);
   }).catch(() => {
     const el = document.createElement('textarea');
-    el.value = newKeyRawValue;
-    el.style.position = 'fixed'; el.style.opacity = '0';
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand('copy');
+    el.value = newKeyRawValue; el.style.position = 'fixed'; el.style.opacity = '0';
+    document.body.appendChild(el); el.select(); document.execCommand('copy');
     document.body.removeChild(el);
     const btn = document.getElementById('copy-key-btn');
-    btn.textContent = '✓ Copied';
-    btn.classList.add('copied');
+    btn.textContent = '✓ Copied'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2500);
   });
 }
@@ -1934,13 +2172,12 @@ function openRevokeModal(keyId, keyName) {
   pendingRevokeKeyId   = keyId;
   pendingRevokeKeyName = keyName;
   document.getElementById('revoke-modal-msg').textContent =
-    `Are you sure you want to revoke "${keyName || 'this key'}"? Any integration using it will stop working immediately. This cannot be undone.`;
+    `Are you sure you want to revoke "${keyName || 'this key'}"? This cannot be undone.`;
   document.getElementById('revoke-modal').classList.add('visible');
 }
 
 function closeRevokeModal() {
-  pendingRevokeKeyId   = null;
-  pendingRevokeKeyName = null;
+  pendingRevokeKeyId = null; pendingRevokeKeyName = null;
   document.getElementById('revoke-modal').classList.remove('visible');
 }
 
@@ -1951,10 +2188,8 @@ async function confirmRevoke() {
 
   try {
     const resp = await fetch(`${DAZZLING_URL}/v1/keys/${keyId}`, {
-      method:  'DELETE',
-      headers: { 'Authorization': `Bearer ${currentToken}` },
+      method: 'DELETE', headers: { 'Authorization': `Bearer ${currentToken}` },
     });
-
     if (resp.ok) {
       showToast('API key revoked', 'success');
       await loadApiKeys();
@@ -1962,9 +2197,7 @@ async function confirmRevoke() {
       const err = await resp.json().catch(() => ({}));
       showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
     }
-  } catch (e) {
-    showToast(`Error: ${e.message}`, 'error');
-  }
+  } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
 // ── Invite coordinator modal ──────────────────────────────────────────────
@@ -1974,6 +2207,8 @@ function openInviteModal() {
   document.getElementById('invite-error').style.display = 'none';
   document.getElementById('send-invite-btn').disabled   = false;
   document.getElementById('send-invite-btn').textContent = 'Send Invite';
+  // Populate unit dropdown with current cache
+  populateInviteUnitDropdown();
   document.getElementById('invite-modal').classList.add('visible');
   setTimeout(() => document.getElementById('invite-name').focus(), 100);
 }
@@ -1985,11 +2220,13 @@ function closeInviteModal() {
 async function sendInvite() {
   const nameEl  = document.getElementById('invite-name');
   const emailEl = document.getElementById('invite-email');
+  const unitEl  = document.getElementById('invite-unit');
   const errEl   = document.getElementById('invite-error');
   const btn     = document.getElementById('send-invite-btn');
 
-  const name  = nameEl.value.trim();
-  const email = emailEl.value.trim();
+  const name    = nameEl.value.trim();
+  const email   = emailEl.value.trim();
+  const unitId  = unitEl.value;
 
   errEl.style.display = 'none';
 
@@ -2003,6 +2240,7 @@ async function sendInvite() {
     const formData = new FormData();
     formData.append('full_name', name);
     formData.append('email', email);
+    if (unitId) formData.append('course_unit_id', unitId);
 
     const resp = await fetch(`${DAZZLING_URL}/invite-coordinator`, {
       method:  'POST',
@@ -2030,8 +2268,7 @@ async function sendInvite() {
 
 function showInviteError(msg) {
   const el = document.getElementById('invite-error');
-  el.textContent   = msg;
-  el.style.display = 'block';
+  el.textContent = msg; el.style.display = 'block';
 }
 
 // ── Remove coordinator modal ──────────────────────────────────────────────
@@ -2044,8 +2281,7 @@ function openRemoveCoordModal(coordId, coordName) {
 }
 
 function closeRemoveCoordModal() {
-  pendingRemoveCoordId   = null;
-  pendingRemoveCoordName = null;
+  pendingRemoveCoordId = null; pendingRemoveCoordName = null;
   document.getElementById('remove-coord-modal').classList.remove('visible');
 }
 
@@ -2056,10 +2292,8 @@ async function confirmRemoveCoord() {
 
   try {
     const resp = await fetch(`${DAZZLING_URL}/coordinators/${coordId}`, {
-      method:  'DELETE',
-      headers: { 'Authorization': `Bearer ${currentToken}` },
+      method: 'DELETE', headers: { 'Authorization': `Bearer ${currentToken}` },
     });
-
     if (resp.ok) {
       showToast('Coordinator removed', 'success');
       await loadCoordinators();
@@ -2067,9 +2301,7 @@ async function confirmRemoveCoord() {
       const err = await resp.json().catch(() => ({}));
       showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
     }
-  } catch (e) {
-    showToast(`Error: ${e.message}`, 'error');
-  }
+  } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
 // ── Load institutions (super admin only) ──────────────────────────────────
@@ -2101,8 +2333,8 @@ async function loadInstitutions() {
 
     const rows = institutions.map(inst => {
       const statusBadge =
-        inst.status === 'active'    ? '<span class="badge badge-active">Active</span>'    :
-        inst.status === 'pending'   ? '<span class="badge badge-pending">Pending</span>'  :
+        inst.status === 'active'    ? '<span class="badge badge-active">Active</span>'       :
+        inst.status === 'pending'   ? '<span class="badge badge-pending">Pending</span>'     :
         inst.status === 'suspended' ? '<span class="badge badge-suspended">Suspended</span>' : '—';
 
       let actions = '';
@@ -2134,9 +2366,7 @@ async function loadInstitutions() {
     document.getElementById('institutions-table-wrap').innerHTML = `
       <table>
         <thead>
-          <tr>
-            <th>ID</th><th>Name</th><th>Admin Email</th><th>Plan</th><th>Status</th><th>Actions</th>
-          </tr>
+          <tr><th>ID</th><th>Name</th><th>Admin Email</th><th>Plan</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -2160,9 +2390,7 @@ async function updateInstStatus(institutionId, newStatus) {
     formData.append('status', newStatus);
 
     const resp = await fetch(`${DAZZLING_URL}/admin/institutions/${institutionId}/status`, {
-      method:  'PATCH',
-      headers: { 'Authorization': `Bearer ${currentToken}` },
-      body:    formData,
+      method: 'PATCH', headers: { 'Authorization': `Bearer ${currentToken}` }, body: formData,
     });
 
     if (resp.ok) {
@@ -2174,9 +2402,7 @@ async function updateInstStatus(institutionId, newStatus) {
       const err = await resp.json();
       showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
     }
-  } catch (e) {
-    showToast(`Error: ${e.message}`, 'error');
-  }
+  } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
 // ── Delete student modal ──────────────────────────────────────────────────
@@ -2189,8 +2415,7 @@ function openDeleteModal(studentId, studentName) {
 }
 
 function closeDeleteModal() {
-  pendingDeleteId   = null;
-  pendingDeleteName = null;
+  pendingDeleteId = null; pendingDeleteName = null;
   document.getElementById('delete-modal').classList.remove('visible');
 }
 
@@ -2201,10 +2426,8 @@ async function confirmDelete() {
 
   try {
     const resp = await fetch(`${DAZZLING_URL}/students/${studentId}`, {
-      method:  'DELETE',
-      headers: { 'Authorization': `Bearer ${currentToken}` },
+      method: 'DELETE', headers: { 'Authorization': `Bearer ${currentToken}` },
     });
-
     if (resp.ok) {
       showToast('Student deleted', 'success');
       await loadStudents();
@@ -2213,9 +2436,7 @@ async function confirmDelete() {
       const err = await resp.json();
       showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
     }
-  } catch (e) {
-    showToast(`Error: ${e.message}`, 'error');
-  }
+  } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
 // ── Filters ───────────────────────────────────────────────────────────────
@@ -2231,16 +2452,13 @@ function applyFilters() {
 // ── Render attendance table ───────────────────────────────────────────────
 function renderTable(records) {
   if (!records.length) {
-    document.getElementById('table-wrap').innerHTML =
-      '<div class="loading">No records found.</div>';
+    document.getElementById('table-wrap').innerHTML = '<div class="loading">No records found.</div>';
     return;
   }
 
   const rows = records.map(r => {
-    const ts   = r.timestamp
-      ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })
-      : '—';
-    const conf  = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
+    const ts   = r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' }) : '—';
+    const conf = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
     const badge = r.verified === 'success'
       ? '<span class="badge badge-success">Success</span>'
       : r.verified === 'spoof'
@@ -2258,11 +2476,7 @@ function renderTable(records) {
 
   document.getElementById('table-wrap').innerHTML = `
     <table>
-      <thead>
-        <tr>
-          <th>Student ID</th><th>Status</th><th>Confidence</th><th>Institution</th><th>Time (EAT)</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Student ID</th><th>Status</th><th>Confidence</th><th>Institution</th><th>Time (EAT)</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="table-footer">${records.length} records</div>
@@ -2295,9 +2509,7 @@ async function handleUpgrade(plan) {
   if (!user) return alert('Please log in first.');
 
   const { data: profile } = await client.from('profiles')
-    .select('full_name, institution_id')
-    .eq('id', user.id)
-    .single();
+    .select('full_name, institution_id').eq('id', user.id).single();
 
   const nameParts = (profile?.full_name || 'User Name').split(' ');
 
@@ -2305,8 +2517,7 @@ async function handleUpgrade(plan) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      plan,
-      email: user.email,
+      plan, email: user.email,
       first_name: nameParts[0] || 'User',
       last_name: nameParts[1] || 'Name',
       phone: '',
