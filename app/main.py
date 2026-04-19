@@ -495,7 +495,7 @@ async def list_coordinators(
 @app.patch("/admin/coordinators/{coordinator_id}/course-unit")
 async def update_coordinator_course_unit(
     coordinator_id: str,
-    course_unit_id: Optional[str] = Form(None),
+    course_unit_ids: Optional[str] = Form(None),  # Now accepts comma-separated IDs
     user=Depends(check_admin),
 ):
     profile_resp = supabase_admin.table("profiles") \
@@ -522,20 +522,26 @@ async def update_coordinator_course_unit(
     if not is_super and coord.get("institution_id") != user_institution:
         raise HTTPException(status_code=403, detail="Coordinator does not belong to your institution.")
 
-    course_unit_id = course_unit_id.strip() if course_unit_id and course_unit_id.strip() else None
-    if course_unit_id:
+    # Parse course_unit_ids from comma-separated string to list
+    course_unit_id_list = []
+    if course_unit_ids and course_unit_ids.strip():
+        course_unit_id_list = [id.strip() for id in course_unit_ids.split(',') if id.strip()]
+    
+    # Validate each course unit exists and belongs to the institution
+    for course_unit_id in course_unit_id_list:
         unit_resp = supabase_admin.table("course_units") \
             .select("id, institution_id") \
             .eq("id", course_unit_id).single().execute()
         unit = unit_resp.data
         if not unit:
-            raise HTTPException(status_code=404, detail="Course unit not found.")
+            raise HTTPException(status_code=404, detail=f"Course unit {course_unit_id} not found.")
         if not is_super and unit.get("institution_id") != user_institution:
-            raise HTTPException(status_code=403, detail="Course unit does not belong to your institution.")
+            raise HTTPException(status_code=403, detail=f"Course unit {course_unit_id} does not belong to your institution.")
 
     try:
+        # Store as JSON array in the database
         update_resp = supabase_admin.table("profiles") \
-            .update({"course_unit_id": course_unit_id}) \
+            .update({"course_unit_id": course_unit_id_list if course_unit_id_list else None}) \
             .eq("id", coordinator_id).execute()
     except Exception as e:
         error_detail = str(e)
@@ -551,7 +557,7 @@ async def update_coordinator_course_unit(
     return {
         "success": True,
         "coordinator_id": coordinator_id,
-        "course_unit_id": course_unit_id,
+        "course_unit_ids": course_unit_id_list,
     }
 
 

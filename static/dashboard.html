@@ -673,6 +673,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   font-family: 'Instrument Sans', sans-serif;
   font-size: 0.8rem; outline: none; cursor: pointer;
   max-width: 200px;
+  min-height: 32px;
+}
+.unit-assign-select[multiple] {
+  height: auto;
+  max-height: 120px;
+  overflow-y: auto;
 }
 .unit-assign-select:focus { border-color: var(--blue); }
 
@@ -1711,25 +1717,45 @@ async function loadCoordinators() {
         ? `<td style="color:var(--muted);font-size:0.8rem;">${c.institution_id || '—'}</td>`
         : '';
 
-      const assignedUnit = courseUnitsCache.find(u => u.id == c.course_unit_id);
-      const missingAssignedUnit = c.course_unit_id && !assignedUnit
-        ? `<option value="${c.course_unit_id}">Assigned unit unavailable</option>`
-        : '';
+      // Handle course_unit_id as array (new) or single value (backward compatibility)
+      let assignedUnitIds = [];
+      if (Array.isArray(c.course_unit_id)) {
+        assignedUnitIds = c.course_unit_id;
+      } else if (c.course_unit_id) {
+        assignedUnitIds = [c.course_unit_id];
+      }
+
+      // Get assigned units and format display text
+      const assignedUnits = assignedUnitIds
+        .map(id => courseUnitsCache.find(u => u.id == id))
+        .filter(u => u)
+        .map(u => `${u.name}${u.code ? ' (' + u.code + ')' : ''}`);
+
+      const missingCount = assignedUnitIds.length - assignedUnits.length;
+      const missingText = missingCount > 0 ? ` + ${missingCount} unavailable` : '';
+
+      const currentAssignmentText = assignedUnits.length > 0
+        ? assignedUnits.join(', ') + missingText
+        : assignedUnitIds.length > 0
+          ? 'Assigned units unavailable'
+          : 'Unassigned';
+
+      // Create options for missing units
+      const missingAssignedOptions = assignedUnitIds
+        .filter(id => !courseUnitsCache.find(u => u.id == id))
+        .map(id => `<option value="${id}">Assigned unit unavailable</option>`)
+        .join('');
 
       // Unit assign cell — only show for institution admins (not super admin)
       const unitCell = !isSuperAdmin
         ? `<td>
-            <div style="margin-bottom:4px;font-size:0.8rem;color:var(--muted);">
-              Currently: ${assignedUnit ? `${assignedUnit.name}${assignedUnit.code ? ' (' + assignedUnit.code + ')' : ''}` : c.course_unit_id ? 'Assigned unit unavailable' : 'Unassigned'}
-            </div>
-            <select class="unit-assign-select" onchange="assignCoordinatorUnit('${c.id}', this.value)">
-              <option value="">— Assign to unit —</option>
+            <select class="unit-assign-select" multiple onchange="assignCoordinatorUnit('${c.id}', this)">
               ${courseUnitsCache.map(u =>
-                `<option value="${u.id}">
+                `<option value="${u.id}" ${assignedUnitIds.includes(u.id) ? 'selected' : ''}>
                   ${u.name}${u.code ? ' (' + u.code + ')' : ''}
                 </option>`
               ).join('')}
-              ${missingAssignedUnit}
+              ${missingAssignedOptions}
             </select>
            </td>`
         : '';
@@ -1739,22 +1765,12 @@ async function loadCoordinators() {
           <td>
             ${c.full_name || '<span style="color:var(--muted)">Pending setup</span>'}
             <br><small style="color:var(--muted);font-size:0.8rem;">
-              Currently: ${assignedUnit ? `${assignedUnit.name}${assignedUnit.code ? ' (' + assignedUnit.code + ')' : ''}` : c.course_unit_id ? 'Assigned unit unavailable' : 'Unassigned'}
+              Currently: ${currentAssignmentText}
             </small>
           </td>
           <td><span class="badge badge-coord">Coordinator</span></td>
           ${instCell}
-          <td>
-            <select class="unit-assign-select" onchange="assignCoordinatorUnit('${c.id}', this.value)">
-              <option value="">— Assign to unit —</option>
-              ${courseUnitsCache.map(u =>
-                `<option value="${u.id}">
-                  ${u.name}${u.code ? ' (' + u.code + ')' : ''}
-                </option>`
-              ).join('')}
-              ${missingAssignedUnit}
-            </select>
-          </td>
+          ${unitCell}
           <td style="color:var(--muted);font-size:0.8rem;">${joined}</td>
           <td>
             <button class="btn-delete" onclick="openRemoveCoordModal('${c.id}', '${safeName}')">Remove</button>
@@ -1904,10 +1920,15 @@ async function deleteCourseUnit(unitId, unitName) {
   }
 }
 
-async function assignCoordinatorUnit(coordId, unitId) {
+async function assignCoordinatorUnit(coordId, selectElement) {
   try {
+    // Get all selected values from the multi-select
+    const selectedOptions = Array.from(selectElement.selectedOptions);
+    const selectedUnitIds = selectedOptions.map(option => option.value).filter(id => id);
+    const unitIdsString = selectedUnitIds.join(',');
+
     const body = new URLSearchParams();
-    body.append('course_unit_id', unitId || '');
+    body.append('course_unit_ids', unitIdsString);
 
     const resp = await fetch(`${DAZZLING_URL}/admin/coordinators/${coordId}/course-unit`, {
       method: 'PATCH',
@@ -1929,8 +1950,10 @@ async function assignCoordinatorUnit(coordId, unitId) {
       throw new Error(result.detail || 'Failed to update course unit assignment.');
     }
 
-    const unit = courseUnitsCache.find(u => u.id == unitId);
-    showToast(unitId ? `✓ Assigned to "${unit?.name || 'selected unit'}"` : '✓ Unassigned', 'success');
+    // Get unit names for toast message
+    const selectedUnits = selectedOptions.map(option => option.text).filter(text => text !== '— Assign to unit —');
+    const unitNames = selectedUnits.length > 0 ? selectedUnits.join(', ') : 'unassigned';
+    showToast(`✓ Assigned to ${unitNames}`, 'success');
     await loadCoordinators();
   } catch (e) {
     showToast(`Failed: ${e.message}`, 'error');
