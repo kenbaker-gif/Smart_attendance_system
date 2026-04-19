@@ -1713,16 +1713,19 @@ async function loadCoordinators() {
 
       const assignedUnit = courseUnitsCache.find(u => u.id == c.course_unit_id);
       const missingAssignedUnit = c.course_unit_id && !assignedUnit
-        ? `<option value="${c.course_unit_id}" selected>Assigned unit unavailable</option>`
+        ? `<option value="${c.course_unit_id}">Assigned unit unavailable</option>`
         : '';
 
       // Unit assign cell — only show for institution admins (not super admin)
       const unitCell = !isSuperAdmin
         ? `<td>
+            <div style="margin-bottom:4px;font-size:0.8rem;color:var(--muted);">
+              Currently: ${assignedUnit ? `${assignedUnit.name}${assignedUnit.code ? ' (' + assignedUnit.code + ')' : ''}` : c.course_unit_id ? 'Assigned unit unavailable' : 'Unassigned'}
+            </div>
             <select class="unit-assign-select" onchange="assignCoordinatorUnit('${c.id}', this.value)">
-              <option value="">— Unassigned —</option>
+              <option value="">— Assign to unit —</option>
               ${courseUnitsCache.map(u =>
-                `<option value="${u.id}" ${u.id == c.course_unit_id ? 'selected' : ''}>
+                `<option value="${u.id}">
                   ${u.name}${u.code ? ' (' + u.code + ')' : ''}
                 </option>`
               ).join('')}
