@@ -536,8 +536,9 @@ async def update_coordinator_course_unit(
     update_resp = supabase_admin.table("profiles") \
         .update({"course_unit_id": course_unit_id}) \
         .eq("id", coordinator_id).execute()
-    if update_resp.error:
-        raise HTTPException(status_code=500, detail=str(update_resp.error))
+    if not hasattr(update_resp, 'status_code') or update_resp.status_code >= 400:
+        detail = getattr(update_resp, 'data', None)
+        raise HTTPException(status_code=500, detail=(str(detail) if detail else 'Failed to update coordinator course unit.'))
 
     return {
         "success": True,
