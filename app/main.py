@@ -429,7 +429,8 @@ async def invite_coordinator(
         }
         if course_unit_id:
             profile_data["course_unit_id"] = course_unit_id   # ← NEW
-
+        else:
+            profile_data["course_unit_id"] = None
         supabase_admin.table("profiles").insert(profile_data).execute()
     except Exception as e:
         try:
