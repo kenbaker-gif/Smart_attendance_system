@@ -2534,10 +2534,16 @@ function renderTable(records) {
         ? '<span class="badge badge-spoof">Spoof</span>'
         : '<span class="badge badge-failed">Failed</span>';
 
+    const unit = courseUnitsCache.find(u => u.id === r.course_unit_id);
+    const unitCell = unit
+      ? `<span style="color:var(--blue);font-size:0.78rem;">${unit.name}${unit.code ? ' (' + unit.code + ')' : ''}</span>`
+      : `<span style="color:var(--muted);font-size:0.78rem;">${r.course_unit_id ? r.course_unit_id.slice(0,8) + '…' : '—'}</span>`;
+
     return `<tr>
       <td>${r.student_id || '—'}</td>
       <td>${badge}</td>
       <td>${conf}</td>
+      <td>${unitCell}</td>
       <td>${r.institution_id || '—'}</td>
       <td style="color:var(--muted)">${ts}</td>
     </tr>`;
@@ -2545,7 +2551,11 @@ function renderTable(records) {
 
   document.getElementById('table-wrap').innerHTML = `
     <table>
-      <thead><tr><th>Student ID</th><th>Status</th><th>Confidence</th><th>Institution</th><th>Time (EAT)</th></tr></thead>
+      <thead><tr>
+        <th>Student ID</th><th>Status</th><th>Confidence</th>
+        <th>Course Unit</th>
+        <th>Institution</th><th>Time (EAT)</th>
+      </tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="table-footer">${records.length} records</div>
