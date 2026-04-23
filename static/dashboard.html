@@ -2277,6 +2277,7 @@ function openInviteModal() {
   document.getElementById('send-invite-btn').textContent = 'Send Invite';
   // Populate unit dropdown with current cache
   populateInviteUnitDropdown();
+  document.getElementById('invite-unit').value = '';   // ← reset to blank
   document.getElementById('invite-modal').classList.add('visible');
   setTimeout(() => document.getElementById('invite-name').focus(), 100);
 }
