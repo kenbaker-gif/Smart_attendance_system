@@ -428,7 +428,7 @@ async def invite_coordinator(
             "role":           "coordinator",
         }
         if course_unit_id:
-            profile_data["course_unit_id"] = course_unit_id   # ← NEW
+            profile_data["course_unit_id"] = [course_unit_id] if course_unit_id else None   # ← NEW
         else:
             profile_data["course_unit_id"] = None
         supabase_admin.table("profiles").insert(profile_data).execute()
