@@ -2559,7 +2559,7 @@ function exportCSV() {
   if (inst)   filtered = filtered.filter(r => r.institution_id === inst);
   if (status) filtered = filtered.filter(r => r.verified === status);
 
-  const header = ['student_id', 'verified', 'confidence', 'institution_id', 'timestamp'];
+  const header = ['student_id', 'verified', 'confidence', 'institution_id', 'course_unit_id', 'timestamp'];
   const rows   = filtered.map(r => header.map(k => r[k] ?? '').join(','));
   const csv    = [header.join(','), ...rows].join('\n');
   const blob   = new Blob([csv], { type: 'text/csv' });
