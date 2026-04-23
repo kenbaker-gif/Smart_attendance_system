@@ -1717,7 +1717,6 @@ async function loadCoordinators() {
         ? `<td style="color:var(--muted);font-size:0.8rem;">${c.institution_id || '—'}</td>`
         : '';
 
-      // Handle course_unit_id as array (new) or single value (backward compatibility)
       let assignedUnitIds = [];
       if (Array.isArray(c.course_unit_id)) {
         assignedUnitIds = c.course_unit_id;
@@ -1725,29 +1724,27 @@ async function loadCoordinators() {
         assignedUnitIds = [c.course_unit_id];
       }
 
-      // Get assigned units and format display text
       const assignedUnits = assignedUnitIds
         .map(id => courseUnitsCache.find(u => u.id == id))
         .filter(u => u)
         .map(u => `${u.name}${u.code ? ' (' + u.code + ')' : ''}`);
 
-      // Create options for missing units
-      const missingAssignedOptions = assignedUnitIds
-        .filter(id => !courseUnitsCache.find(u => u.id == id))
-        .map(id => `<option value="${id}">Assigned unit unavailable</option>`)
-        .join('');
-
-      // Unit assign cell — only show for institution admins (not super admin)
       const unitCell = !isSuperAdmin
         ? `<td>
-            <select class="unit-assign-select" multiple onchange="assignCoordinatorUnit('${c.id}', this)">
+            <select class="unit-assign-select" multiple id="unit-select-${c.id}">
               ${courseUnitsCache.map(u =>
                 `<option value="${u.id}" ${assignedUnitIds.includes(u.id) ? 'selected' : ''}>
                   ${u.name}${u.code ? ' (' + u.code + ')' : ''}
                 </option>`
               ).join('')}
-              ${missingAssignedOptions}
             </select>
+            <button
+              onclick="assignCoordinatorUnit('${c.id}')"
+              style="margin-top:6px;display:block;background:transparent;border:1px solid rgba(74,158,255,0.4);color:var(--blue);padding:4px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;transition:background 0.2s;"
+              onmouseover="this.style.background='rgba(74,158,255,0.1)'"
+              onmouseout="this.style.background='transparent'">
+              Save
+            </button>
            </td>`
         : '';
 
@@ -1924,11 +1921,13 @@ async function deleteCourseUnit(unitId, unitName) {
   }
 }
 
-async function assignCoordinatorUnit(coordId, selectElement) {
+async function assignCoordinatorUnit(coordId) {
+  const selectElement = document.getElementById(`unit-select-${coordId}`);
+  if (!selectElement) return;
+
   try {
-    // Get all selected values from the multi-select
-    const selectedOptions = Array.from(selectElement.selectedOptions);
-    const selectedUnitIds = selectedOptions.map(option => option.value).filter(id => id);
+    const selectedUnitIds = Array.from(selectElement.selectedOptions)
+      .map(o => o.value).filter(id => id);
     const unitIdsString = selectedUnitIds.join(',');
 
     const body = new URLSearchParams();
@@ -1943,25 +1942,17 @@ async function assignCoordinatorUnit(coordId, selectElement) {
       body,
     });
 
-    let result;
-    try {
-      result = await resp.json();
-    } catch (err) {
-      const text = await resp.text();
-      result = { detail: text || 'Failed to parse server response.' };
-    }
-    if (!resp.ok) {
-      throw new Error(result.detail || 'Failed to update course unit assignment.');
-    }
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.detail || 'Failed to update.');
 
-    // Get unit names for toast message
-    const selectedUnits = selectedOptions.map(option => option.text).filter(text => text !== '— Assign to unit —');
-    const unitNames = selectedUnits.length > 0 ? selectedUnits.join(', ') : 'unassigned';
-    showToast(`✓ Assigned to ${unitNames}`, 'success');
+    const unitNames = Array.from(selectElement.selectedOptions)
+      .map(o => o.text).join(', ') || 'none';
+    showToast(`✓ Saved: ${unitNames}`, 'success');
     await loadCoordinators();
+
   } catch (e) {
     showToast(`Failed: ${e.message}`, 'error');
-    await loadCoordinators(); // revert UI on failure
+    await loadCoordinators();
   }
 }
 
