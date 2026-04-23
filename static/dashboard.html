@@ -1948,11 +1948,12 @@ async function assignCoordinatorUnit(coordId) {
     const unitNames = Array.from(selectElement.selectedOptions)
       .map(o => o.text).join(', ') || 'none';
     showToast(`✓ Saved: ${unitNames}`, 'success');
+    Array.from(selectElement.options).forEach(opt => opt.selected = false);
     await loadCoordinators();
 
   } catch (e) {
     showToast(`Failed: ${e.message}`, 'error');
-    selectElement.selectedIndex = -1;
+    Array.from(selectElement.options).forEach(opt => opt.selected = false);
     await loadCoordinators();
   }
 }
