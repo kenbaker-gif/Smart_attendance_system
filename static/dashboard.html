@@ -1952,6 +1952,7 @@ async function assignCoordinatorUnit(coordId) {
 
   } catch (e) {
     showToast(`Failed: ${e.message}`, 'error');
+    selectElement.selectedIndex = -1;
     await loadCoordinators();
   }
 }
