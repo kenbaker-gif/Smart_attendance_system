@@ -1731,20 +1731,13 @@ async function loadCoordinators() {
 
       const unitCell = !isSuperAdmin
         ? `<td>
-            <select class="unit-assign-select" multiple id="unit-select-${c.id}">
+            <select class="unit-assign-select" id="unit-select-${c.id}"
+              onchange="assignCoordinatorUnit('${c.id}')">
+              <option value="">— Add unit —</option>
               ${courseUnitsCache.map(u =>
-                `<option value="${u.id}" ${assignedUnitIds.includes(u.id) ? 'selected' : ''}>
-                  ${u.name}${u.code ? ' (' + u.code + ')' : ''}
-                </option>`
+                `<option value="${u.id}">${u.name}${u.code ? ' (' + u.code + ')' : ''}</option>`
               ).join('')}
             </select>
-            <button
-              onclick="assignCoordinatorUnit('${c.id}')"
-              style="margin-top:6px;display:block;background:transparent;border:1px solid rgba(74,158,255,0.4);color:var(--blue);padding:4px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;transition:background 0.2s;"
-              onmouseover="this.style.background='rgba(74,158,255,0.1)'"
-              onmouseout="this.style.background='transparent'">
-              Save
-            </button>
            </td>`
         : '';
 
@@ -1923,15 +1916,13 @@ async function deleteCourseUnit(unitId, unitName) {
 
 async function assignCoordinatorUnit(coordId) {
   const selectElement = document.getElementById(`unit-select-${coordId}`);
-  if (!selectElement) return;
+  if (!selectElement || !selectElement.value) return;
+
+  const selectedUnitId = selectElement.value;
 
   try {
-    const selectedUnitIds = Array.from(selectElement.selectedOptions)
-      .map(o => o.value).filter(id => id);
-    const unitIdsString = selectedUnitIds.join(',');
-
     const body = new URLSearchParams();
-    body.append('course_unit_ids', unitIdsString);
+    body.append('course_unit_ids', selectedUnitId);
 
     const resp = await fetch(`${DAZZLING_URL}/admin/coordinators/${coordId}/course-unit`, {
       method: 'PATCH',
@@ -1945,15 +1936,12 @@ async function assignCoordinatorUnit(coordId) {
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.detail || 'Failed to update.');
 
-    const unitNames = Array.from(selectElement.selectedOptions)
-      .map(o => o.text).join(', ') || 'none';
-    showToast(`✓ Saved: ${unitNames}`, 'success');
-    Array.from(selectElement.options).forEach(opt => opt.selected = false);
+    const unitName = selectElement.options[selectElement.selectedIndex].text;
+    showToast(`✓ Assigned: ${unitName}`, 'success');
     await loadCoordinators();
 
   } catch (e) {
     showToast(`Failed: ${e.message}`, 'error');
-    Array.from(selectElement.options).forEach(opt => opt.selected = false);
     await loadCoordinators();
   }
 }
