@@ -1731,15 +1731,6 @@ async function loadCoordinators() {
         .filter(u => u)
         .map(u => `${u.name}${u.code ? ' (' + u.code + ')' : ''}`);
 
-      const missingCount = assignedUnitIds.length - assignedUnits.length;
-      const missingText = missingCount > 0 ? ` + ${missingCount} unavailable` : '';
-
-      const currentAssignmentText = assignedUnits.length > 0
-        ? assignedUnits.join(', ') + missingText
-        : assignedUnitIds.length > 0
-          ? 'Assigned units unavailable'
-          : 'Unassigned';
-
       // Create options for missing units
       const missingAssignedOptions = assignedUnitIds
         .filter(id => !courseUnitsCache.find(u => u.id == id))
@@ -1764,9 +1755,22 @@ async function loadCoordinators() {
         <tr>
           <td>
             ${c.full_name || '<span style="color:var(--muted)">Pending setup</span>'}
-            <br><small style="color:var(--muted);font-size:0.8rem;">
-              Currently: ${currentAssignmentText}
-            </small>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">
+              ${assignedUnits.length > 0
+                ? assignedUnits.map(u => `
+                    <span style="
+                      background:rgba(74,158,255,0.1);
+                      border:1px solid rgba(74,158,255,0.2);
+                      color:var(--blue);
+                      border-radius:100px;
+                      padding:2px 10px;
+                      font-size:0.68rem;
+                      font-weight:600;
+                      letter-spacing:0.05em;
+                    ">${u}</span>`).join('')
+                : '<span style="color:var(--muted);font-size:0.78rem;">No units assigned</span>'
+              }
+            </div>
           </td>
           <td><span class="badge badge-coord">Coordinator</span></td>
           ${instCell}
