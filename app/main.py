@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from app.scheduler import create_scheduler
 from app.routes.auth_extra import router as auth_extra_router
 from app.routes.audit_logs import router as audit_logs_router
-from .notify_router import router as notify_router
+from app.routes.notify_router import router as notify_router
 
 scheduler = create_scheduler()
 
