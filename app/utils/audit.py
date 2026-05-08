@@ -73,6 +73,29 @@ def _get_ip(request: Optional[Request]) -> Optional[str]:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else None
 
+# app/utils/audit.py
+
+async def get_recent_ips(supabase_client, actor_id: str, limit: int = 5) -> list[str]:
+    """
+    Fetch the most recent IP addresses used by a given actor.
+    Queries audit_logs table for login events.
+    """
+    try:
+        result = (
+            supabase_client.table("audit_logs")
+            .select("ip_address, created_at")
+            .eq("actor_id", actor_id)
+            .eq("action", AuditAction.AUTH_LOGIN)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        ips = [row["ip_address"] for row in result.data if row.get("ip_address")]
+        return ips
+    except Exception as exc:
+        logger.error(f"[audit] Failed to fetch recent IPs for {actor_id}: {exc}")
+        return []
+
 
 async def log_event(
     action: str,
