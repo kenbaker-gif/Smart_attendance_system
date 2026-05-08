@@ -184,6 +184,7 @@ nav {
   display: flex; gap: 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 .tab-btn {
   background: transparent; border: none;
@@ -205,6 +206,8 @@ nav {
 .tab-btn.billing-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
 .tab-btn.units-tab { color: var(--blue); }
 .tab-btn.units-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-btn.audit-tab { color: var(--yellow); }
+.tab-btn.audit-tab.active { color: var(--yellow); border-bottom-color: var(--yellow); }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
@@ -301,6 +304,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .badge-starter  { background: rgba(74,158,255,0.1);   color: var(--blue);   border: 1px solid rgba(74,158,255,0.2); }
 .badge-pro      { background: rgba(0,245,196,0.1);    color: var(--cyan);   border: 1px solid rgba(0,245,196,0.2); }
 .badge-enterprise { background: rgba(167,139,250,0.1); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+.badge-audit-action { background: rgba(245,196,0,0.1); color: var(--yellow); border: 1px solid rgba(245,196,0,0.2); }
 
 .btn-delete {
   background: transparent;
@@ -354,7 +358,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   margin-left: 6px; vertical-align: middle;
 }
 
-/* ── API KEYS TAB ─────────────────────────────────────────────────────── */
+/* ── API KEYS TAB ── */
 .apikeys-header {
   display: flex; align-items: flex-start;
   justify-content: space-between;
@@ -463,7 +467,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .empty-state-icon { font-size: 2rem; margin-bottom: 12px; opacity: 0.5; }
 .empty-state p { font-size: 0.88rem; line-height: 1.6; }
 
-/* ── BILLING TAB ─────────────────────────────────────────────────────── */
+/* ── BILLING TAB ── */
 .billing-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -545,7 +549,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   border-color: var(--purple);
 }
 
-/* ── SECURITY TAB ─────────────────────────────────────────────────────── */
+/* ── SECURITY TAB ── */
 .security-summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -620,7 +624,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   display: flex; align-items: center; gap: 8px;
 }
 
-/* ── COURSE UNITS TAB ─────────────────────────────────────────────────── */
+/* ── COURSE UNITS TAB ── */
 .units-create-box {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -678,6 +682,56 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   overflow-y: auto;
 }
 .unit-assign-select:focus { border-color: var(--blue); }
+
+/* ── AUDIT TAB ── */
+.audit-filters {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  align-items: flex-end; margin-bottom: 20px;
+}
+.audit-filters .filter-group { display: flex; flex-direction: column; gap: 4px; }
+.audit-filters .filter-group label {
+  font-size: 0.68rem; color: var(--muted);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 0;
+}
+.audit-filters input[type="date"] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px;
+  color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.85rem; outline: none;
+  cursor: pointer;
+  color-scheme: dark;
+}
+.audit-filters input[type="date"]:focus { border-color: var(--yellow); }
+.audit-stats {
+  display: flex; gap: 16px;
+  margin-bottom: 16px; font-size: 0.78rem; color: var(--muted);
+  flex-wrap: wrap;
+}
+.audit-stats strong { color: var(--white); }
+.audit-pagination {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-top: 16px;
+  font-size: 0.78rem; color: var(--muted);
+}
+.audit-pagination button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted); padding: 6px 14px;
+  border-radius: 6px; cursor: pointer; font-size: 0.78rem;
+  transition: border-color 0.2s, color 0.2s;
+}
+.audit-pagination button:hover:not(:disabled) {
+  border-color: var(--yellow); color: var(--yellow);
+}
+.audit-pagination button:disabled { opacity: 0.4; cursor: default; }
+.audit-action-badge {
+  display: inline-block; padding: 2px 9px;
+  border-radius: 100px; font-size: 0.68rem;
+  font-weight: 600; white-space: nowrap;
+}
 
 /* Modal */
 .modal-overlay {
@@ -918,8 +972,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     </div>
 
     <div class="tabs" id="tabs">
-      <button class="tab-btn active" onclick="switchTab('attendance')">Attendance Records</button>
-      <button class="tab-btn" onclick="switchTab('students')">Students</button>
+      <button class="tab-btn active" id="tab-btn-attendance" onclick="switchTab('attendance')">Attendance Records</button>
+      <button class="tab-btn" id="tab-btn-students" onclick="switchTab('students')">Students</button>
     </div>
 
     <!-- Attendance Tab -->
@@ -1050,8 +1104,40 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </div>
     </div>
 
-  </div>
-</div>
+    <!-- Audit Logs Tab -->
+    <div class="tab-panel" id="tab-audit">
+      <div class="audit-filters">
+        <div class="filter-group">
+          <label>Action</label>
+          <select id="audit-filter-action" onchange="auditLoadPage(1)">
+            <option value="">All Actions</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>From</label>
+          <input type="date" id="audit-filter-start" onchange="auditLoadPage(1)"/>
+        </div>
+        <div class="filter-group">
+          <label>To</label>
+          <input type="date" id="audit-filter-end" onchange="auditLoadPage(1)"/>
+        </div>
+        <div class="filter-group" id="audit-institution-filter-wrap" style="display:none;">
+          <label>Institution</label>
+          <select id="audit-filter-institution" onchange="auditLoadPage(1)">
+            <option value="">All Institutions</option>
+          </select>
+        </div>
+        <button class="btn-export" style="margin-left:auto;" onclick="auditExportCSV()">↓ Export CSV</button>
+      </div>
+      <div class="audit-stats" id="audit-stats"></div>
+      <div class="table-wrap" id="audit-table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading audit logs...</div>
+      </div>
+      <div class="audit-pagination" id="audit-pagination"></div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /dashboard-screen -->
 
 <script src="/static/supabase.min.js"></script>
 <script>
@@ -1065,6 +1151,7 @@ if (typeof supabase === 'undefined') {
     </div>`;
   throw new Error('Supabase SDK failed to load');
 }
+
 const SUPABASE_URL      = "https://xrlsltunfgjxooyyrora.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhybHNsdHVuZmdqeG9veXlyb3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwNDczODEsImV4cCI6MjA4MDYyMzM4MX0.BWr27wHWGt6a3gWnD2ocGdQBL0_sH0HK-YHUcJsrlC0";
 const API_URL           = "https://faceattend.app";
@@ -1086,9 +1173,10 @@ let pendingRevokeKeyId   = null;
 let pendingRevokeKeyName = null;
 let newKeyRawValue       = null;
 let courseUnitsCache     = [];
-let coordinatorsData     = []; // cache for merge logic
+let coordinatorsData     = [];
+let auditLoaded          = false;
 
-// ── Toast ─────────────────────────────────────────────────────────────────
+// ── Toast ──────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1103,7 +1191,8 @@ function switchTab(tab) {
 
   const btn = document.getElementById(`tab-btn-${tab}`);
   if (btn) btn.classList.add('active');
-  document.getElementById(`tab-${tab}`)?.classList.add('active');
+  const panel = document.getElementById(`tab-${tab}`);
+  if (panel) panel.classList.add('active');
 
   if (tab === 'students')   loadStudents();
   if (tab === 'superadmin') loadInstitutions();
@@ -1112,9 +1201,28 @@ function switchTab(tab) {
   if (tab === 'billing')    loadBilling();
   if (tab === 'security')   loadSecurityData();
   if (tab === 'units')      loadCourseUnits();
+  if (tab === 'audit') {
+    if (!auditLoaded) {
+      auditLoaded = true;
+      auditLoadActionFilter();
+      // Show institution filter for super admins
+      if (isSuperAdmin) {
+        document.getElementById('audit-institution-filter-wrap').style.display = '';
+        fetch(`${DAZZLING_URL}/admin/institutions`, {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        }).then(r => r.json()).then(data => {
+          const insts = data.institutions || [];
+          const sel = document.getElementById('audit-filter-institution');
+          sel.innerHTML = '<option value="">All Institutions</option>' +
+            insts.map(i => `<option value="${i.id}">${i.id} — ${i.name}</option>`).join('');
+        }).catch(() => {});
+      }
+    }
+    auditLoadPage(1);
+  }
 }
 
-// ── Auto-login from Flutter WebView token injection ───────────────────────
+// ── Auto-login from Flutter WebView token injection ────────────────────────
 async function autoLoginWithToken(accessToken, refreshToken) {
   if (!accessToken) return;
   try {
@@ -1128,7 +1236,7 @@ async function autoLoginWithToken(accessToken, refreshToken) {
   }
 }
 
-// ── Check existing session on page load ──────────────────────────────────
+// ── Check existing session on page load ───────────────────────────────────
 window.addEventListener('load', async () => {
   const { data: { session } } = await client.auth.getSession();
   if (session) await initDashboard(session);
@@ -1189,7 +1297,7 @@ function showLoginError(msg) {
   el.style.display = 'block';
 }
 
-// ── Init dashboard ────────────────────────────────────────────────────────
+// ── Init dashboard ─────────────────────────────────────────────────────────
 async function initDashboard(session) {
   currentToken = session.access_token;
 
@@ -1206,9 +1314,20 @@ async function initDashboard(session) {
   document.getElementById('dashboard-screen').style.display = 'block';
   document.getElementById('nav-user').textContent = session.user.email;
 
+  // FIX: Populate nav badges
+  if (isSuperAdmin) {
+    document.getElementById('nav-superadmin').style.display = '';
+  }
+  if (currentInstitutionId) {
+    const navInst = document.getElementById('nav-inst');
+    navInst.textContent = currentInstitutionId;
+    navInst.style.display = '';
+  }
+
+  const tabs = document.getElementById('tabs');
+
   // Inject Course Units tab (institution admins only)
   if (!isSuperAdmin && currentInstitutionId) {
-    const tabs = document.getElementById('tabs');
     const unitsBtn = document.createElement('button');
     unitsBtn.className   = 'tab-btn units-tab';
     unitsBtn.id          = 'tab-btn-units';
@@ -1217,13 +1336,8 @@ async function initDashboard(session) {
     tabs.appendChild(unitsBtn);
   }
 
-  const staticBtns = document.querySelectorAll('#tabs .tab-btn');
-  staticBtns[0].id = 'tab-btn-attendance';
-  staticBtns[1].id = 'tab-btn-students';
-
   // Inject Team tab
   {
-    const tabs = document.getElementById('tabs');
     const teamBtn = document.createElement('button');
     teamBtn.className   = 'tab-btn';
     teamBtn.id          = 'tab-btn-team';
@@ -1247,7 +1361,6 @@ async function initDashboard(session) {
 
   // Inject Billing tab (non-super admins only)
   if (!isSuperAdmin) {
-    const tabs = document.getElementById('tabs');
     const billingBtn = document.createElement('button');
     billingBtn.className   = 'tab-btn billing-tab';
     billingBtn.id          = 'tab-btn-billing';
@@ -1258,7 +1371,6 @@ async function initDashboard(session) {
 
   // Inject API Keys tab
   {
-    const tabs = document.getElementById('tabs');
     const apiBtn = document.createElement('button');
     apiBtn.className   = 'tab-btn dev-tab';
     apiBtn.id          = 'tab-btn-apikeys';
@@ -1267,9 +1379,8 @@ async function initDashboard(session) {
     tabs.appendChild(apiBtn);
   }
 
-  // Inject Institutions + Security tabs for super admins
+  // Inject Institutions + Security + Audit tabs for super admins
   if (isSuperAdmin) {
-    const tabs = document.getElementById('tabs');
     const adminTabBtn = document.createElement('button');
     adminTabBtn.className   = 'tab-btn superadmin-tab';
     adminTabBtn.id          = 'tab-btn-superadmin';
@@ -1283,6 +1394,16 @@ async function initDashboard(session) {
     secBtn.onclick     = () => switchTab('security');
     secBtn.textContent = '🛡 Security';
     tabs.appendChild(secBtn);
+  }
+
+  // Inject Audit tab (all admins)
+  {
+    const auditBtn = document.createElement('button');
+    auditBtn.className   = 'tab-btn audit-tab';
+    auditBtn.id          = 'tab-btn-audit';
+    auditBtn.onclick     = () => switchTab('audit');
+    auditBtn.textContent = '📋 Audit Logs';
+    tabs.appendChild(auditBtn);
   }
 
   // Preload course units cache
@@ -1299,7 +1420,7 @@ async function initDashboard(session) {
   if (isSuperAdmin) await fetchPendingCount();
 }
 
-// ── Pending count badge ───────────────────────────────────────────────────
+// ── Pending count badge ────────────────────────────────────────────────────
 async function fetchPendingCount() {
   try {
     const resp = await fetch(`${DAZZLING_URL}/admin/institutions?status=pending`, {
@@ -1310,13 +1431,13 @@ async function fetchPendingCount() {
     const count = data.count || 0;
     const badge = document.getElementById('pending-count');
     if (badge && count > 0) {
-      badge.textContent    = count;
-      badge.style.display  = 'inline-block';
+      badge.textContent   = count;
+      badge.style.display = 'inline-block';
     }
   } catch(e) { console.error(e); }
 }
 
-// ── Logout ────────────────────────────────────────────────────────────────
+// ── Logout ─────────────────────────────────────────────────────────────────
 async function logout() {
   await client.auth.signOut();
   currentToken         = null;
@@ -1326,8 +1447,10 @@ async function logout() {
   allSecurityData      = [];
   courseUnitsCache     = [];
   coordinatorsData     = [];
+  auditLoaded          = false;
 
-  ['tab-btn-team', 'tab-btn-units', 'tab-btn-billing', 'tab-btn-apikeys', 'tab-btn-superadmin', 'tab-btn-security'].forEach(id => {
+  ['tab-btn-team','tab-btn-units','tab-btn-billing','tab-btn-apikeys',
+   'tab-btn-superadmin','tab-btn-security','tab-btn-audit'].forEach(id => {
     document.getElementById(id)?.remove();
   });
 
@@ -1349,7 +1472,7 @@ async function logout() {
   document.getElementById('dashboard-screen').style.display = 'none';
 }
 
-// ── Load attendance data ──────────────────────────────────────────────────
+// ── Load attendance data ───────────────────────────────────────────────────
 async function loadData() {
   if (!currentToken) return;
   const headers = { 'Authorization': `Bearer ${currentToken}` };
@@ -1416,7 +1539,7 @@ async function loadData() {
   }
 }
 
-// ── SECURITY TAB ──────────────────────────────────────────────────────────
+// ── SECURITY TAB ───────────────────────────────────────────────────────────
 async function loadSecurityData() {
   if (!currentToken || !isSuperAdmin) return;
 
@@ -1512,7 +1635,7 @@ async function loadSecurityData() {
           </td>
           <td>
             <button class="drill-btn" id="drill-btn-${instId}"
-              onclick="toggleDrill('${instId}', ${JSON.stringify(v.spoof)})">
+              onclick="toggleDrill('${instId}')">
               View Logs
             </button>
           </td>
@@ -1551,8 +1674,8 @@ async function loadSecurityData() {
   }
 }
 
-// ── Drill down ────────────────────────────────────────────────────────────
-function toggleDrill(instId, spoofCount) {
+// ── Drill down ─────────────────────────────────────────────────────────────
+function toggleDrill(instId) {
   const drillRow     = document.getElementById(`drill-${instId}`);
   const drillContent = document.getElementById(`drill-content-${instId}`);
   const drillBtn     = document.getElementById(`drill-btn-${instId}`);
@@ -1603,7 +1726,7 @@ function toggleDrill(instId, spoofCount) {
   `;
 }
 
-// ── Export security CSV ───────────────────────────────────────────────────
+// ── Export security CSV ────────────────────────────────────────────────────
 function exportSecurityCSV() {
   const records = allSecurityData.filter(r => r.verified === 'spoof' || r.verified === 'failed');
   if (!records.length) { showToast('No security records to export', 'error'); return; }
@@ -1619,7 +1742,186 @@ function exportSecurityCSV() {
   URL.revokeObjectURL(url);
 }
 
-// ── Load students ─────────────────────────────────────────────────────────
+// ── AUDIT LOGS TAB ─────────────────────────────────────────────────────────
+const AUDIT_ACTION_LABELS = {
+  'auth.login':                { label: 'Login',                 color: '#4a9eff' },
+  'auth.logout':               { label: 'Logout',                color: '#5a5a7a' },
+  'auth.password_reset':       { label: 'Password Reset',        color: '#f5c400' },
+  'auth.password_change':      { label: 'Password Changed',      color: '#f5c400' },
+  'coordinator.invite':        { label: 'Coordinator Invited',   color: '#a78bfa' },
+  'coordinator.remove':        { label: 'Coordinator Removed',   color: '#ff5050' },
+  'student.create':            { label: 'Student Registered',    color: '#00f5c4' },
+  'student.delete':            { label: 'Student Deleted',       color: '#ff5050' },
+  'api_key.create':            { label: 'API Key Created',       color: '#00f5c4' },
+  'api_key.revoke':            { label: 'API Key Revoked',       color: '#ff5050' },
+  'institution.approve':       { label: 'Institution Approved',  color: '#00f5c4' },
+  'institution.suspend':       { label: 'Institution Suspended', color: '#ff5050' },
+  'attendance.verify':         { label: 'Attendance Verified',   color: '#4a9eff' },
+  'attendance.spoof_detected': { label: '⚠ Spoof Detected',      color: '#ff5050' },
+};
+
+let auditCurrentPage = 1;
+
+function auditBadge(action) {
+  const def = AUDIT_ACTION_LABELS[action] || { label: action, color: '#5a5a7a' };
+  return `<span class="audit-action-badge" style="background:${def.color}1a;color:${def.color};border:1px solid ${def.color}33;">${def.label}</span>`;
+}
+
+function auditFormatTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  d.setHours(d.getHours() + 3); // UTC → EAT
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} <span style="color:var(--muted)">${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}</span>`;
+}
+
+function auditFormatMeta(meta) {
+  if (!meta || !Object.keys(meta).length) return '—';
+  const skip = new Set(['ip_address']);
+  const parts = Object.entries(meta)
+    .filter(([k, v]) => !skip.has(k) && v)
+    .map(([k, v]) => `<span style="color:var(--muted)">${k.replace(/_/g,' ')}:</span> ${v}`)
+    .join(' &nbsp;·&nbsp; ');
+  return parts || '—';
+}
+
+async function auditLoadPage(page = 1) {
+  auditCurrentPage = page;
+
+  const wrap = document.getElementById('audit-table-wrap');
+  wrap.innerHTML = '<div class="loading"><div class="spinner"></div>Loading audit logs...</div>';
+
+  const action      = document.getElementById('audit-filter-action')?.value || '';
+  const start       = document.getElementById('audit-filter-start')?.value || '';
+  const end         = document.getElementById('audit-filter-end')?.value || '';
+  const institution = document.getElementById('audit-filter-institution')?.value || '';
+
+  const params = new URLSearchParams({ page, limit: 50 });
+  if (action)      params.set('action', action);
+  if (start)       params.set('start_date', start);
+  if (end)         params.set('end_date', end);
+  if (institution) params.set('institution_id', institution);
+
+  let data;
+  try {
+    const res = await fetch(`${DAZZLING_URL}/audit-logs?${params}`, {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+    if (!res.ok) throw new Error(await res.text());
+    data = await res.json();
+  } catch (e) {
+    wrap.innerHTML = `<div class="loading" style="color:var(--red)">Error loading logs: ${e.message}</div>`;
+    return;
+  }
+
+  // Stats bar
+  document.getElementById('audit-stats').innerHTML =
+    `<span><strong>${data.total || 0}</strong> total events</span>
+     <span>Page <strong>${data.page || 1}</strong> of <strong>${data.pages || 1}</strong></span>`;
+
+  // Table rows
+  if (!data.data?.length) {
+    wrap.innerHTML = '<div class="loading">No audit events found.</div>';
+  } else {
+    const rows = data.data.map(ev => `
+      <tr>
+        <td style="white-space:nowrap;font-size:0.78rem;">${auditFormatTime(ev.created_at)}</td>
+        <td>${auditBadge(ev.action)}</td>
+        <td style="color:var(--muted);font-size:0.8rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.actor_email||''}">
+          ${ev.actor_email || '<span style="color:var(--muted)">—</span>'}
+        </td>
+        <td style="font-family:\'DM Mono\',monospace;font-size:0.75rem;color:var(--muted);">
+          ${ev.ip_address || '—'}
+        </td>
+        <td style="font-size:0.78rem;color:var(--muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${JSON.stringify(ev.metadata||{})}">
+          ${auditFormatMeta(ev.metadata)}
+        </td>
+      </tr>
+    `).join('');
+
+    wrap.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Time (EAT)</th>
+            <th>Action</th>
+            <th>Actor</th>
+            <th>IP Address</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="table-footer">${data.data.length} events on this page</div>
+    `;
+  }
+
+  // Pagination
+  const totalPages = data.pages || 1;
+  document.getElementById('audit-pagination').innerHTML = `
+    <button onclick="auditLoadPage(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
+    <span>Page ${page} of ${totalPages}</span>
+    <button onclick="auditLoadPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>Next →</button>
+  `;
+}
+
+async function auditLoadActionFilter() {
+  try {
+    const res  = await fetch(`${DAZZLING_URL}/audit-logs/actions`, {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const sel  = document.getElementById('audit-filter-action');
+    (data.actions || []).forEach(a => {
+      const opt       = document.createElement('option');
+      opt.value       = a;
+      opt.textContent = AUDIT_ACTION_LABELS[a]?.label || a;
+      sel.appendChild(opt);
+    });
+  } catch (e) { /* silent */ }
+}
+
+function auditExportCSV() {
+  const action      = document.getElementById('audit-filter-action')?.value || '';
+  const start       = document.getElementById('audit-filter-start')?.value || '';
+  const end         = document.getElementById('audit-filter-end')?.value || '';
+  const institution = document.getElementById('audit-filter-institution')?.value || '';
+  const params = new URLSearchParams({ page: 1, limit: 200 });
+  if (action)      params.set('action', action);
+  if (start)       params.set('start_date', start);
+  if (end)         params.set('end_date', end);
+  if (institution) params.set('institution_id', institution);
+
+  fetch(`${DAZZLING_URL}/audit-logs?${params}`, {
+    headers: { 'Authorization': `Bearer ${currentToken}` }
+  })
+    .then(r => r.json())
+    .then(data => {
+      const rows = [['Time (UTC)', 'Action', 'Actor', 'IP Address', 'Resource', 'Details']];
+      (data.data || []).forEach(ev => {
+        rows.push([
+          ev.created_at || '',
+          ev.action || '',
+          ev.actor_email || '',
+          ev.ip_address || '',
+          ev.resource_type ? `${ev.resource_type} ${ev.resource_id||''}`.trim() : '',
+          JSON.stringify(ev.metadata || {}),
+        ]);
+      });
+      const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `faceattend-audit-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    })
+    .catch(e => showToast('Export failed: ' + e.message, 'error'));
+}
+
+// ── Load students ──────────────────────────────────────────────────────────
 async function loadStudents() {
   if (!currentToken) return;
   const headers   = { 'Authorization': `Bearer ${currentToken}` };
@@ -1665,7 +1967,7 @@ async function loadStudents() {
   }
 }
 
-// ── Load coordinators ─────────────────────────────────────────────────────
+// ── Load coordinators ──────────────────────────────────────────────────────
 async function loadCoordinators() {
   if (!currentToken) return;
 
@@ -1689,7 +1991,7 @@ async function loadCoordinators() {
 
     const data = await resp.json();
     const coordinators = data.coordinators || [];
-    coordinatorsData = coordinators; // cache for merge logic
+    coordinatorsData = coordinators;
 
     if (!coordinators.length) {
       document.getElementById('team-table-wrap').innerHTML = `
@@ -1731,8 +2033,6 @@ async function loadCoordinators() {
         .filter(u => u)
         .map(u => `${u.name}${u.code ? ' (' + u.code + ')' : ''}`);
 
-      // Multi-select with NO pre-selected options — always renders blank
-      // Assigned units are shown as pills above, not reflected in the select
       const unitCell = !isSuperAdmin
         ? `<td>
             <select class="unit-assign-select" multiple id="unit-select-${c.id}">
@@ -1757,16 +2057,7 @@ async function loadCoordinators() {
             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">
               ${assignedUnits.length > 0
                 ? assignedUnits.map(u => `
-                    <span style="
-                      background:rgba(74,158,255,0.1);
-                      border:1px solid rgba(74,158,255,0.2);
-                      color:var(--blue);
-                      border-radius:100px;
-                      padding:2px 10px;
-                      font-size:0.68rem;
-                      font-weight:600;
-                      letter-spacing:0.05em;
-                    ">${u}</span>`).join('')
+                    <span style="background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.2);color:var(--blue);border-radius:100px;padding:2px 10px;font-size:0.68rem;font-weight:600;letter-spacing:0.05em;">${u}</span>`).join('')
                 : '<span style="color:var(--muted);font-size:0.78rem;">No units assigned</span>'
               }
             </div>
@@ -1801,7 +2092,7 @@ async function loadCoordinators() {
   }
 }
 
-// ── COURSE UNITS ──────────────────────────────────────────────────────────
+// ── COURSE UNITS ───────────────────────────────────────────────────────────
 async function loadCourseUnits() {
   if (!currentToken || !currentInstitutionId) return;
 
@@ -1921,7 +2212,7 @@ async function deleteCourseUnit(unitId, unitName) {
   }
 }
 
-// ── Assign coordinator units (append/merge, never overwrite) ──────────────
+// ── Assign coordinator units ───────────────────────────────────────────────
 async function assignCoordinatorUnit(coordId) {
   const selectElement = document.getElementById(`unit-select-${coordId}`);
   if (!selectElement) return;
@@ -1934,7 +2225,6 @@ async function assignCoordinatorUnit(coordId) {
     return;
   }
 
-  // Merge with existing assigned IDs from cached coordinator data
   const coord = coordinatorsData.find(c => c.id === coordId);
   let existing = [];
   if (Array.isArray(coord?.course_unit_id)) {
@@ -1970,7 +2260,7 @@ async function assignCoordinatorUnit(coordId) {
   }
 }
 
-// ── Populate invite modal unit dropdown ───────────────────────────────────
+// ── Populate invite modal unit dropdown ────────────────────────────────────
 function populateInviteUnitDropdown() {
   const sel = document.getElementById('invite-unit');
   if (!sel) return;
@@ -1978,7 +2268,7 @@ function populateInviteUnitDropdown() {
     courseUnitsCache.map(u => `<option value="${u.id}">${u.name}${u.code ? ' (' + u.code + ')' : ''}</option>`).join('');
 }
 
-// ── Load billing ──────────────────────────────────────────────────────────
+// ── Load billing ───────────────────────────────────────────────────────────
 async function loadBilling() {
   if (!currentToken || !currentInstitutionId) return;
 
@@ -2080,7 +2370,7 @@ async function loadBilling() {
   }
 }
 
-// ── API KEYS ──────────────────────────────────────────────────────────────
+// ── API KEYS ───────────────────────────────────────────────────────────────
 async function loadApiKeys() {
   if (!currentToken) return;
 
@@ -2136,10 +2426,13 @@ async function loadApiKeys() {
         ? `<td style="color:var(--muted);font-size:0.78rem;">${k.org_id || '—'}</td>`
         : '';
 
+      // FIX: Use key_suffix for masked display
+      const suffix = k.key_suffix || '????';
+
       return `
         <tr>
           <td><strong>${k.name || 'Unnamed Key'}</strong></td>
-          <td><span class="key-masked">fa_live_••••••••••••${(k.key_suffix || '????')}</span></td>
+          <td><span class="key-masked">fa_live_••••••••••••${suffix}</span></td>
           <td>${planBadge}</td>
           <td>${statusBadge}</td>
           ${instCell}
@@ -2169,7 +2462,7 @@ async function loadApiKeys() {
   }
 }
 
-// ── Generate key modal ────────────────────────────────────────────────────
+// ── Generate key modal ─────────────────────────────────────────────────────
 function openGenKeyModal() {
   document.getElementById('genkey-name').value = '';
   document.getElementById('genkey-error').style.display = 'none';
@@ -2205,11 +2498,12 @@ async function confirmGenerateKey() {
     const result = await resp.json();
 
     if (resp.ok && result.api_key) {
+      // FIX: store and display result.api_key (the full key returned once)
       newKeyRawValue = result.api_key;
       closeGenKeyModal();
 
       const banner = document.getElementById('new-key-banner');
-      document.getElementById('new-key-value').textContent = result.raw_key;
+      document.getElementById('new-key-value').textContent = result.api_key;
       document.getElementById('copy-key-btn').textContent = 'Copy';
       document.getElementById('copy-key-btn').classList.remove('copied');
       banner.classList.add('visible');
@@ -2249,7 +2543,7 @@ function copyNewKey() {
   });
 }
 
-// ── Revoke key modal ──────────────────────────────────────────────────────
+// ── Revoke key modal ───────────────────────────────────────────────────────
 function openRevokeModal(keyId, keyName) {
   pendingRevokeKeyId   = keyId;
   pendingRevokeKeyName = keyName;
@@ -2282,7 +2576,7 @@ async function confirmRevoke() {
   } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
-// ── Invite coordinator modal ──────────────────────────────────────────────
+// ── Invite coordinator modal ───────────────────────────────────────────────
 function openInviteModal() {
   document.getElementById('invite-name').value  = '';
   document.getElementById('invite-email').value = '';
@@ -2353,7 +2647,7 @@ function showInviteError(msg) {
   el.textContent = msg; el.style.display = 'block';
 }
 
-// ── Remove coordinator modal ──────────────────────────────────────────────
+// ── Remove coordinator modal ───────────────────────────────────────────────
 function openRemoveCoordModal(coordId, coordName) {
   pendingRemoveCoordId   = coordId;
   pendingRemoveCoordName = coordName;
@@ -2386,7 +2680,7 @@ async function confirmRemoveCoord() {
   } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
-// ── Load institutions ─────────────────────────────────────────────────────
+// ── Load institutions ──────────────────────────────────────────────────────
 async function loadInstitutions() {
   if (!currentToken) return;
   if (!isSuperAdmin && !currentInstitutionId) return;
@@ -2460,7 +2754,7 @@ async function loadInstitutions() {
   }
 }
 
-// ── Update institution status ─────────────────────────────────────────────
+// ── Update institution status ──────────────────────────────────────────────
 async function updateInstStatus(institutionId, newStatus) {
   if (!currentToken || !isSuperAdmin) return;
 
@@ -2487,7 +2781,7 @@ async function updateInstStatus(institutionId, newStatus) {
   } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
-// ── Delete student modal ──────────────────────────────────────────────────
+// ── Delete student modal ───────────────────────────────────────────────────
 function openDeleteModal(studentId, studentName) {
   pendingDeleteId   = studentId;
   pendingDeleteName = studentName;
@@ -2521,7 +2815,7 @@ async function confirmDelete() {
   } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
-// ── Filters ───────────────────────────────────────────────────────────────
+// ── Filters ────────────────────────────────────────────────────────────────
 function applyFilters() {
   const inst   = document.getElementById('filter-inst').value;
   const status = document.getElementById('filter-status').value;
@@ -2531,7 +2825,7 @@ function applyFilters() {
   renderTable(filtered);
 }
 
-// ── Render attendance table ───────────────────────────────────────────────
+// ── Render attendance table ────────────────────────────────────────────────
 function renderTable(records) {
   if (!records.length) {
     document.getElementById('table-wrap').innerHTML = '<div class="loading">No records found.</div>';
@@ -2575,7 +2869,7 @@ function renderTable(records) {
   `;
 }
 
-// ── Export CSV ────────────────────────────────────────────────────────────
+// ── Export attendance CSV ──────────────────────────────────────────────────
 function exportCSV() {
   const inst   = document.getElementById('filter-inst').value;
   const status = document.getElementById('filter-status').value;
@@ -2625,7 +2919,7 @@ async function handleUpgrade(plan) {
   }
 }
 
-// ── Idle timeout (30 mins) ────────────────────────────────────────────────
+// ── Idle timeout (30 mins) ─────────────────────────────────────────────────
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 let idleTimer = null;
 
@@ -2658,7 +2952,7 @@ initDashboard = async function(session) {
   resetIdleTimer();
 };
 
-// ── Enter key on login ────────────────────────────────────────────────────
+// ── Enter key on login ─────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
     login();

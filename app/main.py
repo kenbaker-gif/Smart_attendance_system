@@ -11,6 +11,31 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
+from contextlib import asynccontextmanager
+from scheduler import create_scheduler
+from routes.auth_extra import router as auth_extra_router
+from routes.audit_logs import router as audit_logs_router
+
+scheduler = create_scheduler()
+
+@asynccontextmanager
+async def lifespan(app):
+    # ---- existing startup code (keep everything you already have) ----
+    preload_models()                  # your existing InsightFace preload
+    build_encodings_from_storage()    # your existing encoding builder
+ 
+    # ---- new: start scheduler ----
+    scheduler.start()
+ 
+    yield  # app runs here
+ 
+    # ---- shutdown ----
+    scheduler.shutdown()
+ 
+ 
+# ── 3. Pass lifespan to FastAPI (update your existing app = FastAPI(...)) ──
+ 
+app = FastAPI(lifespan=lifespan)
 
 # ── Shared dependencies (clients, limiter, auth) ───────────────────────────
 from .dep import (
@@ -68,6 +93,8 @@ else:
 # ── Mount Enterprise API v1 ────────────────────────────────────────────────
 app.include_router(v1_router)
 app.include_router(pesapal_router)
+app.include_router(auth_extra_router)   # /auth/forgot-password, /auth/log-login, /webhooks/supabase-auth
+app.include_router(audit_logs_router)   # /audit-logs, /audit-logs/actions
 
 
 # ── Background sync ────────────────────────────────────────────────────────
