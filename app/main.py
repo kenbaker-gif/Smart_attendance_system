@@ -22,8 +22,8 @@ scheduler = create_scheduler()
 @asynccontextmanager
 async def lifespan(app):
     # ---- existing startup code (keep everything you already have) ----
-    preload_models()                  # your existing InsightFace preload
-    build_encodings_from_storage()    # your existing encoding builder
+    #preload_models()                  # your existing InsightFace preload
+    #build_encodings_from_storage()    # your existing encoding builder
  
     # ---- new: start scheduler ----
     scheduler.start()
