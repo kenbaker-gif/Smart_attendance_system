@@ -1,19 +1,18 @@
-from fastapi import APIRouter, Request
+import os
 import smtplib
 from email.mime.text import MIMEText
-import os
+from fastapi import APIRouter, Request
 
-notify_router = APIRouter()
+router = APIRouter()
 
-ZOHO_USER = os.getenv("ZOHO_USER")       # abubaker@faceattend.app
-ZOHO_PASS = os.getenv("ZOHO_PASSWORD")   # your Zoho SMTP password
+ZOHO_USER = os.getenv("ZOHO_USER")
+ZOHO_PASS = os.getenv("ZOHO_PASSWORD")
 ADMIN_EMAIL = "abubaker@faceattend.app"
 
-@notify_router.post("/notify-admin")
+@router.post("/notify-admin")
 async def notify_admin(request: Request):
     payload = await request.json()
 
-    # Supabase sends the new row under "record"
     record = payload.get("record", {})
     name = record.get("name", "Unknown")
     email = record.get("email", "Unknown")
