@@ -157,6 +157,13 @@ def privacy_page():
 def terms_page():
     return FileResponse(os.path.join("static", "terms.html"))
 
+# Downloading the apk file
+@app.get("/download/faceattend.apk")
+async def download_apk():
+    return RedirectResponse(
+        url="https://github.com/kenbaker-gif/Smart_attendance_app/releases/download/v1.0.1/app-release.apk"
+    )
+
 # ── Upload student face ────────────────────────────────────────────────────
 
 @app.post("/upload-student-face")
