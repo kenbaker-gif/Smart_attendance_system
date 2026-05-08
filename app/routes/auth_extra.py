@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 
 from app.database import supabase
-from app.deps import get_current_user
+from app.dep import get_current_user
 from app.utils.audit import AuditAction, log_event, get_recent_ips
 import app.utils.email as email_util
 
