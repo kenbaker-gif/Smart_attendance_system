@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 from app.scheduler import create_scheduler
 from app.routes.auth_extra import router as auth_extra_router
 from app.routes.audit_logs import router as audit_logs_router
+from .notify_router import router as notify_router
 
 scheduler = create_scheduler()
 
@@ -94,6 +95,7 @@ app.include_router(v1_router)
 app.include_router(pesapal_router)
 app.include_router(auth_extra_router)   # /auth/forgot-password, /auth/log-login, /webhooks/supabase-auth
 app.include_router(audit_logs_router)   # /audit-logs, /audit-logs/actions
+app.include_router(notify_router)
 
 
 # ── Background sync ────────────────────────────────────────────────────────
