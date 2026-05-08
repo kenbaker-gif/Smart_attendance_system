@@ -11,10 +11,11 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
+
 from contextlib import asynccontextmanager
-from scheduler import create_scheduler
-from routes.auth_extra import router as auth_extra_router
-from routes.audit_logs import router as audit_logs_router
+from app.scheduler import create_scheduler
+from app.routes.auth_extra import router as auth_extra_router
+from app.routes.audit_logs import router as audit_logs_router
 
 scheduler = create_scheduler()
 
@@ -31,11 +32,6 @@ async def lifespan(app):
  
     # ---- shutdown ----
     scheduler.shutdown()
- 
- 
-# ── 3. Pass lifespan to FastAPI (update your existing app = FastAPI(...)) ──
- 
-app = FastAPI(lifespan=lifespan)
 
 # ── Shared dependencies (clients, limiter, auth) ───────────────────────────
 from .dep import (
@@ -60,7 +56,10 @@ FREE_EMAIL_DOMAINS = {
     "zoho.com", "ymail.com", "mail.com", "googlemail.com"
 }
 
-app = FastAPI(title="Smart Attendance — Upload Service")
+app = FastAPI(
+    title="Smart Attendance — Upload Service",
+    lifespan=lifespan
+)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
