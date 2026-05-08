@@ -20,3 +20,4 @@ slowapi
 sqlalchemy
 apscheduler
 psycopg2-binary
+supabase

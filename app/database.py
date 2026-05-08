@@ -8,6 +8,7 @@ from urllib.parse import quote_plus, parse_qs, urlencode
 # In every file where you want to log:
 from app.utils.logger import logger 
 # Use: logger.info("Log message")
+from supabase import create_client, Client
 
 # --- CONFIGURATION ---
 
@@ -244,3 +245,12 @@ def get_student_by_id(student_id: str):
         return student
     finally:
         db.close()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    logger.error("Missing Supabase URL or Anon Key in environment variables.")
+else:
+    # This defines the 'supabase' name that scheduler.py is looking for
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
