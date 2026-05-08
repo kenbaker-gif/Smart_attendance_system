@@ -140,6 +140,10 @@ def health():
 def set_password_page():
     return FileResponse(os.path.join("static", "set-password.html"))
 
+@app.get("/forgot-password")
+def forgot_password_page():
+    return FileResponse(os.path.join("static", "forgot-password.html"))
+
 @app.get("/dashboard")
 def dashboard_page():
     return FileResponse(os.path.join("static", "dashboard.html"))
