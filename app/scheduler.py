@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.database import supabase
+from app.dep import supabase, supabase_admin
 import app.utils.email as email_util
 
 logger = logging.getLogger(__name__)

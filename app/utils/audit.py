@@ -14,7 +14,7 @@ from fastapi import Request
 from postgrest.exceptions import APIError
 
 from app.utils.email import send_alert, send_new_device_alert
-from app.database import supabase
+from app.dep import supabase, supabase_admin
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +154,7 @@ async def _handle_login_alert(
 
     # Check known_devices
     existing = (
-        supabase.table("known_devices")
+        supabase_admin.table("known_devices")
         .select("id")
         .eq("actor_id", actor_id)
         .eq("ip_address", ip)
@@ -166,7 +166,7 @@ async def _handle_login_alert(
 
     if is_new:
         # Record it
-        supabase.table("known_devices").upsert({
+        supabase_admin.table("known_devices").upsert({
             "actor_id":    actor_id,
             "ip_address":  ip,
             "device_info": device_info,
@@ -183,7 +183,7 @@ async def _handle_login_alert(
         )
     else:
         # Known device — just update last_seen_at, no alert
-        supabase.table("known_devices").update({
+        supabase_admin.table("known_devices").update({
             "last_seen_at": datetime.now(timezone.utc).isoformat(),
         }).eq("actor_id", actor_id).eq("ip_address", ip).execute()
 
@@ -205,7 +205,7 @@ def _resolve_alert_recipients(
     if institution_id:
         try:
             result = (
-                supabase.table("profiles")
+                supabase_admin.table("profiles")
                 .select("id, email:id")  # we need auth email — use a join or store email in profiles
                 .eq("institution_id", institution_id)
                 .eq("is_admin", True)

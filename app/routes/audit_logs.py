@@ -12,8 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.database import supabase
-from app.dep import get_current_user
+from app.dep import supabase, supabase_admin, check_admin
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,10 +26,19 @@ async def get_audit_logs(
     institution_id: Optional[str]  = Query(None),          # super admin only
     start_date:     Optional[str]  = Query(None),          # ISO date e.g. 2025-05-01
     end_date:       Optional[str]  = Query(None),          # ISO date e.g. 2025-05-08
-    current_user:   dict           = Depends(get_current_user),
+    current_user = Depends(check_admin),
 ):
-    is_super_admin   = current_user.get("is_super_admin") and current_user.get("is_admin")
-    user_institution = current_user.get("institution_id")
+    # check_admin returns a user object; look up profile for admin flags
+    try:
+        prof = supabase_admin.table("profiles") \
+            .select("is_admin, is_super_admin, institution_id") \
+            .eq("id", current_user.id).limit(1).execute()
+        profile = prof.data[0] if prof.data else {}
+    except Exception:
+        profile = {}
+
+    is_super_admin   = profile.get("is_super_admin") and profile.get("is_admin")
+    user_institution = profile.get("institution_id")
 
     if not is_super_admin and not user_institution:
         raise HTTPException(status_code=403, detail="No institution associated with account")
@@ -75,7 +83,7 @@ async def get_audit_logs(
 
 
 @router.get("/audit-logs/actions")
-async def get_audit_actions(current_user: dict = Depends(get_current_user)):
+async def get_audit_actions(current_user = Depends(check_admin)):
     """Return distinct action types for dashboard filter dropdown."""
     try:
         res = supabase.table("audit_logs").select("action").execute()

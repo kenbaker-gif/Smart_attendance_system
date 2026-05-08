@@ -17,8 +17,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 
-from app.database import supabase
-from app.dep import get_current_user
+from app.dep import supabase, supabase_admin, verify_supabase_token
 from app.utils.audit import AuditAction, log_event, get_recent_ips
 import app.utils.email as email_util
 
@@ -106,7 +105,7 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request):
 async def log_login(
     body: LogLoginRequest,
     request: Request,
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(verify_supabase_token),
 ):
     """
     Flutter calls this immediately after a successful supabase.auth.signIn().
@@ -114,9 +113,15 @@ async def log_login(
     Deduplication: we skip if we already logged a login for this actor
     in the last 60 seconds (webhook may have already fired).
     """
-    actor_id   = current_user["id"]
-    actor_email = current_user.get("email") or current_user.get("actor_email")
-    institution_id = current_user.get("institution_id")
+    actor_id    = current_user.id
+    actor_email = current_user.email
+    # Look up institution_id from profiles
+    try:
+        prof = supabase_admin.table("profiles").select("institution_id") \
+            .eq("id", actor_id).limit(1).execute()
+        institution_id = prof.data[0].get("institution_id") if prof.data else None
+    except Exception:
+        institution_id = None
 
     # Deduplicate: check if login was already logged in last 60s
     try:
