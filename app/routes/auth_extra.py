@@ -17,10 +17,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 
-from db import supabase
-from deps import get_current_user          # your existing JWT dependency
-from utils.audit import AuditAction, log_event, get_recent_ips
-import utils.email as email_util
+from app.database import supabase
+from app.deps import get_current_user
+from app.utils.audit import AuditAction, log_event, get_recent_ips
+import app.utils.email as email_util
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

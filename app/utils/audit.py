@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 from fastapi import Request
 from postgrest.exceptions import APIError
 
-from utils.email import send_alert, send_new_device_alert
-from db import supabase  # your existing supabase client
+from app.utils.email import send_alert, send_new_device_alert
+from app.database import supabase
 
 logger = logging.getLogger(__name__)
 

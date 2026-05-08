@@ -12,8 +12,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from db import supabase
-from deps import get_current_user
+from app.database import supabase
+from app.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

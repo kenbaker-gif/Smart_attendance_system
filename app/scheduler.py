@@ -14,12 +14,11 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-from app.database import supabase  # Your tree shows database.py, not db.py
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+from app.database import supabase
 import app.utils.email as email_util
-
-
-from db import supabase
-import utils.email as email_util
 
 logger = logging.getLogger(__name__)
 

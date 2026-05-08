@@ -3,7 +3,6 @@ fastapi
 uvicorn
 python-multipart
 httpx
-supabase
 aiofiles
 
 # Streamlit (dashboard)
@@ -18,6 +17,6 @@ Pillow
 requests
 slowapi
 sqlalchemy
-apscheduler
+apscheduler==3.10.4
 psycopg2-binary
 supabase
