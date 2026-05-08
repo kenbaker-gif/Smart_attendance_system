@@ -17,3 +17,5 @@ numpy
 Pillow
 requests
 slowapi
+sqlalchemy
+apscheduler
