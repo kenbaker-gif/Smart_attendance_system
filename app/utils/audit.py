@@ -91,7 +91,7 @@ async def log_event(
     meta = metadata or {}
 
     try:
-        supabase.table("audit_logs").insert({
+        supabase_admin.table("audit_logs").insert({
             "institution_id": institution_id,
             "actor_id":       actor_id,
             "actor_email":    actor_email,
