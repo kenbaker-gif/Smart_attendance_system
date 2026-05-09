@@ -1184,6 +1184,27 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { t.className = ''; }, 3000);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+function escapeJsString(value) {
+  return String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n');
+}
+
 // ── Tab switching ──────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1214,7 +1235,7 @@ function switchTab(tab) {
           const insts = data.institutions || [];
           const sel = document.getElementById('audit-filter-institution');
           sel.innerHTML = '<option value="">All Institutions</option>' +
-            insts.map(i => `<option value="${i.id}">${i.id} — ${i.name}</option>`).join('');
+            insts.map(i => `<option value="${escapeAttr(i.id)}">${escapeHtml(i.id)} — ${escapeHtml(i.name)}</option>`).join('');
         }).catch(() => {});
       }
     }
@@ -1780,7 +1801,7 @@ function auditFormatMeta(meta) {
   const skip = new Set(['ip_address']);
   const parts = Object.entries(meta)
     .filter(([k, v]) => !skip.has(k) && v)
-    .map(([k, v]) => `<span style="color:var(--muted)">${k.replace(/_/g,' ')}:</span> ${v}`)
+    .map(([k, v]) => `<span style="color:var(--muted)">${escapeHtml(k.replace(/_/g,' '))}:</span> ${escapeHtml(v)}`)
     .join(' &nbsp;·&nbsp; ');
   return parts || '—';
 }
@@ -1810,7 +1831,7 @@ async function auditLoadPage(page = 1) {
     if (!res.ok) throw new Error(await res.text());
     data = await res.json();
   } catch (e) {
-    wrap.innerHTML = `<div class="loading" style="color:var(--red)">Error loading logs: ${e.message}</div>`;
+    wrap.innerHTML = `<div class="loading" style="color:var(--red)">Error loading logs: ${escapeHtml(e.message)}</div>`;
     return;
   }
 
@@ -1827,13 +1848,13 @@ async function auditLoadPage(page = 1) {
       <tr>
         <td style="white-space:nowrap;font-size:0.78rem;">${auditFormatTime(ev.created_at)}</td>
         <td>${auditBadge(ev.action)}</td>
-        <td style="color:var(--muted);font-size:0.8rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.actor_email||''}">
-          ${ev.actor_email || '<span style="color:var(--muted)">—</span>'}
+        <td style="color:var(--muted);font-size:0.8rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeAttr(ev.actor_email || '')}">
+          ${ev.actor_email ? escapeHtml(ev.actor_email) : '<span style="color:var(--muted)">—</span>'}
         </td>
         <td style="font-family:\'DM Mono\',monospace;font-size:0.75rem;color:var(--muted);">
           ${ev.ip_address || '—'}
         </td>
-        <td style="font-size:0.78rem;color:var(--muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${JSON.stringify(ev.metadata||{})}">
+        <td style="font-size:0.78rem;color:var(--muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeAttr(JSON.stringify(ev.metadata||{}))}">
           ${auditFormatMeta(ev.metadata)}
         </td>
       </tr>
@@ -1943,11 +1964,11 @@ async function loadStudents() {
 
     const rows = students.map(s => `
       <tr>
-        <td>${s.id || '—'}</td>
-        <td>${s.name || '—'}</td>
-        <td>${s.institution_id || '—'}</td>
+        <td>${escapeHtml(s.id || '—')}</td>
+        <td>${escapeHtml(s.name || '—')}</td>
+        <td>${escapeHtml(s.institution_id || '—')}</td>
         <td>
-          <button class="btn-delete" onclick="openDeleteModal('${s.id}', '${(s.name || '').replace(/'/g, "\\'")}')">
+          <button class="btn-delete" onclick="openDeleteModal('${escapeJsString(s.id)}', '${escapeJsString(s.name || '')}')">
             Delete
           </button>
         </td>
@@ -1963,7 +1984,7 @@ async function loadStudents() {
     `;
   } catch (e) {
     document.getElementById('students-table-wrap').innerHTML =
-      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+      `<div class="loading" style="color:var(--red)">Failed to load: ${escapeHtml(e.message)}</div>`;
   }
 }
 
@@ -1985,7 +2006,7 @@ async function loadCoordinators() {
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
       document.getElementById('team-table-wrap').innerHTML =
-        `<div class="loading" style="color:var(--red)">${err.detail || 'Failed to load team.'}</div>`;
+        `<div class="loading" style="color:var(--red)">${escapeHtml(err.detail || 'Failed to load team.')}</div>`;
       return;
     }
 
@@ -2016,9 +2037,9 @@ async function loadCoordinators() {
       const joined   = c.created_at
         ? new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
         : '—';
-      const safeName = (c.full_name || '').replace(/'/g, "\\'");
+      const safeName = escapeJsString(c.full_name || '');
       const instCell = isSuperAdmin
-        ? `<td style="color:var(--muted);font-size:0.8rem;">${c.institution_id || '—'}</td>`
+        ? `<td style="color:var(--muted);font-size:0.8rem;">${escapeHtml(c.institution_id || '—')}</td>`
         : '';
 
       let assignedUnitIds = [];
@@ -2031,17 +2052,17 @@ async function loadCoordinators() {
       const assignedUnits = assignedUnitIds
         .map(id => courseUnitsCache.find(u => u.id == id))
         .filter(u => u)
-        .map(u => `${u.name}${u.code ? ' (' + u.code + ')' : ''}`);
+        .map(u => `${escapeHtml(u.name)}${u.code ? ' (' + escapeHtml(u.code) + ')' : ''}`);
 
       const unitCell = !isSuperAdmin
         ? `<td>
             <select class="unit-assign-select" multiple id="unit-select-${c.id}">
               ${courseUnitsCache.map(u =>
-                `<option value="${u.id}">${u.name}${u.code ? ' (' + u.code + ')' : ''}</option>`
+                `<option value="${escapeAttr(u.id)}">${escapeHtml(u.name)}${u.code ? ' (' + escapeHtml(u.code) + ')' : ''}</option>`
               ).join('')}
             </select>
             <button
-              onclick="assignCoordinatorUnit('${c.id}')"
+              onclick="assignCoordinatorUnit('${escapeJsString(c.id)}')"
               style="margin-top:6px;display:block;background:transparent;border:1px solid rgba(74,158,255,0.4);color:var(--blue);padding:4px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;transition:background 0.2s;"
               onmouseover="this.style.background='rgba(74,158,255,0.1)'"
               onmouseout="this.style.background='transparent'">
@@ -2053,7 +2074,7 @@ async function loadCoordinators() {
       return `
         <tr>
           <td>
-            ${c.full_name || '<span style="color:var(--muted)">Pending setup</span>'}
+            ${c.full_name ? escapeHtml(c.full_name) : '<span style="color:var(--muted)">Pending setup</span>'}
             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">
               ${assignedUnits.length > 0
                 ? assignedUnits.map(u => `
@@ -2067,7 +2088,7 @@ async function loadCoordinators() {
           ${unitCell}
           <td style="color:var(--muted);font-size:0.8rem;">${joined}</td>
           <td>
-            <button class="btn-delete" onclick="openRemoveCoordModal('${c.id}', '${safeName}')">Remove</button>
+            <button class="btn-delete" onclick="openRemoveCoordModal('${escapeJsString(c.id)}', '${safeName}')">Remove</button>
           </td>
         </tr>
       `;
@@ -2088,7 +2109,7 @@ async function loadCoordinators() {
     `;
   } catch (e) {
     document.getElementById('team-table-wrap').innerHTML =
-      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+      `<div class="loading" style="color:var(--red)">Failed to load: ${escapeHtml(e.message)}</div>`;
   }
 }
 
@@ -2124,11 +2145,11 @@ async function loadCourseUnits() {
       const created = new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
       return `
         <tr>
-          <td><strong>${u.name}</strong></td>
-          <td style="color:var(--muted)">${u.code || '—'}</td>
+          <td><strong>${escapeHtml(u.name)}</strong></td>
+          <td style="color:var(--muted)">${escapeHtml(u.code || '—')}</td>
           <td style="color:var(--muted);font-size:0.78rem;">${created}</td>
           <td>
-            <button class="btn-delete" onclick="deleteCourseUnit('${u.id}', '${u.name.replace(/'/g, "\\'")}')">Delete</button>
+            <button class="btn-delete" onclick="deleteCourseUnit('${escapeJsString(u.id)}', '${escapeJsString(u.name)}')">Delete</button>
           </td>
         </tr>
       `;
@@ -2729,10 +2750,10 @@ async function loadInstitutions() {
 
       return `
         <tr>
-          <td><strong>${inst.id}</strong></td>
-          <td>${inst.name || '—'}</td>
-          <td style="color:var(--muted)">${inst.admin_email || '—'}</td>
-          <td>${inst.plan || '—'}</td>
+          <td><strong>${escapeHtml(inst.id)}</strong></td>
+          <td>${escapeHtml(inst.name || '—')}</td>
+          <td style="color:var(--muted)">${escapeHtml(inst.admin_email || '—')}</td>
+          <td>${escapeHtml(inst.plan || '—')}</td>
           <td>${statusBadge}</td>
           <td>${actions}</td>
         </tr>
@@ -2750,7 +2771,7 @@ async function loadInstitutions() {
     `;
   } catch (e) {
     document.getElementById('institutions-table-wrap').innerHTML =
-      `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
+      `<div class="loading" style="color:var(--red)">Failed to load: ${escapeHtml(e.message)}</div>`;
   }
 }
 

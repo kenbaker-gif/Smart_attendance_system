@@ -146,6 +146,15 @@ async def ipn_handler(request: Request):
         print("IPN params:", params)
         return {"status": "ignored", "reason": "no OrderTrackingId"}
 
+    if not merchant_reference:
+        return {"status": "ignored", "reason": "no OrderMerchantReference"}
+
+    # Ignore callbacks for unknown references to reduce spoofing risk.
+    order = order_store.get(merchant_reference)
+    if not order:
+        print(f"Order {merchant_reference} not found in store")
+        return {"status": "ignored", "reason": "unknown merchant reference"}
+
     # Step 1: Authenticate with Pesapal
     try:
         token = await get_pesapal_token()
@@ -173,11 +182,10 @@ async def ipn_handler(request: Request):
         print(f"Payment not completed: status_code={payment_status_code}")
         return {"status": "ignored", "payment_status_code": payment_status_code}
 
-    # Step 3: Look up institution from order store
-    order = order_store.get(merchant_reference)
-    if not order:
-        print(f"Order {merchant_reference} not found in store")
-        return {"status": "error", "reason": "order not found"}
+    # Ensure Pesapal status payload matches the reference we created.
+    status_reference = status_data.get("merchant_reference") or status_data.get("merchantReference")
+    if status_reference and status_reference != merchant_reference:
+        return {"status": "ignored", "reason": "merchant reference mismatch"}
 
     institution_id = order["institution_id"]
     plan           = order["plan"]  # "standard" or "enterprise"

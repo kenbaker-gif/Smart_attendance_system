@@ -4,7 +4,7 @@ import httpx
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi import Form
 from typing import Optional
 from slowapi.errors import RateLimitExceeded
