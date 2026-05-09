@@ -18,8 +18,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 
 from app.dep import supabase, supabase_admin, verify_supabase_token
-from app.utils.audit import AuditAction, log_event, get_recent_ips
-import app.utils.email as email_util
+from app.utils.audit import AuditAction, log_event
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -40,13 +39,6 @@ class LogLoginRequest(BaseModel):
     device_model:  Optional[str] = None   # e.g. "Samsung Galaxy A54"
     os_version:    Optional[str] = None   # e.g. "Android 14"
     app_version:   Optional[str] = None   # e.g. "1.0.1+12"
-
-
-class SupabaseAuthWebhookPayload(BaseModel):
-    type:  str                             # "LOGIN", "LOGOUT", "SIGNUP", etc.
-    table: Optional[str] = None
-    record: Optional[dict] = None
-    old_record: Optional[dict] = None
 
 
 # ---------------------------------------------------------------------------
@@ -84,8 +76,6 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request):
 
     await log_event(
         AuditAction.AUTH_PASSWORD_RESET,
-        supabase=supabase,
-        email_util=email_util,
         actor_email=body.email,
         actor_id=actor.get("id"),
         institution_id=actor.get("institution_id"),
@@ -142,12 +132,8 @@ async def log_login(
     except Exception as exc:
         logger.error("[log-login] Dedup check failed: %s", exc)
 
-    known_ips = await get_recent_ips(supabase, actor_id)
-
     await log_event(
         AuditAction.AUTH_LOGIN,
-        supabase=supabase,
-        email_util=email_util,
         actor_id=actor_id,
         actor_email=actor_email,
         institution_id=institution_id,
@@ -158,7 +144,6 @@ async def log_login(
             "source":       "flutter_app",
         },
         request=request,
-        known_ips=known_ips,
     )
 
     return {"message": "login logged"}
@@ -253,18 +238,13 @@ async def supabase_auth_webhook(
     except Exception:
         pass
 
-    known_ips = await get_recent_ips(supabase, user_id)
-
     await log_event(
         AuditAction.AUTH_LOGIN,
-        supabase=supabase,
-        email_util=email_util,
         actor_id=user_id,
         actor_email=user_email,
         institution_id=institution_id,
         metadata={"source": "supabase_webhook", "event_type": event_type},
         request=request,
-        known_ips=known_ips,
     )
 
     return {"ok": True}

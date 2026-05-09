@@ -11,8 +11,6 @@ from typing import Optional
 from datetime import datetime, timezone
 
 from fastapi import Request
-from postgrest.exceptions import APIError
-
 from app.utils.email import send_alert, send_new_device_alert
 from app.dep import supabase, supabase_admin
 
@@ -72,30 +70,6 @@ def _get_ip(request: Optional[Request]) -> Optional[str]:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else None
-
-# app/utils/audit.py
-
-async def get_recent_ips(supabase_client, actor_id: str, limit: int = 5) -> list[str]:
-    """
-    Fetch the most recent IP addresses used by a given actor.
-    Queries audit_logs table for login events.
-    """
-    try:
-        result = (
-            supabase_client.table("audit_logs")
-            .select("ip_address, created_at")
-            .eq("actor_id", actor_id)
-            .eq("action", AuditAction.AUTH_LOGIN)
-            .order("created_at", desc=True)
-            .limit(limit)
-            .execute()
-        )
-        ips = [row["ip_address"] for row in result.data if row.get("ip_address")]
-        return ips
-    except Exception as exc:
-        logger.error(f"[audit] Failed to fetch recent IPs for {actor_id}: {exc}")
-        return []
-
 
 async def log_event(
     action: str,
@@ -173,7 +147,13 @@ async def _handle_login_alert(
     if not actor_id or not ip:
         return
 
-    device_info = meta.get("device_info", "Unknown device")
+    device_info = meta.get("device_info")
+    if not device_info:
+        device_model = meta.get("device_model")
+        os_version = meta.get("os_version")
+        app_version = meta.get("app_version")
+        parts = [p for p in (device_model, os_version, app_version) if p]
+        device_info = " | ".join(parts) if parts else "Unknown device"
 
     # Check known_devices
     existing = (
@@ -229,16 +209,16 @@ def _resolve_alert_recipients(
         try:
             result = (
                 supabase_admin.table("profiles")
-                .select("id, email:id")  # we need auth email — use a join or store email in profiles
+                .select("email")
                 .eq("institution_id", institution_id)
                 .eq("is_admin", True)
                 .eq("is_super_admin", False)
                 .limit(1)
                 .execute()
             )
-            # If you store email in profiles table, use it directly:
-            # admin_email = result.data[0].get("email") if result.data else None
-            # Otherwise fetch from auth.users via service role — see note below
+            admin_email = result.data[0].get("email") if result.data else None
+            if admin_email:
+                recipients.append(admin_email)
         except Exception:
             pass
 
