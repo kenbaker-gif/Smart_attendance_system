@@ -47,7 +47,7 @@ async def get_audit_logs(
 
     # Build query
     q = (
-        supabase.table("audit_logs")
+        supabase_admin.table("audit_logs")
         .select("*", count="exact")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
@@ -86,7 +86,7 @@ async def get_audit_logs(
 async def get_audit_actions(current_user = Depends(check_admin)):
     """Return distinct action types for dashboard filter dropdown."""
     try:
-        res = supabase.table("audit_logs").select("action").execute()
+        res = supabase_admin.table("audit_logs").select("action").execute()
         actions = sorted(set(r["action"] for r in res.data if r.get("action")))
         return {"actions": actions}
     except Exception as exc:
