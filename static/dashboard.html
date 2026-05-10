@@ -1365,18 +1365,39 @@ window.addEventListener('load', async () => {
   // Detect Supabase password-recovery redirect (hash contains type=recovery)
   const hash = window.location.hash;
   if (hash && hash.includes('type=recovery')) {
-    // Let Supabase parse the hash and establish the recovery session
-    const { data, error } = await client.auth.getSession();
-    if (data?.session) {
+    let recoveryScreenShown = false;
+    const showRecoveryScreenOnce = () => {
+      if (recoveryScreenShown) return;
+      recoveryScreenShown = true;
       showSetNewPasswordScreen();
+    };
+
+    // Register listener first so PASSWORD_RECOVERY cannot be missed.
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        showRecoveryScreenOnce();
+      }
+    });
+
+    // First try current session (hash may already be processed by Supabase).
+    const { data: sessionData } = await client.auth.getSession();
+    if (sessionData?.session) {
+      showRecoveryScreenOnce();
     } else {
-      // Hash may not be processed yet — listen for the AUTH_STATE_CHANGE
-      client.auth.onAuthStateChange((event, session) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          showSetNewPasswordScreen();
-        }
-      });
+      // Fallback: explicitly parse tokens from hash and set recovery session.
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token') || '';
+      if (accessToken) {
+        const { data: setData } = await client.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (setData?.session) showRecoveryScreenOnce();
+      }
     }
+
+    if (recoveryScreenShown) authListener?.subscription?.unsubscribe?.();
     return;
   }
 
@@ -1475,7 +1496,7 @@ async function sendResetLink() {
   btn.disabled = true; btn.textContent = 'Sending…';
 
   const { error } = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href.split('#')[0],
+    redirectTo: `${DAZZLING_URL}/reset-password`,
   });
 
   if (error) {
