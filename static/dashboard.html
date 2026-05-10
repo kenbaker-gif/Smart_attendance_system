@@ -1354,7 +1354,7 @@ async function autoLoginWithToken(accessToken, refreshToken) {
       access_token:  accessToken,
       refresh_token: refreshToken,
     });
-    if (data?.session) await initDashboard(data.session);
+    if (data?.session) await initDashboard(data.session, true);
   } catch (e) {
     console.error('Auto-login failed:', e);
   }
@@ -1562,7 +1562,7 @@ async function login() {
   btn.disabled     = false;
   btn.textContent  = 'Sign In';
 
-  await initDashboard(data.session);
+  await initDashboard(data.session, true);
 }
 
 function showLoginError(msg) {
@@ -1725,6 +1725,7 @@ async function logout() {
   }
 
   await client.auth.signOut();
+  localStorage.removeItem('lastActivity');
   currentToken         = null;
   currentInstitutionId = null;
   isSuperAdmin         = false;
@@ -2878,14 +2879,16 @@ function resetIdleTimer() {
 });
 
 const _origInitDashboard = initDashboard;
-initDashboard = async function(session) {
-  const lastActivityRaw = localStorage.getItem('lastActivity');
-  const lastActivity = lastActivityRaw ? parseInt(lastActivityRaw, 10) : null;
-  if (lastActivity && Date.now() - lastActivity > IDLE_TIMEOUT_MS) {
-    showToast('Session expired due to inactivity. Signing out...', 'error');
-    await new Promise(r => setTimeout(r, 2000));
-    await logout();
-    return;
+initDashboard = async function(session, isFreshLogin = false) {
+  if (!isFreshLogin) {
+    const lastActivityRaw = localStorage.getItem('lastActivity');
+    const lastActivity = lastActivityRaw ? parseInt(lastActivityRaw, 10) : null;
+    if (lastActivity && Date.now() - lastActivity > IDLE_TIMEOUT_MS) {
+      showToast('Session expired due to inactivity. Signing out...', 'error');
+      await new Promise(r => setTimeout(r, 2000));
+      await logout();
+      return;
+    }
   }
   await _origInitDashboard(session);
   resetIdleTimer();
