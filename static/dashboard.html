@@ -1322,6 +1322,13 @@ function showLoginError(msg) {
 async function initDashboard(session) {
   currentToken = session.access_token;
 
+  try {
+    await fetch(`${DAZZLING_URL}/auth/log-login`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+  } catch (e) { console.warn('log-login failed:', e); }
+
   const { data: profile } = await client
     .from('profiles')
     .select('institution_id, is_super_admin, role')
@@ -1458,8 +1465,16 @@ async function fetchPendingCount() {
   } catch(e) { console.error(e); }
 }
 
-// ── Logout ─────────────────────────────────────────────────────────────────
 async function logout() {
+  if (currentToken) {
+    try {
+      await fetch(`${DAZZLING_URL}/auth/log-logout`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${currentToken}` }
+      });
+    } catch (e) { console.warn('log-logout failed:', e); }
+  }
+
   await client.auth.signOut();
   currentToken         = null;
   currentInstitutionId = null;

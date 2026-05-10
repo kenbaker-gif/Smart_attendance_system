@@ -149,6 +149,29 @@ async def log_login(
     return {"message": "login logged"}
 
 
+@router.post("/auth/log-logout")
+async def log_logout(
+    request: Request,
+    current_user = Depends(verify_supabase_token),
+):
+    try:
+        prof = supabase_admin.table("profiles").select("institution_id") \
+            .eq("id", current_user.id).limit(1).execute()
+        institution_id = prof.data[0].get("institution_id") if prof.data else None
+    except Exception:
+        institution_id = None
+
+    await log_event(
+        AuditAction.AUTH_LOGOUT,
+        actor_id=current_user.id,
+        actor_email=current_user.email,
+        institution_id=institution_id,
+        metadata={"source": request.headers.get("X-Source", "dashboard")},
+        request=request,
+    )
+    return {"message": "logout logged"}
+
+
 # ---------------------------------------------------------------------------
 # POST /webhooks/supabase-auth  (called by Supabase Auth webhook)
 # ---------------------------------------------------------------------------
