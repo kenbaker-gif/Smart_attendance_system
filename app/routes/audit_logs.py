@@ -37,7 +37,7 @@ async def get_audit_logs(
     except Exception:
         profile = {}
 
-    is_super_admin   = profile.get("is_super_admin") and profile.get("is_admin")
+    is_super_admin   = bool(profile.get("is_super_admin"))
     user_institution = profile.get("institution_id")
 
     if not is_super_admin and not user_institution:

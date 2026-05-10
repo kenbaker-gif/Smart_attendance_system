@@ -198,7 +198,22 @@ async def upload_student(
     if len(file_content) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    file_path = f"{institution_id.strip()}/{student_id.strip()}/{file.filename}"
+    profile_resp = supabase_admin.table("profiles") \
+        .select("institution_id, is_super_admin, role") \
+        .eq("id", user.id).single().execute()
+    profile = profile_resp.data or {}
+    is_super = _bool_flag(profile.get("is_super_admin")) or profile.get("role", "") == "super_admin"
+    user_institution_id = profile.get("institution_id")
+
+    if not is_super:
+        if not user_institution_id:
+            raise HTTPException(status_code=403, detail="Institution admin requires institution_id in profile")
+        # Always scope non-super admins to their own institution.
+        effective_institution_id = user_institution_id
+    else:
+        effective_institution_id = institution_id.strip()
+
+    file_path = f"{effective_institution_id}/{student_id.strip()}/{file.filename}"
 
     try:
         try:
@@ -217,7 +232,7 @@ async def upload_student(
         supabase_admin.table("students").upsert({
             "id":             student_id.strip(),
             "name":           name.strip(),
-            "institution_id": institution_id.strip(),
+            "institution_id": effective_institution_id,
         }).execute()
 
         sync_triggered = False
@@ -238,7 +253,7 @@ async def upload_student(
             "success":        True,
             "student_id":     student_id.strip(),
             "name":           name.strip(),
-            "institution_id": institution_id.strip(),
+            "institution_id": effective_institution_id,
             "image_url":      image_url,
             "file_path":      file_path,
             "sync_triggered": sync_triggered,
@@ -277,7 +292,7 @@ async def list_students(
             if institution_id:
                 query = query.eq("institution_id", institution_id)
         else:
-            query = query.eq("institution_id", institution_id or user_institution_id)
+            query = query.eq("institution_id", user_institution_id)
 
         response = query.execute()
         students = response.data or []
@@ -294,20 +309,41 @@ async def delete_student(
     user=Depends(check_admin),
 ):
     try:
+        profile_resp = supabase_admin.table("profiles") \
+            .select("institution_id, is_super_admin, role") \
+            .eq("id", user.id).single().execute()
+        profile = profile_resp.data or {}
+        is_super = _bool_flag(profile.get("is_super_admin")) or profile.get("role", "") == "super_admin"
+        user_institution_id = profile.get("institution_id")
+
+        if not is_super and not user_institution_id:
+            raise HTTPException(status_code=403, detail="Institution admin requires institution_id in profile")
+
         resp = supabase_admin.table("students").select("institution_id") \
             .eq("id", student_id).limit(1).execute()
-        institution_id = resp.data[0].get("institution_id", "NKU") if resp.data else "NKU"
+        institution_id = resp.data[0].get("institution_id") if resp.data else None
 
-        folder = f"{institution_id}/{student_id}"
-        files = supabase_admin.storage.from_(BUCKET).list(folder)
-        if files:
-            paths = [f"{folder}/{f['name']}" for f in files]
-            supabase_admin.storage.from_(BUCKET).remove(paths)
+        if institution_id and not is_super and institution_id != user_institution_id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this student")
 
-        supabase_admin.table("attendance_records").delete().eq("student_id", student_id).execute()
-        supabase_admin.table("students").delete().eq("id", student_id).execute()
+        if institution_id:
+            folder = f"{institution_id}/{student_id}"
+            files = supabase_admin.storage.from_(BUCKET).list(folder)
+            if files:
+                paths = [f"{folder}/{f['name']}" for f in files]
+                supabase_admin.storage.from_(BUCKET).remove(paths)
+
+        attendance_delete = supabase_admin.table("attendance_records").delete().eq("student_id", student_id)
+        student_delete = supabase_admin.table("students").delete().eq("id", student_id)
+        if institution_id:
+            attendance_delete = attendance_delete.eq("institution_id", institution_id)
+            student_delete = student_delete.eq("institution_id", institution_id)
+        attendance_delete.execute()
+        student_delete.execute()
 
         return {"success": True, "deleted_student_id": student_id}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -343,7 +379,7 @@ async def get_attendance_records(
             if institution_id:
                 query = query.eq("institution_id", institution_id)
         else:
-            query = query.eq("institution_id", institution_id or user_institution_id)
+            query = query.eq("institution_id", user_institution_id)
 
         rows = query.execute().data or []
         return rows
@@ -376,7 +412,7 @@ async def get_summary(
             if institution_id:
                 query = query.eq("institution_id", institution_id)
         else:
-            query = query.eq("institution_id", institution_id or user_institution_id)
+            query = query.eq("institution_id", user_institution_id)
 
         rows = query.execute().data or []
         total_present = sum(1 for r in rows if r.get("verified") == "success")

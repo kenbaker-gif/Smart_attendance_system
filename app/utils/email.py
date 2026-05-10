@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 SMTP_HOST     = os.getenv("ZOHO_SMTP_HOST", "smtp.zoho.com")
 SMTP_PORT     = int(os.getenv("ZOHO_SMTP_PORT", "465"))
 SMTP_USER     = os.getenv("ZOHO_SMTP_USER", "abubaker@faceattend.app")
-ZOHO_PASSWORD = os.getenv("ZOHO_SMTP_PASSWORD", "")
+SMTP_PASSWORD = os.getenv("ZOHO_SMTP_PASSWORD", "")
 FROM_NAME     = "FaceAttend Security"
 FROM_EMAIL    = SMTP_USER
 
