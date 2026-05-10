@@ -145,6 +145,42 @@ nav {
 }
 .btn-logout:hover { border-color: var(--red); color: var(--red); }
 
+/* ── RESET PASSWORD ── */
+.btn-reset-pw {
+  background: transparent;
+  border: 1px solid rgba(0,245,196,0.3);
+  color: var(--cyan); padding: 6px 14px;
+  border-radius: 6px; font-size: 0.78rem;
+  cursor: pointer; transition: border-color 0.2s, opacity 0.2s;
+}
+.btn-reset-pw:hover { border-color: var(--cyan); opacity: 0.8; }
+#reset-pw-modal .modal { max-width: 400px; }
+.reset-pw-input {
+  width: 100%; background: var(--black);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 14px; color: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.9rem; outline: none;
+  transition: border-color 0.2s; margin-bottom: 16px;
+}
+.reset-pw-input:focus { border-color: var(--cyan); }
+.reset-pw-msg {
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 0.82rem; margin-bottom: 12px; display: none;
+}
+.reset-pw-msg.error   { background: rgba(255,80,80,0.08); border: 1px solid rgba(255,80,80,0.2); color: var(--red); }
+.reset-pw-msg.success { background: rgba(0,245,196,0.08); border: 1px solid rgba(0,245,196,0.2); color: var(--cyan); }
+.btn-confirm-reset-pw {
+  background: var(--cyan); border: none;
+  color: var(--black); padding: 10px 22px;
+  border-radius: 8px; cursor: pointer;
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem;
+  transition: opacity 0.2s;
+}
+.btn-confirm-reset-pw:disabled { opacity: 0.5; cursor: not-allowed; }
+.dash-strength-bar  { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); margin-bottom: 16px; }
+.dash-strength-fill { height: 100%; border-radius: 2px; transition: width .3s, background .3s; width: 0; }
+
 .main { padding: 32px; max-width: 1400px; margin: 0 auto; }
 
 /* Metrics */
@@ -954,6 +990,29 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
 </div>
 
+<!-- RESET PASSWORD MODAL -->
+<div class="modal-overlay" id="reset-pw-modal">
+  <div class="modal" style="max-width:400px;">
+    <h3>Reset Password</h3>
+    <p>Enter a new password for your account. You'll stay signed in after updating.</p>
+    <div class="reset-pw-msg" id="reset-pw-msg"></div>
+    <div id="reset-pw-fields">
+      <label>New Password</label>
+      <input type="password" class="reset-pw-input" id="reset-pw-new"
+             placeholder="Min. 8 characters" minlength="8"
+             oninput="updateDashStrength(this.value)"/>
+      <div class="dash-strength-bar"><div class="dash-strength-fill" id="dash-strength-fill"></div></div>
+      <label>Confirm Password</label>
+      <input type="password" class="reset-pw-input" id="reset-pw-confirm"
+             placeholder="Repeat password" minlength="8"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="reset-pw-cancel-btn" onclick="closeResetPwModal()">Cancel</button>
+      <button class="btn-confirm-reset-pw" id="confirm-reset-pw-btn" onclick="confirmResetPassword()">Update Password</button>
+    </div>
+  </div>
+</div>
+
 <!-- DASHBOARD -->
 <div id="dashboard-screen">
   <nav>
@@ -962,6 +1021,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <span class="nav-superadmin" id="nav-superadmin" style="display:none">⚡ Super Admin</span>
       <span class="nav-inst" id="nav-inst" style="display:none"></span>
       <span class="nav-user" id="nav-user"></span>
+      <button class="btn-reset-pw" onclick="openResetPwModal()">🔑 Reset Password</button>
       <button class="btn-logout" onclick="logout()">Sign Out</button>
     </div>
   </nav>
@@ -1226,7 +1286,6 @@ function switchTab(tab) {
     if (!auditLoaded) {
       auditLoaded = true;
       auditLoadActionFilter();
-      // Show institution filter for super admins
       if (isSuperAdmin) {
         document.getElementById('audit-institution-filter-wrap').style.display = '';
         fetch(`${DAZZLING_URL}/admin/institutions`, {
@@ -1342,7 +1401,6 @@ async function initDashboard(session) {
   document.getElementById('dashboard-screen').style.display = 'block';
   document.getElementById('nav-user').textContent = session.user.email;
 
-  // FIX: Populate nav badges
   if (isSuperAdmin) {
     document.getElementById('nav-superadmin').style.display = '';
   }
@@ -1354,7 +1412,6 @@ async function initDashboard(session) {
 
   const tabs = document.getElementById('tabs');
 
-  // Inject Course Units tab (institution admins only)
   if (!isSuperAdmin && currentInstitutionId) {
     const unitsBtn = document.createElement('button');
     unitsBtn.className   = 'tab-btn units-tab';
@@ -1364,7 +1421,6 @@ async function initDashboard(session) {
     tabs.appendChild(unitsBtn);
   }
 
-  // Inject Team tab
   {
     const teamBtn = document.createElement('button');
     teamBtn.className   = 'tab-btn';
@@ -1387,7 +1443,6 @@ async function initDashboard(session) {
     }
   }
 
-  // Inject Billing tab (non-super admins only)
   if (!isSuperAdmin) {
     const billingBtn = document.createElement('button');
     billingBtn.className   = 'tab-btn billing-tab';
@@ -1397,7 +1452,6 @@ async function initDashboard(session) {
     tabs.appendChild(billingBtn);
   }
 
-  // Inject API Keys tab
   {
     const apiBtn = document.createElement('button');
     apiBtn.className   = 'tab-btn dev-tab';
@@ -1407,7 +1461,6 @@ async function initDashboard(session) {
     tabs.appendChild(apiBtn);
   }
 
-  // Inject Institutions + Security + Audit tabs for super admins
   if (isSuperAdmin) {
     const adminTabBtn = document.createElement('button');
     adminTabBtn.className   = 'tab-btn superadmin-tab';
@@ -1424,7 +1477,6 @@ async function initDashboard(session) {
     tabs.appendChild(secBtn);
   }
 
-  // Inject Audit tab (all admins)
   {
     const auditBtn = document.createElement('button');
     auditBtn.className   = 'tab-btn audit-tab';
@@ -1434,7 +1486,6 @@ async function initDashboard(session) {
     tabs.appendChild(auditBtn);
   }
 
-  // Preload course units cache
   if (!isSuperAdmin && currentInstitutionId) {
     const { data } = await client
       .from('course_units')
@@ -1670,10 +1721,7 @@ async function loadSecurityData() {
             </div>
           </td>
           <td>
-            <button class="drill-btn" id="drill-btn-${instId}"
-              onclick="toggleDrill('${instId}')">
-              View Logs
-            </button>
+            <button class="drill-btn" id="drill-btn-${instId}" onclick="toggleDrill('${instId}')">View Logs</button>
           </td>
         </tr>
         <tr id="drill-${instId}" style="display:none;">
@@ -1688,12 +1736,8 @@ async function loadSecurityData() {
       <table>
         <thead>
           <tr>
-            <th>Institution</th>
-            <th>Spoof Attempts</th>
-            <th>Failed Verifications</th>
-            <th>Successful Scans</th>
-            <th>Spoof Rate</th>
-            <th>Drill Down</th>
+            <th>Institution</th><th>Spoof Attempts</th><th>Failed Verifications</th>
+            <th>Successful Scans</th><th>Spoof Rate</th><th>Drill Down</th>
           </tr>
         </thead>
         <tbody>${tableRows}</tbody>
@@ -1710,7 +1754,6 @@ async function loadSecurityData() {
   }
 }
 
-// ── Drill down ─────────────────────────────────────────────────────────────
 function toggleDrill(instId) {
   const drillRow     = document.getElementById(`drill-${instId}`);
   const drillContent = document.getElementById(`drill-content-${instId}`);
@@ -1762,7 +1805,6 @@ function toggleDrill(instId) {
   `;
 }
 
-// ── Export security CSV ────────────────────────────────────────────────────
 function exportSecurityCSV() {
   const records = allSecurityData.filter(r => r.verified === 'spoof' || r.verified === 'failed');
   if (!records.length) { showToast('No security records to export', 'error'); return; }
@@ -1772,9 +1814,7 @@ function exportSecurityCSV() {
   const blob   = new Blob([csv], { type: 'text/csv' });
   const url    = URL.createObjectURL(blob);
   const a      = document.createElement('a');
-  a.href       = url;
-  a.download   = `security_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
+  a.href = url; a.download = `security_${new Date().toISOString().slice(0,10)}.csv`; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -1806,7 +1846,7 @@ function auditBadge(action) {
 function auditFormatTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  d.setHours(d.getHours() + 3); // UTC → EAT
+  d.setHours(d.getHours() + 3);
   const pad = n => String(n).padStart(2, '0');
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} <span style="color:var(--muted)">${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}</span>`;
 }
@@ -1823,7 +1863,6 @@ function auditFormatMeta(meta) {
 
 async function auditLoadPage(page = 1) {
   auditCurrentPage = page;
-
   const wrap = document.getElementById('audit-table-wrap');
   wrap.innerHTML = '<div class="loading"><div class="spinner"></div>Loading audit logs...</div>';
 
@@ -1850,12 +1889,10 @@ async function auditLoadPage(page = 1) {
     return;
   }
 
-  // Stats bar
   document.getElementById('audit-stats').innerHTML =
     `<span><strong>${data.total || 0}</strong> total events</span>
      <span>Page <strong>${data.page || 1}</strong> of <strong>${data.pages || 1}</strong></span>`;
 
-  // Table rows
   if (!data.data?.length) {
     wrap.innerHTML = '<div class="loading">No audit events found.</div>';
   } else {
@@ -1866,9 +1903,7 @@ async function auditLoadPage(page = 1) {
         <td style="color:var(--muted);font-size:0.8rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeAttr(ev.actor_email || '')}">
           ${ev.actor_email ? escapeHtml(ev.actor_email) : '<span style="color:var(--muted)">—</span>'}
         </td>
-        <td style="font-family:\'DM Mono\',monospace;font-size:0.75rem;color:var(--muted);">
-          ${ev.ip_address || '—'}
-        </td>
+        <td style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);">${ev.ip_address || '—'}</td>
         <td style="font-size:0.78rem;color:var(--muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeAttr(JSON.stringify(ev.metadata||{}))}">
           ${auditFormatMeta(ev.metadata)}
         </td>
@@ -1877,22 +1912,13 @@ async function auditLoadPage(page = 1) {
 
     wrap.innerHTML = `
       <table>
-        <thead>
-          <tr>
-            <th>Time (EAT)</th>
-            <th>Action</th>
-            <th>Actor</th>
-            <th>IP Address</th>
-            <th>Details</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Time (EAT)</th><th>Action</th><th>Actor</th><th>IP Address</th><th>Details</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       <div class="table-footer">${data.data.length} events on this page</div>
     `;
   }
 
-  // Pagination
   const totalPages = data.pages || 1;
   document.getElementById('audit-pagination').innerHTML = `
     <button onclick="auditLoadPage(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
@@ -1910,9 +1936,8 @@ async function auditLoadActionFilter() {
     const data = await res.json();
     const sel  = document.getElementById('audit-filter-action');
     (data.actions || []).forEach(a => {
-      const opt       = document.createElement('option');
-      opt.value       = a;
-      opt.textContent = AUDIT_ACTION_LABELS[a]?.label || a;
+      const opt = document.createElement('option');
+      opt.value = a; opt.textContent = AUDIT_ACTION_LABELS[a]?.label || a;
       sel.appendChild(opt);
     });
   } catch (e) { /* silent */ }
@@ -1936,22 +1961,15 @@ function auditExportCSV() {
     .then(data => {
       const rows = [['Time (UTC)', 'Action', 'Actor', 'IP Address', 'Resource', 'Details']];
       (data.data || []).forEach(ev => {
-        rows.push([
-          ev.created_at || '',
-          ev.action || '',
-          ev.actor_email || '',
-          ev.ip_address || '',
+        rows.push([ev.created_at||'', ev.action||'', ev.actor_email||'', ev.ip_address||'',
           ev.resource_type ? `${ev.resource_type} ${ev.resource_id||''}`.trim() : '',
-          JSON.stringify(ev.metadata || {}),
-        ]);
+          JSON.stringify(ev.metadata || {})]);
       });
       const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `faceattend-audit-${new Date().toISOString().slice(0,10)}.csv`;
-      a.click();
+      a.href = url; a.download = `faceattend-audit-${new Date().toISOString().slice(0,10)}.csv`; a.click();
       URL.revokeObjectURL(url);
     })
     .catch(e => showToast('Export failed: ' + e.message, 'error'));
@@ -1983,9 +2001,7 @@ async function loadStudents() {
         <td>${escapeHtml(s.name || '—')}</td>
         <td>${escapeHtml(s.institution_id || '—')}</td>
         <td>
-          <button class="btn-delete" onclick="openDeleteModal('${escapeJsString(s.id)}', '${escapeJsString(s.name || '')}')">
-            Delete
-          </button>
+          <button class="btn-delete" onclick="openDeleteModal('${escapeJsString(s.id)}', '${escapeJsString(s.name || '')}')">Delete</button>
         </td>
       </tr>
     `).join('');
@@ -2041,10 +2057,8 @@ async function loadCoordinators() {
 
     if (!isSuperAdmin && !courseUnitsCache.length && currentInstitutionId) {
       const { data: units, error } = await client
-        .from('course_units')
-        .select('id, name, code')
-        .eq('institution_id', currentInstitutionId)
-        .order('created_at', { ascending: true });
+        .from('course_units').select('id, name, code')
+        .eq('institution_id', currentInstitutionId).order('created_at', { ascending: true });
       if (!error) courseUnitsCache = units || [];
     }
 
@@ -2058,33 +2072,24 @@ async function loadCoordinators() {
         : '';
 
       let assignedUnitIds = [];
-      if (Array.isArray(c.course_unit_id)) {
-        assignedUnitIds = c.course_unit_id;
-      } else if (c.course_unit_id) {
-        assignedUnitIds = [c.course_unit_id];
-      }
+      if (Array.isArray(c.course_unit_id)) assignedUnitIds = c.course_unit_id;
+      else if (c.course_unit_id) assignedUnitIds = [c.course_unit_id];
 
       const assignedUnits = assignedUnitIds
-        .map(id => courseUnitsCache.find(u => u.id == id))
-        .filter(u => u)
+        .map(id => courseUnitsCache.find(u => u.id == id)).filter(u => u)
         .map(u => `${escapeHtml(u.name)}${u.code ? ' (' + escapeHtml(u.code) + ')' : ''}`);
 
-      const unitCell = !isSuperAdmin
-        ? `<td>
+      const unitCell = !isSuperAdmin ? `<td>
             <select class="unit-assign-select" multiple id="unit-select-${c.id}">
               ${courseUnitsCache.map(u =>
                 `<option value="${escapeAttr(u.id)}">${escapeHtml(u.name)}${u.code ? ' (' + escapeHtml(u.code) + ')' : ''}</option>`
               ).join('')}
             </select>
-            <button
-              onclick="assignCoordinatorUnit('${escapeJsString(c.id)}')"
+            <button onclick="assignCoordinatorUnit('${escapeJsString(c.id)}')"
               style="margin-top:6px;display:block;background:transparent;border:1px solid rgba(74,158,255,0.4);color:var(--blue);padding:4px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;transition:background 0.2s;"
               onmouseover="this.style.background='rgba(74,158,255,0.1)'"
-              onmouseout="this.style.background='transparent'">
-              Save
-            </button>
-           </td>`
-        : '';
+              onmouseout="this.style.background='transparent'">Save</button>
+           </td>` : '';
 
       return `
         <tr>
@@ -2092,31 +2097,23 @@ async function loadCoordinators() {
             ${c.full_name ? escapeHtml(c.full_name) : '<span style="color:var(--muted)">Pending setup</span>'}
             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">
               ${assignedUnits.length > 0
-                ? assignedUnits.map(u => `
-                    <span style="background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.2);color:var(--blue);border-radius:100px;padding:2px 10px;font-size:0.68rem;font-weight:600;letter-spacing:0.05em;">${u}</span>`).join('')
-                : '<span style="color:var(--muted);font-size:0.78rem;">No units assigned</span>'
-              }
+                ? assignedUnits.map(u => `<span style="background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.2);color:var(--blue);border-radius:100px;padding:2px 10px;font-size:0.68rem;font-weight:600;letter-spacing:0.05em;">${u}</span>`).join('')
+                : '<span style="color:var(--muted);font-size:0.78rem;">No units assigned</span>'}
             </div>
           </td>
           <td><span class="badge badge-coord">Coordinator</span></td>
-          ${instCell}
-          ${unitCell}
+          ${instCell}${unitCell}
           <td style="color:var(--muted);font-size:0.8rem;">${joined}</td>
-          <td>
-            <button class="btn-delete" onclick="openRemoveCoordModal('${escapeJsString(c.id)}', '${safeName}')">Remove</button>
-          </td>
+          <td><button class="btn-delete" onclick="openRemoveCoordModal('${escapeJsString(c.id)}', '${safeName}')">Remove</button></td>
         </tr>
       `;
     }).join('');
 
     const unitHeader = !isSuperAdmin ? '<th>Assign Units</th>' : '';
-
     document.getElementById('team-table-wrap').innerHTML = `
       <table>
         <thead>
-          <tr>
-            <th>Name</th><th>Role</th>${isSuperAdmin ? '<th>Institution</th>' : ''}${unitHeader}<th>Added</th><th>Action</th>
-          </tr>
+          <tr><th>Name</th><th>Role</th>${isSuperAdmin ? '<th>Institution</th>' : ''}${unitHeader}<th>Added</th><th>Action</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -2131,55 +2128,42 @@ async function loadCoordinators() {
 // ── COURSE UNITS ───────────────────────────────────────────────────────────
 async function loadCourseUnits() {
   if (!currentToken || !currentInstitutionId) return;
-
   document.getElementById('units-table-wrap').innerHTML =
     '<div class="loading"><div class="spinner"></div>Loading course units...</div>';
 
   try {
     const { data: units, error } = await client
-      .from('course_units')
-      .select('id, name, code, created_at')
-      .eq('institution_id', currentInstitutionId)
-      .order('created_at', { ascending: true });
-
+      .from('course_units').select('id, name, code, created_at')
+      .eq('institution_id', currentInstitutionId).order('created_at', { ascending: true });
     if (error) throw error;
-
     courseUnitsCache = units || [];
 
     if (!courseUnitsCache.length) {
       document.getElementById('units-table-wrap').innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">📚</div>
-          <p>No course units yet.<br>Add your first unit above — e.g. "Database Systems" or "BIST 2201".</p>
-        </div>
-      `;
+          <p>No course units yet.<br>Add your first unit above.</p>
+        </div>`;
       return;
     }
 
     const rows = courseUnitsCache.map(u => {
       const created = new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-      return `
-        <tr>
-          <td><strong>${escapeHtml(u.name)}</strong></td>
-          <td style="color:var(--muted)">${escapeHtml(u.code || '—')}</td>
-          <td style="color:var(--muted);font-size:0.78rem;">${created}</td>
-          <td>
-            <button class="btn-delete" onclick="deleteCourseUnit('${escapeJsString(u.id)}', '${escapeJsString(u.name)}')">Delete</button>
-          </td>
-        </tr>
-      `;
+      return `<tr>
+        <td><strong>${escapeHtml(u.name)}</strong></td>
+        <td style="color:var(--muted)">${escapeHtml(u.code || '—')}</td>
+        <td style="color:var(--muted);font-size:0.78rem;">${created}</td>
+        <td><button class="btn-delete" onclick="deleteCourseUnit('${escapeJsString(u.id)}', '${escapeJsString(u.name)}')">Delete</button></td>
+      </tr>`;
     }).join('');
 
     document.getElementById('units-table-wrap').innerHTML = `
       <table>
-        <thead>
-          <tr><th>Unit Name</th><th>Code</th><th>Created</th><th>Action</th></tr>
-        </thead>
+        <thead><tr><th>Unit Name</th><th>Code</th><th>Created</th><th>Action</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       <div class="table-footer">${courseUnitsCache.length} unit${courseUnitsCache.length !== 1 ? 's' : ''}</div>
     `;
-
   } catch (e) {
     document.getElementById('units-table-wrap').innerHTML =
       `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
@@ -2187,116 +2171,60 @@ async function loadCourseUnits() {
 }
 
 async function createCourseUnit() {
-  const nameEl  = document.getElementById('unit-name-input');
-  const codeEl  = document.getElementById('unit-code-input');
-  const errEl   = document.getElementById('units-create-error');
-  const btn     = document.getElementById('add-unit-btn');
-
-  const name = nameEl.value.trim();
-  const code = codeEl.value.trim();
-
+  const nameEl = document.getElementById('unit-name-input');
+  const codeEl = document.getElementById('unit-code-input');
+  const errEl  = document.getElementById('units-create-error');
+  const btn    = document.getElementById('add-unit-btn');
+  const name   = nameEl.value.trim();
+  const code   = codeEl.value.trim();
   errEl.style.display = 'none';
-
-  if (!name) {
-    errEl.textContent   = 'Unit name is required.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  btn.disabled    = true;
-  btn.textContent = 'Adding...';
-
+  if (!name) { errEl.textContent = 'Unit name is required.'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Adding...';
   try {
-    const { error } = await client
-      .from('course_units')
+    const { error } = await client.from('course_units')
       .insert({ institution_id: currentInstitutionId, name, code: code || null });
-
     if (error) throw error;
-
-    nameEl.value = '';
-    codeEl.value = '';
+    nameEl.value = ''; codeEl.value = '';
     showToast(`✓ "${name}" added`, 'success');
-    await loadCourseUnits();
-    populateInviteUnitDropdown();
-
-  } catch (e) {
-    errEl.textContent   = e.message || 'Failed to create unit.';
-    errEl.style.display = 'block';
-  } finally {
-    btn.disabled    = false;
-    btn.textContent = '+ Add Unit';
-  }
+    await loadCourseUnits(); populateInviteUnitDropdown();
+  } catch (e) { errEl.textContent = e.message || 'Failed to create unit.'; errEl.style.display = 'block'; }
+  finally { btn.disabled = false; btn.textContent = '+ Add Unit'; }
 }
 
 async function deleteCourseUnit(unitId, unitName) {
   if (!confirm(`Delete "${unitName}"? Coordinators assigned to it will become unassigned.`)) return;
-
   try {
-    const { error } = await client
-      .from('course_units')
-      .delete()
-      .eq('id', unitId);
-
+    const { error } = await client.from('course_units').delete().eq('id', unitId);
     if (error) throw error;
-
     showToast(`"${unitName}" deleted`, 'success');
-    await loadCourseUnits();
-    populateInviteUnitDropdown();
-
-  } catch (e) {
-    showToast(`Failed: ${e.message}`, 'error');
-  }
+    await loadCourseUnits(); populateInviteUnitDropdown();
+  } catch (e) { showToast(`Failed: ${e.message}`, 'error'); }
 }
 
-// ── Assign coordinator units ───────────────────────────────────────────────
 async function assignCoordinatorUnit(coordId) {
   const selectElement = document.getElementById(`unit-select-${coordId}`);
   if (!selectElement) return;
-
-  const newUnitIds = Array.from(selectElement.selectedOptions)
-    .map(o => o.value).filter(id => id);
-
-  if (!newUnitIds.length) {
-    showToast('Select at least one unit first', 'error');
-    return;
-  }
-
+  const newUnitIds = Array.from(selectElement.selectedOptions).map(o => o.value).filter(id => id);
+  if (!newUnitIds.length) { showToast('Select at least one unit first', 'error'); return; }
   const coord = coordinatorsData.find(c => c.id === coordId);
-  let existing = [];
-  if (Array.isArray(coord?.course_unit_id)) {
-    existing = coord.course_unit_id;
-  } else if (coord?.course_unit_id) {
-    existing = [coord.course_unit_id];
-  }
+  let existing = Array.isArray(coord?.course_unit_id) ? coord.course_unit_id : coord?.course_unit_id ? [coord.course_unit_id] : [];
   const merged = [...new Set([...existing, ...newUnitIds])];
-
   try {
     const body = new URLSearchParams();
     body.append('course_unit_ids', merged.join(','));
-
     const resp = await fetch(`${DAZZLING_URL}/admin/coordinators/${coordId}/course-unit`, {
       method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${currentToken}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: { 'Authorization': `Bearer ${currentToken}`, 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
     });
-
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.detail || 'Failed to update.');
-
     const unitNames = Array.from(selectElement.selectedOptions).map(o => o.text).join(', ');
     showToast(`✓ Assigned: ${unitNames}`, 'success');
     await loadCoordinators();
-
-  } catch (e) {
-    showToast(`Failed: ${e.message}`, 'error');
-    await loadCoordinators();
-  }
+  } catch (e) { showToast(`Failed: ${e.message}`, 'error'); await loadCoordinators(); }
 }
 
-// ── Populate invite modal unit dropdown ────────────────────────────────────
 function populateInviteUnitDropdown() {
   const sel = document.getElementById('invite-unit');
   if (!sel) return;
@@ -2307,53 +2235,27 @@ function populateInviteUnitDropdown() {
 // ── Load billing ───────────────────────────────────────────────────────────
 async function loadBilling() {
   if (!currentToken || !currentInstitutionId) return;
-
   document.getElementById('billing-wrap').innerHTML =
     '<div class="loading"><div class="spinner"></div>Loading billing info...</div>';
-
   try {
-    const { data: inst, error } = await client
-      .from('institutions')
-      .select('plans, status, trial_ends_at, name')
-      .eq('id', currentInstitutionId)
-      .limit(1)
-      .single();
-
+    const { data: inst, error } = await client.from('institutions')
+      .select('plans, status, trial_ends_at, name').eq('id', currentInstitutionId).limit(1).single();
     if (error || !inst) {
       document.getElementById('billing-wrap').innerHTML =
         '<div class="loading" style="color:var(--red)">Failed to load billing info.</div>';
       return;
     }
-
     const plan = (inst.plans || 'trial').toLowerCase();
     const trialEnds = inst.trial_ends_at ? new Date(inst.trial_ends_at) : null;
-    const daysLeft = trialEnds
-      ? Math.max(0, Math.ceil((trialEnds - Date.now()) / (1000 * 60 * 60 * 24)))
-      : null;
-
-    const planLabel =
-      plan === 'enterprise' ? 'Enterprise' :
-      plan === 'standard'   ? 'Standard'   :
-      plan === 'starter'    ? 'Starter'    : 'Trial';
-
-    const planColor =
-      plan === 'enterprise' ? 'var(--purple)' :
-      plan === 'standard'   ? 'var(--cyan)'   : 'var(--yellow)';
-
+    const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds - Date.now()) / (1000 * 60 * 60 * 24))) : null;
+    const planLabel = plan === 'enterprise' ? 'Enterprise' : plan === 'standard' ? 'Standard' : plan === 'starter' ? 'Starter' : 'Trial';
+    const planColor = plan === 'enterprise' ? 'var(--purple)' : plan === 'standard' ? 'var(--cyan)' : 'var(--yellow)';
     const expiryCard = trialEnds ? `
       <div class="billing-card orange">
         <div class="metric-label">Trial Expires</div>
-        <div class="metric-value" style="font-size:1.1rem;">
-          ${trialEnds.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
-        </div>
-        <div class="metric-sub" style="margin-top:8px;">
-          ${daysLeft > 0
-            ? `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`
-            : 'Expired — upgrade to restore access'}
-        </div>
-      </div>
-    ` : '';
-
+        <div class="metric-value" style="font-size:1.1rem;">${trialEnds.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}</div>
+        <div class="metric-sub" style="margin-top:8px;">${daysLeft > 0 ? `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining` : 'Expired — upgrade to restore access'}</div>
+      </div>` : '';
     const upgradeBlock = (plan === 'trial' || plan === 'starter') ? `
       <div class="upgrade-section">
         <div class="upgrade-plan-tag">Standard Plan — $30 / month</div>
@@ -2369,25 +2271,15 @@ async function loadBilling() {
           <button onclick="handleUpgrade('standard')" style="background:#00bcd4;color:#000;border:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:1rem;cursor:pointer;width:100%;">Pay Now — $30/month</button>
           <span class="pesapal-note">Secure payment via Pesapal · MoMo, cards &amp; bank</span>
         </div>
-      </div>
-    ` : plan === 'standard' ? `
+      </div>` : plan === 'standard' ? `
       <div class="enterprise-cta">
         <p>You're on the Standard plan. Need custom integrations, a dedicated account manager, or direct API access? Upgrade to Enterprise.</p>
-        <button class="btn-contact-enterprise"
-          onclick="window.open('mailto:abubaker@faceattend.app?subject=Enterprise Plan Inquiry','_blank')">
-          Contact Us for Enterprise
-        </button>
-      </div>
-    ` : `
+        <button class="btn-contact-enterprise" onclick="window.open('mailto:abubaker@faceattend.app?subject=Enterprise Plan Inquiry','_blank')">Contact Us for Enterprise</button>
+      </div>` : `
       <div class="enterprise-cta" style="border-color:rgba(167,139,250,0.3);">
         <p style="color:var(--purple);">You're on the Enterprise plan. For billing inquiries or changes, contact us directly.</p>
-        <button class="btn-contact-enterprise"
-          onclick="window.open('mailto:abubaker@faceattend.app?subject=Enterprise Billing','_blank')">
-          Contact Support
-        </button>
-      </div>
-    `;
-
+        <button class="btn-contact-enterprise" onclick="window.open('mailto:abubaker@faceattend.app?subject=Enterprise Billing','_blank')">Contact Support</button>
+      </div>`;
     document.getElementById('billing-wrap').innerHTML = `
       <div class="billing-grid">
         <div class="billing-card cyan">
@@ -2397,9 +2289,7 @@ async function loadBilling() {
         </div>
         ${expiryCard}
       </div>
-      ${upgradeBlock}
-    `;
-
+      ${upgradeBlock}`;
   } catch (e) {
     document.getElementById('billing-wrap').innerHTML =
       `<div class="loading" style="color:var(--red)">Error: ${e.message}</div>`;
@@ -2409,96 +2299,62 @@ async function loadBilling() {
 // ── API KEYS ───────────────────────────────────────────────────────────────
 async function loadApiKeys() {
   if (!currentToken) return;
-
   document.getElementById('apikeys-table-wrap').innerHTML =
     '<div class="loading"><div class="spinner"></div>Loading keys...</div>';
-
   try {
     const orgId = currentInstitutionId;
     const query = orgId ? `?org_id=${orgId}` : '';
     const resp = await fetch(`${DAZZLING_URL}/v1/keys${query}`, {
       headers: { 'Authorization': `Bearer ${currentToken}` }
     });
-
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
       document.getElementById('apikeys-table-wrap').innerHTML =
         `<div class="loading" style="color:var(--red)">${err.detail || 'Failed to load API keys.'}</div>`;
       return;
     }
-
     const data = await resp.json();
     const keys = data.keys || [];
-
     if (!keys.length) {
       document.getElementById('apikeys-table-wrap').innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">🔑</div>
           <p>No API keys yet.<br>Generate your first key to start using the FaceAttend Enterprise API.</p>
-        </div>
-      `;
+        </div>`;
       return;
     }
-
     const rows = keys.map(k => {
       const created  = k.created_at ? new Date(k.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
       const lastUsed = k.last_used_at ? new Date(k.last_used_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never';
-
-      const planBadge = k.plan === 'enterprise'
-        ? '<span class="badge badge-enterprise">Enterprise</span>'
-        : k.plan === 'pro'
-          ? '<span class="badge badge-pro">Pro</span>'
-          : '<span class="badge badge-starter">Starter</span>';
-
-      const statusBadge = k.is_active
-        ? '<span class="badge badge-active">Active</span>'
-        : '<span class="badge badge-revoked">Revoked</span>';
-
+      const planBadge = k.plan === 'enterprise' ? '<span class="badge badge-enterprise">Enterprise</span>' :
+        k.plan === 'pro' ? '<span class="badge badge-pro">Pro</span>' : '<span class="badge badge-starter">Starter</span>';
+      const statusBadge = k.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-revoked">Revoked</span>';
       const revokeBtn = k.is_active
         ? `<button class="btn-revoke" onclick="openRevokeModal('${k.id}', '${(k.name || '').replace(/'/g, "\\'")}')">Revoke</button>`
         : `<span style="color:var(--muted);font-size:0.75rem;">—</span>`;
-
-      const instCell = isSuperAdmin
-        ? `<td style="color:var(--muted);font-size:0.78rem;">${k.org_id || '—'}</td>`
-        : '';
-
-      // FIX: Use key_suffix for masked display
+      const instCell = isSuperAdmin ? `<td style="color:var(--muted);font-size:0.78rem;">${k.org_id || '—'}</td>` : '';
       const suffix = k.key_suffix || '????';
-
-      return `
-        <tr>
-          <td><strong>${k.name || 'Unnamed Key'}</strong></td>
-          <td><span class="key-masked">fa_live_••••••••••••${suffix}</span></td>
-          <td>${planBadge}</td>
-          <td>${statusBadge}</td>
-          ${instCell}
-          <td class="last-used-cell">${lastUsed}</td>
-          <td style="color:var(--muted);font-size:0.78rem;">${created}</td>
-          <td>${revokeBtn}</td>
-        </tr>
-      `;
+      return `<tr>
+        <td><strong>${k.name || 'Unnamed Key'}</strong></td>
+        <td><span class="key-masked">fa_live_••••••••••••${suffix}</span></td>
+        <td>${planBadge}</td><td>${statusBadge}</td>${instCell}
+        <td class="last-used-cell">${lastUsed}</td>
+        <td style="color:var(--muted);font-size:0.78rem;">${created}</td>
+        <td>${revokeBtn}</td>
+      </tr>`;
     }).join('');
-
     document.getElementById('apikeys-table-wrap').innerHTML = `
       <table>
-        <thead>
-          <tr>
-            <th>Name</th><th>Key</th><th>Plan</th><th>Status</th>
-            ${isSuperAdmin ? '<th>Org</th>' : ''}
-            <th>Last Used</th><th>Created</th><th>Action</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Name</th><th>Key</th><th>Plan</th><th>Status</th>${isSuperAdmin ? '<th>Org</th>' : ''}<th>Last Used</th><th>Created</th><th>Action</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="table-footer">${keys.length} key${keys.length !== 1 ? 's' : ''}</div>
-    `;
+      <div class="table-footer">${keys.length} key${keys.length !== 1 ? 's' : ''}</div>`;
   } catch (e) {
     document.getElementById('apikeys-table-wrap').innerHTML =
       `<div class="loading" style="color:var(--red)">Failed to load: ${e.message}</div>`;
   }
 }
 
-// ── Generate key modal ─────────────────────────────────────────────────────
 function openGenKeyModal() {
   document.getElementById('genkey-name').value = '';
   document.getElementById('genkey-error').style.display = 'none';
@@ -2507,57 +2363,41 @@ function openGenKeyModal() {
   document.getElementById('genkey-modal').classList.add('visible');
   setTimeout(() => document.getElementById('genkey-name').focus(), 100);
 }
-
-function closeGenKeyModal() {
-  document.getElementById('genkey-modal').classList.remove('visible');
-}
+function closeGenKeyModal() { document.getElementById('genkey-modal').classList.remove('visible'); }
 
 async function confirmGenerateKey() {
-  const nameEl  = document.getElementById('genkey-name');
-  const errEl   = document.getElementById('genkey-error');
-  const btn     = document.getElementById('confirm-gen-btn');
-  const name    = nameEl.value.trim();
-
+  const nameEl = document.getElementById('genkey-name');
+  const errEl  = document.getElementById('genkey-error');
+  const btn    = document.getElementById('confirm-gen-btn');
+  const name   = nameEl.value.trim();
   errEl.style.display = 'none';
   if (!name) { errEl.textContent = 'Please enter a name.'; errEl.style.display = 'block'; return; }
-
-  btn.disabled    = true;
-  btn.textContent = 'Generating...';
-
+  btn.disabled = true; btn.textContent = 'Generating...';
   try {
     const resp = await fetch(`${DAZZLING_URL}/v1/keys`, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Authorization': `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name }),
+      body: JSON.stringify({ name }),
     });
-
     const result = await resp.json();
-
     if (resp.ok && result.api_key) {
-      // FIX: store and display result.api_key (the full key returned once)
       newKeyRawValue = result.api_key;
       closeGenKeyModal();
-
       const banner = document.getElementById('new-key-banner');
       document.getElementById('new-key-value').textContent = result.api_key;
       document.getElementById('copy-key-btn').textContent = 'Copy';
       document.getElementById('copy-key-btn').classList.remove('copied');
       banner.classList.add('visible');
       banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
       showToast('✓ API key generated', 'success');
       await loadApiKeys();
     } else {
-      errEl.textContent   = result.detail || 'Failed to generate key.';
-      errEl.style.display = 'block';
-      btn.disabled    = false;
-      btn.textContent = 'Generate';
+      errEl.textContent = result.detail || 'Failed to generate key.'; errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Generate';
     }
   } catch (e) {
-    errEl.textContent   = `Error: ${e.message}`;
-    errEl.style.display = 'block';
-    btn.disabled    = false;
-    btn.textContent = 'Generate';
+    errEl.textContent = `Error: ${e.message}`; errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Generate';
   }
 }
 
@@ -2565,54 +2405,40 @@ function copyNewKey() {
   if (!newKeyRawValue) return;
   navigator.clipboard.writeText(newKeyRawValue).then(() => {
     const btn = document.getElementById('copy-key-btn');
-    btn.textContent = '✓ Copied';
-    btn.classList.add('copied');
+    btn.textContent = '✓ Copied'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2500);
   }).catch(() => {
     const el = document.createElement('textarea');
     el.value = newKeyRawValue; el.style.position = 'fixed'; el.style.opacity = '0';
-    document.body.appendChild(el); el.select(); document.execCommand('copy');
-    document.body.removeChild(el);
+    document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
     const btn = document.getElementById('copy-key-btn');
     btn.textContent = '✓ Copied'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2500);
   });
 }
 
-// ── Revoke key modal ───────────────────────────────────────────────────────
 function openRevokeModal(keyId, keyName) {
-  pendingRevokeKeyId   = keyId;
-  pendingRevokeKeyName = keyName;
+  pendingRevokeKeyId = keyId; pendingRevokeKeyName = keyName;
   document.getElementById('revoke-modal-msg').textContent =
     `Are you sure you want to revoke "${keyName || 'this key'}"? This cannot be undone.`;
   document.getElementById('revoke-modal').classList.add('visible');
 }
-
 function closeRevokeModal() {
   pendingRevokeKeyId = null; pendingRevokeKeyName = null;
   document.getElementById('revoke-modal').classList.remove('visible');
 }
-
 async function confirmRevoke() {
   if (!pendingRevokeKeyId || !currentToken) return;
-  const keyId = pendingRevokeKeyId;
-  closeRevokeModal();
-
+  const keyId = pendingRevokeKeyId; closeRevokeModal();
   try {
     const resp = await fetch(`${DAZZLING_URL}/v1/keys/${keyId}`, {
       method: 'DELETE', headers: { 'Authorization': `Bearer ${currentToken}` },
     });
-    if (resp.ok) {
-      showToast('API key revoked', 'success');
-      await loadApiKeys();
-    } else {
-      const err = await resp.json().catch(() => ({}));
-      showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
-    }
+    if (resp.ok) { showToast('API key revoked', 'success'); await loadApiKeys(); }
+    else { const err = await resp.json().catch(() => ({})); showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error'); }
   } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
-// ── Invite coordinator modal ───────────────────────────────────────────────
 function openInviteModal() {
   document.getElementById('invite-name').value  = '';
   document.getElementById('invite-email').value = '';
@@ -2624,10 +2450,7 @@ function openInviteModal() {
   document.getElementById('invite-modal').classList.add('visible');
   setTimeout(() => document.getElementById('invite-name').focus(), 100);
 }
-
-function closeInviteModal() {
-  document.getElementById('invite-modal').classList.remove('visible');
-}
+function closeInviteModal() { document.getElementById('invite-modal').classList.remove('visible'); }
 
 async function sendInvite() {
   const nameEl  = document.getElementById('invite-name');
@@ -2635,84 +2458,46 @@ async function sendInvite() {
   const unitEl  = document.getElementById('invite-unit');
   const errEl   = document.getElementById('invite-error');
   const btn     = document.getElementById('send-invite-btn');
-
   const name    = nameEl.value.trim();
   const email   = emailEl.value.trim();
   const unitId  = unitEl.value;
-
   errEl.style.display = 'none';
-
   if (!name)  { showInviteError('Please enter a full name.'); return; }
   if (!email) { showInviteError('Please enter an email address.'); return; }
-
-  btn.disabled    = true;
-  btn.textContent = 'Sending...';
-
+  btn.disabled = true; btn.textContent = 'Sending...';
   try {
     const formData = new FormData();
-    formData.append('full_name', name);
-    formData.append('email', email);
+    formData.append('full_name', name); formData.append('email', email);
     if (unitId) formData.append('course_unit_id', unitId);
-
     const resp = await fetch(`${DAZZLING_URL}/invite-coordinator`, {
-      method:  'POST',
-      headers: { 'Authorization': `Bearer ${currentToken}` },
-      body:    formData,
+      method: 'POST', headers: { 'Authorization': `Bearer ${currentToken}` }, body: formData,
     });
-
     const result = await resp.json();
-
-    if (resp.ok) {
-      closeInviteModal();
-      showToast(`✓ Invite sent to ${email}`, 'success');
-      await loadCoordinators();
-    } else {
-      showInviteError(result.detail || 'Invite failed. Please try again.');
-      btn.disabled    = false;
-      btn.textContent = 'Send Invite';
-    }
-  } catch (e) {
-    showInviteError(`Error: ${e.message}`);
-    btn.disabled    = false;
-    btn.textContent = 'Send Invite';
-  }
+    if (resp.ok) { closeInviteModal(); showToast(`✓ Invite sent to ${email}`, 'success'); await loadCoordinators(); }
+    else { showInviteError(result.detail || 'Invite failed. Please try again.'); btn.disabled = false; btn.textContent = 'Send Invite'; }
+  } catch (e) { showInviteError(`Error: ${e.message}`); btn.disabled = false; btn.textContent = 'Send Invite'; }
 }
+function showInviteError(msg) { const el = document.getElementById('invite-error'); el.textContent = msg; el.style.display = 'block'; }
 
-function showInviteError(msg) {
-  const el = document.getElementById('invite-error');
-  el.textContent = msg; el.style.display = 'block';
-}
-
-// ── Remove coordinator modal ───────────────────────────────────────────────
 function openRemoveCoordModal(coordId, coordName) {
-  pendingRemoveCoordId   = coordId;
-  pendingRemoveCoordName = coordName;
+  pendingRemoveCoordId = coordId; pendingRemoveCoordName = coordName;
   document.getElementById('remove-coord-modal-msg').textContent =
     `Are you sure you want to remove ${coordName || 'this coordinator'}? They will lose access immediately.`;
   document.getElementById('remove-coord-modal').classList.add('visible');
 }
-
 function closeRemoveCoordModal() {
   pendingRemoveCoordId = null; pendingRemoveCoordName = null;
   document.getElementById('remove-coord-modal').classList.remove('visible');
 }
-
 async function confirmRemoveCoord() {
   if (!pendingRemoveCoordId || !currentToken) return;
-  const coordId = pendingRemoveCoordId;
-  closeRemoveCoordModal();
-
+  const coordId = pendingRemoveCoordId; closeRemoveCoordModal();
   try {
     const resp = await fetch(`${DAZZLING_URL}/coordinators/${coordId}`, {
       method: 'DELETE', headers: { 'Authorization': `Bearer ${currentToken}` },
     });
-    if (resp.ok) {
-      showToast('Coordinator removed', 'success');
-      await loadCoordinators();
-    } else {
-      const err = await resp.json().catch(() => ({}));
-      showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
-    }
+    if (resp.ok) { showToast('Coordinator removed', 'success'); await loadCoordinators(); }
+    else { const err = await resp.json().catch(() => ({})); showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error'); }
   } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
@@ -2720,138 +2505,96 @@ async function confirmRemoveCoord() {
 async function loadInstitutions() {
   if (!currentToken) return;
   if (!isSuperAdmin && !currentInstitutionId) return;
-
   const statusFilter = document.getElementById('filter-inst-status').value;
   const filterQuery  = statusFilter ? `status=${statusFilter}` : '';
   const instQuery    = !isSuperAdmin && currentInstitutionId ? `institution_id=${currentInstitutionId}` : '';
   const sep          = filterQuery && instQuery ? '&' : '';
   const query        = filterQuery || instQuery ? `?${filterQuery}${sep}${instQuery}` : '';
-
   document.getElementById('institutions-table-wrap').innerHTML =
     '<div class="loading"><div class="spinner"></div>Loading institutions...</div>';
-
   try {
     const resp = await fetch(`${DAZZLING_URL}/admin/institutions${query}`, {
       headers: { 'Authorization': `Bearer ${currentToken}` }
     });
     const data = resp.ok ? await resp.json() : { institutions: [] };
     const institutions = data.institutions || [];
-
     if (!institutions.length) {
-      document.getElementById('institutions-table-wrap').innerHTML =
-        '<div class="loading">No institutions found.</div>';
+      document.getElementById('institutions-table-wrap').innerHTML = '<div class="loading">No institutions found.</div>';
       return;
     }
-
     const rows = institutions.map(inst => {
       const statusBadge =
-        inst.status === 'active'    ? '<span class="badge badge-active">Active</span>'       :
-        inst.status === 'pending'   ? '<span class="badge badge-pending">Pending</span>'     :
+        inst.status === 'active'    ? '<span class="badge badge-active">Active</span>' :
+        inst.status === 'pending'   ? '<span class="badge badge-pending">Pending</span>' :
         inst.status === 'suspended' ? '<span class="badge badge-suspended">Suspended</span>' : '—';
-
       let actions = '';
       if (isSuperAdmin) {
-        if (inst.status === 'pending') {
-          actions = `
-            <button class="btn-approve" onclick="updateInstStatus('${inst.id}', 'active')">Approve</button>
-            <button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>
-          `;
-        } else if (inst.status === 'active') {
-          actions = `<button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>`;
-        } else if (inst.status === 'suspended') {
-          actions = `<button class="btn-reactivate" onclick="updateInstStatus('${inst.id}', 'active')">Reactivate</button>`;
-        }
+        if (inst.status === 'pending') actions = `<button class="btn-approve" onclick="updateInstStatus('${inst.id}', 'active')">Approve</button><button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>`;
+        else if (inst.status === 'active') actions = `<button class="btn-suspend" onclick="updateInstStatus('${inst.id}', 'suspended')">Suspend</button>`;
+        else if (inst.status === 'suspended') actions = `<button class="btn-reactivate" onclick="updateInstStatus('${inst.id}', 'active')">Reactivate</button>`;
       }
-
-      return `
-        <tr>
-          <td><strong>${escapeHtml(inst.id)}</strong></td>
-          <td>${escapeHtml(inst.name || '—')}</td>
-          <td style="color:var(--muted)">${escapeHtml(inst.admin_email || '—')}</td>
-          <td>${escapeHtml(inst.plan || '—')}</td>
-          <td>${statusBadge}</td>
-          <td>${actions}</td>
-        </tr>
-      `;
+      return `<tr>
+        <td><strong>${escapeHtml(inst.id)}</strong></td>
+        <td>${escapeHtml(inst.name || '—')}</td>
+        <td style="color:var(--muted)">${escapeHtml(inst.admin_email || '—')}</td>
+        <td>${escapeHtml(inst.plan || '—')}</td>
+        <td>${statusBadge}</td><td>${actions}</td>
+      </tr>`;
     }).join('');
-
     document.getElementById('institutions-table-wrap').innerHTML = `
       <table>
-        <thead>
-          <tr><th>ID</th><th>Name</th><th>Admin Email</th><th>Plan</th><th>Status</th><th>Actions</th></tr>
-        </thead>
+        <thead><tr><th>ID</th><th>Name</th><th>Admin Email</th><th>Plan</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="table-footer">${institutions.length} institution${institutions.length !== 1 ? 's' : ''}</div>
-    `;
+      <div class="table-footer">${institutions.length} institution${institutions.length !== 1 ? 's' : ''}</div>`;
   } catch (e) {
     document.getElementById('institutions-table-wrap').innerHTML =
       `<div class="loading" style="color:var(--red)">Failed to load: ${escapeHtml(e.message)}</div>`;
   }
 }
 
-// ── Update institution status ──────────────────────────────────────────────
 async function updateInstStatus(institutionId, newStatus) {
   if (!currentToken || !isSuperAdmin) return;
-
   const actionLabel = newStatus === 'active' ? 'Approving' : newStatus === 'suspended' ? 'Suspending' : 'Updating';
   showToast(`${actionLabel} ${institutionId}...`, 'success');
-
   try {
     const formData = new FormData();
     formData.append('status', newStatus);
-
     const resp = await fetch(`${DAZZLING_URL}/admin/institutions/${institutionId}/status`, {
       method: 'PATCH', headers: { 'Authorization': `Bearer ${currentToken}` }, body: formData,
     });
-
     if (resp.ok) {
       const label = newStatus === 'active' ? 'approved' : newStatus === 'suspended' ? 'suspended' : 'updated';
       showToast(`✓ ${institutionId} ${label}`, 'success');
-      await loadInstitutions();
-      await fetchPendingCount();
+      await loadInstitutions(); await fetchPendingCount();
     } else {
-      const err = await resp.json();
-      showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
+      const err = await resp.json(); showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
     }
   } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
-// ── Delete student modal ───────────────────────────────────────────────────
 function openDeleteModal(studentId, studentName) {
-  pendingDeleteId   = studentId;
-  pendingDeleteName = studentName;
+  pendingDeleteId = studentId; pendingDeleteName = studentName;
   document.getElementById('delete-modal-msg').textContent =
     `Are you sure you want to delete ${studentName}? This will remove all their photos and attendance records permanently.`;
   document.getElementById('delete-modal').classList.add('visible');
 }
-
 function closeDeleteModal() {
   pendingDeleteId = null; pendingDeleteName = null;
   document.getElementById('delete-modal').classList.remove('visible');
 }
-
 async function confirmDelete() {
   if (!pendingDeleteId || !currentToken) return;
-  const studentId = pendingDeleteId;
-  closeDeleteModal();
-
+  const studentId = pendingDeleteId; closeDeleteModal();
   try {
     const resp = await fetch(`${DAZZLING_URL}/students/${studentId}`, {
       method: 'DELETE', headers: { 'Authorization': `Bearer ${currentToken}` },
     });
-    if (resp.ok) {
-      showToast('Student deleted', 'success');
-      await loadStudents();
-      await loadData();
-    } else {
-      const err = await resp.json();
-      showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error');
-    }
+    if (resp.ok) { showToast('Student deleted', 'success'); await loadStudents(); await loadData(); }
+    else { const err = await resp.json(); showToast(`Failed: ${err.detail || 'Unknown error'}`, 'error'); }
   } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
 }
 
-// ── Filters ────────────────────────────────────────────────────────────────
 function applyFilters() {
   const inst   = document.getElementById('filter-inst').value;
   const status = document.getElementById('filter-status').value;
@@ -2861,97 +2604,120 @@ function applyFilters() {
   renderTable(filtered);
 }
 
-// ── Render attendance table ────────────────────────────────────────────────
 function renderTable(records) {
   if (!records.length) {
     document.getElementById('table-wrap').innerHTML = '<div class="loading">No records found.</div>';
     return;
   }
-
   const rows = records.map(r => {
     const ts   = r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' }) : '—';
     const conf = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
-    const badge = r.verified === 'success'
-      ? '<span class="badge badge-success">Success</span>'
-      : r.verified === 'spoof'
-        ? '<span class="badge badge-spoof">Spoof</span>'
-        : '<span class="badge badge-failed">Failed</span>';
-
+    const badge = r.verified === 'success' ? '<span class="badge badge-success">Success</span>' :
+      r.verified === 'spoof' ? '<span class="badge badge-spoof">Spoof</span>' : '<span class="badge badge-failed">Failed</span>';
     const unit = courseUnitsCache.find(u => u.id === r.course_unit_id);
     const unitCell = unit
       ? `<span style="color:var(--blue);font-size:0.78rem;">${unit.name}${unit.code ? ' (' + unit.code + ')' : ''}</span>`
       : `<span style="color:var(--muted);font-size:0.78rem;">${r.course_unit_id ? r.course_unit_id.slice(0,8) + '…' : '—'}</span>`;
-
-    return `<tr>
-      <td>${r.student_id || '—'}</td>
-      <td>${badge}</td>
-      <td>${conf}</td>
-      <td>${unitCell}</td>
-      <td>${r.institution_id || '—'}</td>
-      <td style="color:var(--muted)">${ts}</td>
-    </tr>`;
+    return `<tr><td>${r.student_id || '—'}</td><td>${badge}</td><td>${conf}</td><td>${unitCell}</td><td>${r.institution_id || '—'}</td><td style="color:var(--muted)">${ts}</td></tr>`;
   }).join('');
-
   document.getElementById('table-wrap').innerHTML = `
     <table>
-      <thead><tr>
-        <th>Student ID</th><th>Status</th><th>Confidence</th>
-        <th>Course Unit</th>
-        <th>Institution</th><th>Time (EAT)</th>
-      </tr></thead>
+      <thead><tr><th>Student ID</th><th>Status</th><th>Confidence</th><th>Course Unit</th><th>Institution</th><th>Time (EAT)</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="table-footer">${records.length} records</div>
-  `;
+    <div class="table-footer">${records.length} records</div>`;
 }
 
-// ── Export attendance CSV ──────────────────────────────────────────────────
 function exportCSV() {
   const inst   = document.getElementById('filter-inst').value;
   const status = document.getElementById('filter-status').value;
   let filtered = allRecords;
   if (inst)   filtered = filtered.filter(r => r.institution_id === inst);
   if (status) filtered = filtered.filter(r => r.verified === status);
-
   const header = ['student_id', 'verified', 'confidence', 'institution_id', 'course_unit_id', 'timestamp'];
   const rows   = filtered.map(r => header.map(k => r[k] ?? '').join(','));
   const csv    = [header.join(','), ...rows].join('\n');
   const blob   = new Blob([csv], { type: 'text/csv' });
   const url    = URL.createObjectURL(blob);
   const a      = document.createElement('a');
-  a.href       = url;
-  a.download   = `attendance_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
+  a.href = url; a.download = `attendance_${new Date().toISOString().slice(0,10)}.csv`; a.click();
   URL.revokeObjectURL(url);
 }
 
-// ── Pesapal Payment Handler ────────────────────────────────────────────────
 async function handleUpgrade(plan) {
   const { data: { user } } = await client.auth.getUser();
   if (!user) return alert('Please log in first.');
-
-  const { data: profile } = await client.from('profiles')
-    .select('full_name, institution_id').eq('id', user.id).single();
-
+  const { data: profile } = await client.from('profiles').select('full_name, institution_id').eq('id', user.id).single();
   const nameParts = (profile?.full_name || 'User Name').split(' ');
-
   const resp = await fetch('/api/cart/create-cart', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      plan, email: user.email,
-      first_name: nameParts[0] || 'User',
-      last_name: nameParts[1] || 'Name',
-      phone: '',
-      institution_id: profile?.institution_id || ''
-    })
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan, email: user.email, first_name: nameParts[0] || 'User', last_name: nameParts[1] || 'Name', phone: '', institution_id: profile?.institution_id || '' })
   });
-
   const data = await resp.json();
-  if (data.redirect_url) {
-    window.location.href = data.redirect_url;
-  } else {
-    alert('Payment failed: ' + JSON.stringify(data));
+  if (data.redirect_url) window.location.href = data.redirect_url;
+  else alert('Payment failed: ' + JSON.stringify(data));
+}
+
+// ── Reset Password (dashboard) ─────────────────────────────────────────────
+function openResetPwModal() {
+  document.getElementById('reset-pw-new').value     = '';
+  document.getElementById('reset-pw-confirm').value = '';
+  document.getElementById('reset-pw-fields').style.display   = '';
+  document.getElementById('reset-pw-cancel-btn').textContent = 'Cancel';
+  const msg = document.getElementById('reset-pw-msg');
+  msg.style.display = 'none'; msg.className = 'reset-pw-msg';
+  const btn = document.getElementById('confirm-reset-pw-btn');
+  btn.disabled = false; btn.textContent = 'Update Password'; btn.style.display = '';
+  document.getElementById('dash-strength-fill').style.width = '0';
+  document.getElementById('reset-pw-modal').classList.add('visible');
+  setTimeout(() => document.getElementById('reset-pw-new').focus(), 100);
+}
+
+function closeResetPwModal() {
+  document.getElementById('reset-pw-modal').classList.remove('visible');
+}
+
+function updateDashStrength(pw) {
+  const fill = document.getElementById('dash-strength-fill');
+  let score = 0;
+  if (pw.length >= 8)          score++;
+  if (pw.length >= 12)         score++;
+  if (/[A-Z]/.test(pw))        score++;
+  if (/[0-9]/.test(pw))        score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const colors = ['#EF4444','#F59E0B','#F59E0B','#10B981','#10B981'];
+  fill.style.width      = `${(score / 5) * 100}%`;
+  fill.style.background = colors[score - 1] || 'rgba(255,255,255,0.06)';
+}
+
+async function confirmResetPassword() {
+  const pw1 = document.getElementById('reset-pw-new').value;
+  const pw2 = document.getElementById('reset-pw-confirm').value;
+  const btn = document.getElementById('confirm-reset-pw-btn');
+  const msg = document.getElementById('reset-pw-msg');
+  msg.style.display = 'none';
+  if (!pw1 || pw1.length < 8) {
+    msg.textContent = 'Password must be at least 8 characters.';
+    msg.className = 'reset-pw-msg error'; msg.style.display = 'block'; return;
+  }
+  if (pw1 !== pw2) {
+    msg.textContent = 'Passwords do not match.';
+    msg.className = 'reset-pw-msg error'; msg.style.display = 'block'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Updating…';
+  try {
+    const { error } = await client.auth.updateUser({ password: pw1 });
+    if (error) throw error;
+    msg.textContent = '✓ Password updated successfully!';
+    msg.className = 'reset-pw-msg success'; msg.style.display = 'block';
+    document.getElementById('reset-pw-fields').style.display = 'none';
+    btn.style.display = 'none';
+    document.getElementById('reset-pw-cancel-btn').textContent = 'Close';
+    showToast('✓ Password updated', 'success');
+  } catch (err) {
+    msg.textContent = err.message || 'Failed to update password.';
+    msg.className = 'reset-pw-msg error'; msg.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Update Password';
   }
 }
 
