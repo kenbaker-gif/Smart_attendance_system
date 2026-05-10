@@ -1495,19 +1495,24 @@ async function sendResetLink() {
 
   btn.disabled = true; btn.textContent = 'Sending…';
 
-  const { error } = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: `${DAZZLING_URL}/reset-password`,
-  });
+  try {
+    const resp = await fetch(`${DAZZLING_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
 
-  if (error) {
-    msg.textContent = error.message;
-    msg.className = 'forgot-pw-msg error'; msg.style.display = 'block';
-    btn.disabled = false; btn.textContent = 'Send Link';
-  } else {
-    msg.textContent = '✓ Reset link sent — check your inbox.';
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data?.detail || data?.message || 'Failed to send reset link.');
+
+    msg.textContent = data?.message || '✓ Reset link sent — check your inbox.';
     msg.className = 'forgot-pw-msg success'; msg.style.display = 'block';
     btn.style.display = 'none';
     document.getElementById('forgot-email').disabled = true;
+  } catch (err) {
+    msg.textContent = err.message || 'Failed to send reset link.';
+    msg.className = 'forgot-pw-msg error'; msg.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Send Link';
   }
 }
 

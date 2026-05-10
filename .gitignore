@@ -14,3 +14,7 @@ logs
 .DS_Store
 Thumbs.db
 app/Enterprise
+
+# Local Cursor preferences
+.cursor/rules/
+.cursorignore
