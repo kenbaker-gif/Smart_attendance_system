@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
+from supabase import create_client
 
 from contextlib import asynccontextmanager
 from app.scheduler import create_scheduler
@@ -85,6 +86,10 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 APP_URL = os.getenv("APP_URL", "https://faceattend.app")
 MVP_URL = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app/").rstrip("/")
 
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xrlsltunfgjxooyyrora.supabase.co")
+SUPABASE_ANON = os.getenv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhybHNsdHVuZmdqeG9veXlyb3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwNDczODEsImV4cCI6MjA4MDYyMzM4MX0.BWr27wHWGt6a3gWnD2ocGdQBL0_sH0HK-YHUcJsrlC0")
+sb = create_client(SUPABASE_URL, SUPABASE_ANON)
+
 if not MVP_URL:
     print("⚠️  WARNING: MVP_URL is not set. Auto-sync after photo upload will be disabled.")
 else:
@@ -141,9 +146,10 @@ def health():
 def set_password_page():
     return FileResponse(os.path.join("static", "set-password.html"))
 
-@app.get("/forgot-password")
-def forgot_password_page():
-    return FileResponse(os.path.join("static", "forgot-password.html"))
+# One route handles everything
+@app.get("/reset-password")
+def reset_password_page():
+    return FileResponse(os.path.join("static", "reset-password.html"))
 
 @app.get("/dashboard")
 def dashboard_page():
@@ -161,7 +167,7 @@ def terms_page():
 @app.get("/download/faceattend.apk")
 async def download_apk():
     return RedirectResponse(
-        url="https://github.com/kenbaker-gif/Smart_attendance_app/releases/download/v1.0.1/app-release.apk"
+        url="https://github.com/kenbaker-gif/Smart_attendance_app/releases/latest/download/app-release.apk"
     )
 
 # ── Upload student face ────────────────────────────────────────────────────

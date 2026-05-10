@@ -47,43 +47,23 @@ class LogLoginRequest(BaseModel):
 
 @router.post("/auth/forgot-password")
 async def forgot_password(body: ForgotPasswordRequest, request: Request):
-    """
-    Trigger a Supabase password reset email.
-    Supabase sends the link → user clicks → /set-password page handles the token.
-    """
     try:
         supabase.auth.reset_password_for_email(
             body.email,
-            options={"redirect_to": "https://faceattend.app/set-password"},
+            options={"redirect_to": "https://faceattend.app/reset-password"},  # ← fixed
         )
     except Exception as exc:
-        # Don't reveal whether the email exists — always return 200
         logger.error("[forgot-password] Supabase error: %s", exc)
-
-    # Log the attempt regardless of whether email exists
-    # Look up actor by email to get IDs (may not exist)
-    try:
-        profile = (
-            supabase.table("profiles")
-            .select("id, institution_id")
-            .eq("email", body.email)   # only works if you store email in profiles
-            .limit(1)
-            .execute()
-        )
-        actor = profile.data[0] if profile.data else {}
-    except Exception:
-        actor = {}
 
     await log_event(
         AuditAction.AUTH_PASSWORD_RESET,
         actor_email=body.email,
-        actor_id=actor.get("id"),
-        institution_id=actor.get("institution_id"),
+        actor_id=None,       # ← not available without auth
+        institution_id=None,
         metadata={"note": "Password reset requested"},
         request=request,
     )
 
-    # Always return success — don't leak whether the email exists
     return {"message": "If that email is registered, a reset link has been sent."}
 
 
@@ -183,6 +163,7 @@ def _verify_webhook_signature(payload_bytes: bytes, signature: Optional[str]) ->
         return True  # allow in dev; set secret in prod
     if not signature:
         return False
+    # ✅ Correct Python 3
     expected = hmac.new(
         SUPABASE_WEBHOOK_SECRET.encode(),
         payload_bytes,
