@@ -39,6 +39,7 @@ class LogLoginRequest(BaseModel):
     device_model:  Optional[str] = None   # e.g. "Samsung Galaxy A54"
     os_version:    Optional[str] = None   # e.g. "Android 14"
     app_version:   Optional[str] = None   # e.g. "1.0.1+12"
+    source:        Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +122,7 @@ async def log_login(
             "device_model": body.device_model,
             "os_version":   body.os_version,
             "app_version":  body.app_version,
-            "source":       "flutter_app",
+            "source":       body.source,
         },
         request=request,
     )
