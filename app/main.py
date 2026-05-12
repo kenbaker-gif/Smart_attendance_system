@@ -73,6 +73,8 @@ app.add_middleware(
         "https://www.faceattend.app",
         "http://localhost:3000",
         "http://localhost:8080",
+        "https://api.faceattend.app",
+        "https://mvp.faceattend.app",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "PATCH"],
@@ -84,7 +86,7 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-str
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 APP_URL = os.getenv("APP_URL", "https://faceattend.app")
-MVP_URL = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app/").rstrip("/")
+MVP_URL = os.getenv("MVP_URL", "https://mvp.faceattend.app/").rstrip("/")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xrlsltunfgjxooyyrora.supabase.co")
 SUPABASE_ANON = os.getenv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhybHNsdHVuZmdqeG9veXlyb3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwNDczODEsImV4cCI6MjA4MDYyMzM4MX0.BWr27wHWGt6a3gWnD2ocGdQBL0_sH0HK-YHUcJsrlC0")
