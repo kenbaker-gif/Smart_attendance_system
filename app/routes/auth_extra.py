@@ -17,7 +17,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 
-from app.dep import supabase, supabase_admin, verify_supabase_token
+from app.dep import supabase, supabase_admin, verify_supabase_token, limiter
 from app.utils.audit import AuditAction, log_event
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,7 @@ class LogLoginRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/auth/forgot-password")
+@limiter.limit("5/hour")
 async def forgot_password(body: ForgotPasswordRequest, request: Request):
     try:
         supabase.auth.reset_password_for_email(
@@ -73,6 +74,7 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request):
 # ---------------------------------------------------------------------------
 
 @router.post("/auth/log-login")
+@limiter.limit("20/hour")
 async def log_login(
     body: LogLoginRequest,
     request: Request,
