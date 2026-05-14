@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 # Config — set these in Railway environment variables
 # ---------------------------------------------------------------------------
 SMTP_HOST     = os.getenv("ZOHO_SMTP_HOST", "smtp.zoho.com")
-SMTP_PORT     = int(os.getenv("ZOHO_SMTP_PORT", "465"))
+SMTP_PORT     = int(os.getenv("ZOHO_SMTP_PORT", "587"))
 SMTP_USER     = os.getenv("ZOHO_SMTP_USER", "abubaker@faceattend.app")
-SMTP_PASSWORD = os.getenv("ZOHO_SMTP_PASSWORD", "")
+SMTP_PASSWORD = lambda: os.getenv("ZOHO_PASSWORD", "")
 FROM_NAME     = "FaceAttend Security"
 FROM_EMAIL    = SMTP_USER
 
@@ -33,8 +33,8 @@ def _send_email(to: list[str], subject: str, html_body: str) -> None:
     """Low-level SMTP send via Zoho SSL."""
     if not to:
         return
-    if not SMTP_PASSWORD:
-        logger.warning("[email] ZOHO_SMTP_PASSWORD not set — skipping email")
+    if not SMTP_PASSWORD():
+        logger.warning("[email] ZOHO_PASSWORD not set — skipping email")
         return
 
     msg = MIMEMultipart("alternative")
@@ -44,8 +44,9 @@ def _send_email(to: list[str], subject: str, html_body: str) -> None:
     msg.attach(MIMEText(html_body, "html"))
 
     try:
-        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
-            server.login(SMTP_USER, SMTP_PASSWORD)
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD())
             server.sendmail(FROM_EMAIL, to, msg.as_string())
         logger.info(f"[email] Sent '{subject}' to {to}")
     except Exception as exc:

@@ -1,4 +1,15 @@
 import os
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN", ""),
+    integrations=[StarletteIntegration(), FastApiIntegration()],
+    traces_sample_rate=0.2,
+    environment="production",
+    send_default_pii=False,
+)
 import re
 import httpx
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks, Depends, Header, Request
