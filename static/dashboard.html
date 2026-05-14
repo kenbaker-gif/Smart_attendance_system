@@ -1613,11 +1613,16 @@ async function initDashboard(session) {
     };
 
     // 4. Construct navigation structure dynamically
+    tabs.appendChild(createSecureTab('tab-btn-attendance', '📅 Attendance', 'attendance', 'attendance-tab'));
+    tabs.appendChild(createSecureTab('tab-btn-students', '👥 Students', 'students', ''));
+
     if (!isSuperAdmin && currentInstitutionId) {
       tabs.appendChild(createSecureTab('tab-btn-units', '📚 Course Units', 'units', 'units-tab'));
     }
 
     tabs.appendChild(createSecureTab('tab-btn-team', 'Team', 'team', ''));
+
+        
 
     if (isSuperAdmin) {
       const teamInstFilter = document.getElementById('filter-team-inst');
@@ -1726,8 +1731,9 @@ async function logout() {
   coordinatorsData     = [];
   auditLoaded          = false;
 
-  ['tab-btn-team','tab-btn-units','tab-btn-billing','tab-btn-apikeys',
-   'tab-btn-superadmin','tab-btn-security','tab-btn-audit'].forEach(id => {
+  ['tab-btn-attendance','tab-btn-students','tab-btn-team','tab-btn-units',
+   'tab-btn-billing','tab-btn-apikeys','tab-btn-superadmin',
+   'tab-btn-security','tab-btn-audit'].forEach(id => {
     document.getElementById(id)?.remove();
   });
 

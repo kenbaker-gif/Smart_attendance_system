@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # Config — set these in Railway environment variables
 # ---------------------------------------------------------------------------
 SMTP_HOST     = os.getenv("ZOHO_SMTP_HOST", "smtp.zoho.com")
-SMTP_PORT     = int(os.getenv("ZOHO_SMTP_PORT", "587"))
+SMTP_PORT     = int(os.getenv("ZOHO_SMTP_PORT", "2525"))
 SMTP_USER     = os.getenv("ZOHO_SMTP_USER", "abubaker@faceattend.app")
 SMTP_PASSWORD = lambda: os.getenv("ZOHO_PASSWORD", "")
 FROM_NAME     = "FaceAttend Security"

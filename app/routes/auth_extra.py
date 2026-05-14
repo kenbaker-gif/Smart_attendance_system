@@ -14,7 +14,7 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 
 from app.dep import supabase, supabase_admin, verify_supabase_token, limiter
@@ -35,11 +35,13 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class LogLoginRequest(BaseModel):
-    """Sent by Flutter app after successful Supabase signIn."""
-    device_model:  Optional[str] = None   # e.g. "Samsung Galaxy A54"
-    os_version:    Optional[str] = None   # e.g. "Android 14"
-    app_version:   Optional[str] = None   # e.g. "1.0.1+12"
-    source:        Optional[str] = None
+    device_model: Optional[str] = None
+    os_version:   Optional[str] = None
+    app_version:  Optional[str] = None
+    source:       Optional[str] = None
+
+    class Config:
+        extra = "allow"  # ← ignore unknown fields
 
 
 # ---------------------------------------------------------------------------
@@ -48,11 +50,11 @@ class LogLoginRequest(BaseModel):
 
 @router.post("/auth/forgot-password")
 @limiter.limit("5/hour")
-async def forgot_password(body: ForgotPasswordRequest, request: Request):
+async def forgot_password(request: Request, body: ForgotPasswordRequest):
     try:
         supabase.auth.reset_password_for_email(
             body.email,
-            options={"redirect_to": "https://faceattend.app/reset-password"},  # ← fixed
+            options={"redirect_to": "https://faceattend.app/reset-password"},
         )
     except Exception as exc:
         logger.error("[forgot-password] Supabase error: %s", exc)
@@ -76,27 +78,32 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request):
 @router.post("/auth/log-login")
 @limiter.limit("20/hour")
 async def log_login(
-    body: LogLoginRequest,
     request: Request,
     current_user = Depends(verify_supabase_token),
 ):
     """
-    Flutter calls this immediately after a successful supabase.auth.signIn().
-    Acts as fallback in case the Supabase webhook missed the event.
-    Deduplication: we skip if we already logged a login for this actor
-    in the last 60 seconds (webhook may have already fired).
+    Flutter/dashboard calls this after successful signIn.
+    Fallback in case Supabase webhook missed the event.
     """
+    try:
+        raw = await request.json()
+        body = LogLoginRequest(**raw)
+    except Exception:
+        body = LogLoginRequest()
+
+    logger.info(f"[log-login] User: {current_user.id} | Source: {body.source}")
+
     actor_id    = current_user.id
     actor_email = current_user.email
-    # Look up institution_id from profiles
+
     try:
         prof = supabase_admin.table("profiles").select("institution_id") \
             .eq("id", actor_id).limit(1).execute()
         institution_id = prof.data[0].get("institution_id") if prof.data else None
-    except Exception:
+    except Exception as e:
+        logger.error(f"[log-login] Profile lookup failed: {e}")
         institution_id = None
 
-    # Deduplicate: check if login was already logged in last 60s
     try:
         from datetime import datetime, timedelta, timezone
         cutoff = (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat()
@@ -110,7 +117,7 @@ async def log_login(
             .execute()
         )
         if recent.data:
-            logger.info("[log-login] Skipping duplicate login log for %s", actor_id)
+            logger.info("[log-login] Skipping duplicate for %s", actor_id)
             return {"message": "already logged"}
     except Exception as exc:
         logger.error("[log-login] Dedup check failed: %s", exc)
@@ -130,7 +137,6 @@ async def log_login(
     )
 
     return {"message": "login logged"}
-
 
 @router.post("/auth/log-logout")
 async def log_logout(
@@ -166,7 +172,6 @@ def _verify_webhook_signature(payload_bytes: bytes, signature: Optional[str]) ->
         return True  # allow in dev; set secret in prod
     if not signature:
         return False
-    # ✅ Correct Python 3
     expected = hmac.new(
         SUPABASE_WEBHOOK_SECRET.encode(),
         payload_bytes,
@@ -241,9 +246,10 @@ async def supabase_auth_webhook(
             .execute()
         )
         if recent.data:
+            logger.info("[webhook] Skipping duplicate login log for %s", user_id)
             return {"ok": True}
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.error("[webhook] Webhook dedup check failed: %s", exc)
 
     await log_event(
         AuditAction.AUTH_LOGIN,
