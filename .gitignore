@@ -18,3 +18,5 @@ app/Enterprise
 # Local Cursor preferences
 .cursor/rules/
 .cursorignore
+
+venv
