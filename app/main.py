@@ -77,7 +77,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://faceattend.app,https://www.faceattend.app").split(",")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://faceattend.app,https://www.faceattend.app,https://api.faceattend.app,https://mvp.faceattend.app").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -94,7 +94,7 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-str
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 APP_URL = os.getenv("APP_URL", "https://faceattend.app")
-MVP_URL = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app/").rstrip("/")
+MVP_URL = os.getenv("MVP_URL", "https://mvp.faceattend.app/").rstrip("/")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xrlsltunfgjxooyyrora.supabase.co")
 SUPABASE_ANON = os.getenv("SUPABASE_ANON_KEY")
