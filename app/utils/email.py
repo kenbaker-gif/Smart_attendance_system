@@ -1,56 +1,82 @@
 """
 utils/email.py
-Zoho SMTP email sender for FaceAttend audit alerts and daily digest.
+Zoho Mail API email sender for FaceAttend audit alerts and daily digest.
 """
 
 from __future__ import annotations
 
 import os
-import smtplib
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import httpx
 from datetime import datetime, timezone
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Config — set these in Railway environment variables
+# Config
 # ---------------------------------------------------------------------------
-SMTP_HOST     = os.getenv("ZOHO_SMTP_HOST", "smtp.zoho.com")
-SMTP_PORT     = int(os.getenv("ZOHO_SMTP_PORT", "2525"))
-SMTP_USER     = os.getenv("ZOHO_SMTP_USER", "abubaker@faceattend.app")
-SMTP_PASSWORD = lambda: os.getenv("ZOHO_PASSWORD", "")
-FROM_NAME     = "FaceAttend Security"
-FROM_EMAIL    = SMTP_USER
+FROM_NAME          = "FaceAttend Security"
+FROM_EMAIL         = os.getenv("ZOHO_SMTP_USER", "abubaker@faceattend.app")
+
+ZOHO_API_BASE      = "https://mail.zoho.com/api"
+ZOHO_OAUTH_BASE    = "https://accounts.zoho.com/oauth/v2"
+ZOHO_ACCOUNT_ID    = os.getenv("ZOHO_ACCOUNT_ID")
+ZOHO_CLIENT_ID     = os.getenv("ZOHO_CLIENT_ID")
+ZOHO_CLIENT_SECRET = os.getenv("ZOHO_CLIENT_SECRET")
+ZOHO_REFRESH_TOKEN = os.getenv("ZOHO_REFRESH_TOKEN")
 
 
 # ---------------------------------------------------------------------------
-# Core sender
+# Zoho OAuth + core sender
 # ---------------------------------------------------------------------------
-def _send_email(to: list[str], subject: str, html_body: str) -> None:
-    """Low-level SMTP send via Zoho SSL."""
+async def _get_access_token() -> str:
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        resp = await client.post(
+            f"{ZOHO_OAUTH_BASE}/token",
+            params={
+                "refresh_token": ZOHO_REFRESH_TOKEN,
+                "client_id":     ZOHO_CLIENT_ID,
+                "client_secret": ZOHO_CLIENT_SECRET,
+                "grant_type":    "refresh_token",
+            },
+        )
+        data = resp.json()
+        token = data.get("access_token")
+        if not token:
+            raise RuntimeError(f"Zoho token refresh failed: {data}")
+        return token
+
+
+async def _send_email(to: list[str], subject: str, html_body: str) -> None:
     if not to:
         return
-    if not SMTP_PASSWORD():
-        logger.warning("[email] ZOHO_PASSWORD not set — skipping email")
+    if not all([ZOHO_ACCOUNT_ID, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN]):
+        logger.warning("[email] Zoho API credentials not fully set — skipping email")
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = f"{FROM_NAME} <{FROM_EMAIL}>"
-    msg["To"]      = ", ".join(to)
-    msg.attach(MIMEText(html_body, "html"))
-
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD())
-            server.sendmail(FROM_EMAIL, to, msg.as_string())
+        token = await _get_access_token()
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(
+                f"{ZOHO_API_BASE}/accounts/{ZOHO_ACCOUNT_ID}/messages",
+                headers={
+                    "Authorization": f"Zoho-oauthtoken {token}",
+                    "Content-Type":  "application/json",
+                },
+                json={
+                    "fromAddress": FROM_EMAIL,
+                    "toAddress":   ", ".join(to),
+                    "subject":     subject,
+                    "content":     html_body,
+                    "mailFormat":  "html",
+                },
+            )
+        if resp.status_code not in (200, 201):
+            raise RuntimeError(f"Zoho send failed ({resp.status_code}): {resp.text}")
         logger.info(f"[email] Sent '{subject}' to {to}")
     except Exception as exc:
-        logger.error(f"[email] SMTP error: {exc}")
+        logger.error(f"[email] Zoho API error: {exc}")
         raise
 
 
@@ -85,8 +111,6 @@ def _base_template(title: str, content: str, color: str = "#6366F1") -> str:
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:32px 16px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-
-        <!-- Header -->
         <tr>
           <td style="background:{color};padding:24px 32px;">
             <table width="100%"><tr>
@@ -102,22 +126,16 @@ def _base_template(title: str, content: str, color: str = "#6366F1") -> str:
             </tr></table>
           </td>
         </tr>
-
-        <!-- Title -->
         <tr>
           <td style="padding:28px 32px 0;">
             <h1 style="margin:0;font-size:22px;font-weight:700;color:#111827;">{title}</h1>
           </td>
         </tr>
-
-        <!-- Content -->
         <tr>
           <td style="padding:20px 32px 32px;">
             {content}
           </td>
         </tr>
-
-        <!-- Footer -->
         <tr>
           <td style="background:#F9FAFB;border-top:1px solid #E5E7EB;padding:20px 32px;">
             <p style="margin:0;font-size:12px;color:#9CA3AF;">
@@ -126,7 +144,6 @@ def _base_template(title: str, content: str, color: str = "#6366F1") -> str:
             </p>
           </td>
         </tr>
-
       </table>
     </td></tr>
   </table>
@@ -158,12 +175,11 @@ async def send_alert(
     metadata: Optional[dict] = None,
     ip_address: Optional[str] = None,
 ) -> None:
-    """Send an immediate alert email for a high-severity audit event."""
     meta = metadata or {}
     icon, label, color = ACTION_LABELS.get(action, ("📋", action.replace(".", " ").title(), "#6366F1"))
 
     rows = [
-        ("Action",    f"{icon} {label}"),
+        ("Action",       f"{icon} {label}"),
         ("Performed by", actor_email),
         ("IP Address",   ip_address or "Unknown"),
         ("Time",         datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
@@ -185,7 +201,7 @@ async def send_alert(
     </p>
     """
 
-    _send_email(recipients, f"[FaceAttend] {icon} {label}", _base_template(label, content, color))
+    await _send_email(recipients, f"[FaceAttend] {icon} {label}", _base_template(label, content, color))
 
 
 async def send_new_device_alert(
@@ -195,15 +211,14 @@ async def send_new_device_alert(
     device_info: str,
     metadata: Optional[dict] = None,
 ) -> None:
-    """Send alert when a login is detected from a new IP/device."""
     meta = metadata or {}
 
     rows = [
-        ("Account",     actor_email),
-        ("IP Address",  ip_address),
-        ("Device",      device_info),
-        ("Time",        datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
-        ("Location",    meta.get("location", "Unknown")),
+        ("Account",    actor_email),
+        ("IP Address", ip_address),
+        ("Device",     device_info),
+        ("Time",       datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
+        ("Location",   meta.get("location", "Unknown")),
     ]
 
     content = f"""
@@ -218,31 +233,26 @@ async def send_new_device_alert(
     </div>
     """
 
-    _send_email(
+    await _send_email(
         recipients,
         "[FaceAttend] 🔐 New device login detected",
         _base_template("New Login from Unknown Device", content, "#F59E0B"),
     )
 
 
-# ---------------------------------------------------------------------------
-# Daily digest
-# ---------------------------------------------------------------------------
 async def send_digest(
     recipients: list[str],
     events: list[dict],
     institution_name: str = "All Institutions",
     date_label: str = "",
 ) -> None:
-    """Send a daily audit digest email."""
     if not events:
         return
 
     date_label = date_label or datetime.now(timezone.utc).strftime("%B %d, %Y")
 
-    # Build event rows
     rows_html = ""
-    for ev in events[:100]:  # cap at 100 rows per digest
+    for ev in events[:100]:
         icon, label, color = ACTION_LABELS.get(ev.get("action", ""), ("📋", ev.get("action", ""), "#6B7280"))
         ts = ev.get("created_at", "")
         if ts:
@@ -278,8 +288,6 @@ async def send_digest(
       Here is a summary of <strong>{total} audit event{"s" if total != 1 else ""}</strong>
       for <strong>{institution_name}</strong> on {date_label}.
     </p>
-
-    <!-- Summary -->
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#F9FAFB;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
       <tr>
         <td style="font-size:12px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;padding-bottom:8px;">Event Type</td>
@@ -287,8 +295,6 @@ async def send_digest(
       </tr>
       {summary_rows}
     </table>
-
-    <!-- Event table -->
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;">
       <thead>
         <tr style="background:#F9FAFB;">
@@ -303,7 +309,7 @@ async def send_digest(
     {"<p style='margin-top:12px;font-size:12px;color:#9CA3AF;'>Showing first 100 events. Log into your dashboard for the full audit log.</p>" if total > 100 else ""}
     """
 
-    _send_email(
+    await _send_email(
         recipients,
         f"[FaceAttend] Daily Audit Digest — {date_label}",
         _base_template(f"Daily Audit Digest: {institution_name}", content, "#6366F1"),

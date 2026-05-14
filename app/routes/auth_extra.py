@@ -50,7 +50,15 @@ class LogLoginRequest(BaseModel):
 
 @router.post("/auth/forgot-password")
 @limiter.limit("5/hour")
-async def forgot_password(request: Request, body: ForgotPasswordRequest):
+async def forgot_password(request: Request):
+    # parse body manually — limiter interferes with automatic binding
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid or missing JSON body")
+    
+    body = ForgotPasswordRequest(**payload)
+    
     try:
         supabase.auth.reset_password_for_email(
             body.email,
@@ -62,7 +70,7 @@ async def forgot_password(request: Request, body: ForgotPasswordRequest):
     await log_event(
         AuditAction.AUTH_PASSWORD_RESET,
         actor_email=body.email,
-        actor_id=None,       # ← not available without auth
+        actor_id=None,
         institution_id=None,
         metadata={"note": "Password reset requested"},
         request=request,
