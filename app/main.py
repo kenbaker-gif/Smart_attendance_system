@@ -1,13 +1,24 @@
 import os
 import re
 import httpx
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks, Depends, Header, Request
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks, Depends, Header, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi import Form
 from typing import Optional
 from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+        return response
 from slowapi import _rate_limit_exceeded_handler
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
@@ -66,18 +77,17 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://faceattend.app,https://www.faceattend.app").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://faceattend.app",
-        "https://www.faceattend.app",
-        "http://localhost:3000",
-        "http://localhost:8080",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "PATCH"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 BUCKET        = "raw_faces"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/octet-stream"}
@@ -87,7 +97,9 @@ APP_URL = os.getenv("APP_URL", "https://faceattend.app")
 MVP_URL = os.getenv("MVP_URL", "https://smartattendancemvp-production.up.railway.app/").rstrip("/")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xrlsltunfgjxooyyrora.supabase.co")
-SUPABASE_ANON = os.getenv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhybHNsdHVuZmdqeG9veXlyb3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwNDczODEsImV4cCI6MjA4MDYyMzM4MX0.BWr27wHWGt6a3gWnD2ocGdQBL0_sH0HK-YHUcJsrlC0")
+SUPABASE_ANON = os.getenv("SUPABASE_ANON_KEY")
+if not SUPABASE_ANON:
+    raise RuntimeError("SUPABASE_ANON_KEY environment variable is required")
 sb = create_client(SUPABASE_URL, SUPABASE_ANON)
 
 if not MVP_URL:
@@ -739,7 +751,8 @@ async def register_institution(
             logo_path = f"logos/{inst_id}.png"
             try:
                 supabase_admin.storage.from_("raw_faces").remove([logo_path])
-            except:
+            except Exception as e:
+                print(f"Warning: Failed to remove old logo {logo_path}: {e}")
                 pass
             supabase_admin.storage.from_("raw_faces").upload(
                 logo_path, logo_bytes,
@@ -777,7 +790,8 @@ async def register_institution(
     except Exception as e:
         try:
             supabase_admin.table("institutions").delete().eq("id", inst_id).execute()
-        except:
+        except Exception as e:
+            print(f"Warning: Failed to delete institution {inst_id}: {e}")
             pass
         error_msg = str(e)
         if "already registered" in error_msg.lower() or "already exists" in error_msg.lower():

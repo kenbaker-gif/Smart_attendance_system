@@ -233,7 +233,8 @@ with st.spinner("Loading data..."):
         sr = requests.get(f"{API_URL}/admin/attendance_summary", headers=headers, timeout=15)
         sr.raise_for_status()
         summary = sr.json()
-    except:
+    except Exception as e:
+        print(f"Error fetching attendance summary: {e}")
         summary = {}
 
     try:
@@ -241,7 +242,8 @@ with st.spinner("Loading data..."):
         students_r.raise_for_status()
         students_data = students_r.json()
         total_students = students_data.get("count", 0) if isinstance(students_data, dict) else len(students_data)
-    except:
+    except Exception as e:
+        print(f"Error fetching students: {e}")
         total_students = 0
 
 if df.empty:

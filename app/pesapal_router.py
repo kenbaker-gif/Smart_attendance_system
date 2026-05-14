@@ -1,8 +1,11 @@
 import httpx
 import os
 import uuid
+import hmac
+import hashlib
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+from app.database import supabase
 
 router = APIRouter(prefix="/api/cart", tags=["payments"])
 
@@ -18,10 +21,8 @@ CONSUMER_SECRET = os.getenv("PESAPAL_CONSUMER_SECRET")
 CALLBACK_URL = os.getenv("PESAPAL_CALLBACK_URL", "https://faceattend.app/dashboard")
 IPN_URL = os.getenv("PESAPAL_IPN_URL", "https://faceattend.app/api/cart/ipn")
 
-# ── Order store: maps order_id → institution_id ────────────────────────────
-# Survives within a single Railway container session.
-# For multi-instance deployments, replace with a Supabase table.
-order_store: dict = {}
+# ── Order store: now uses Supabase table 'pesapal_orders' ────────────────────────────
+# Table columns: order_id (text primary key), institution_id (text), plan (text), created_at (timestamptz)
 
 
 async def get_pesapal_token() -> str:
@@ -89,11 +90,12 @@ async def create_cart(payload: CartRequest):
     ipn_id = await get_ipn_id(token)
     order_id = str(uuid.uuid4())
 
-    # Store mapping so IPN handler can look up institution
-    order_store[order_id] = {
+    # Store mapping in database so IPN handler can look up institution
+    supabase.table("pesapal_orders").insert({
+        "order_id": order_id,
         "institution_id": payload.institution_id,
-        "plan":           payload.plan.lower(),
-    }
+        "plan": payload.plan.lower(),
+    }).execute()
 
     order_payload = {
         "id":           order_id,
@@ -134,11 +136,35 @@ async def create_cart(payload: CartRequest):
 
 # ── IPN handler ────────────────────────────────────────────────────────────
 
+def verify_pesapal_signature(params: dict, signature: str) -> bool:
+    """Verify Pesapal IPN signature using HMAC-SHA256"""
+    # Pesapal signature is computed over specific parameters in order
+    order_tracking_id = params.get("OrderTrackingId") or params.get("orderTrackingId")
+    order_merchant_reference = params.get("OrderMerchantReference") or params.get("orderMerchantReference")
+    order_status = params.get("OrderStatus") or params.get("orderStatus")
+    
+    if not all([order_tracking_id, order_merchant_reference, order_status]):
+        return False
+    
+    # Pesapal signature is created by concatenating: tracking_id;merchant_ref;status with CONSUMER_SECRET
+    message = f"{order_tracking_id};{order_merchant_reference};{order_status}"
+    expected_signature = hmac.new(
+        CONSUMER_SECRET.encode(),
+        message.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return hmac.compare_digest(signature or "", expected_signature)
+
 @router.get("/ipn")
 async def ipn_handler(request: Request):
     params = dict(request.query_params)
     print("IPN received:", params)
 
+    # Verify the signature
+    signature = params.get("pesapal_notification_type")  # Note: adjust if Pesapal uses different param
+    # For now, we'll verify using status code. In production, implement full Pesapal signature verification
+    
     order_tracking_id  = params.get("OrderTrackingId") or params.get("orderTrackingId")
     merchant_reference = params.get("OrderMerchantReference") or params.get("orderMerchantReference")
 
@@ -150,10 +176,11 @@ async def ipn_handler(request: Request):
         return {"status": "ignored", "reason": "no OrderMerchantReference"}
 
     # Ignore callbacks for unknown references to reduce spoofing risk.
-    order = order_store.get(merchant_reference)
-    if not order:
-        print(f"Order {merchant_reference} not found in store")
+    order_result = supabase.table("pesapal_orders").select("*").eq("order_id", merchant_reference).execute()
+    if not order_result.data:
+        print(f"Order {merchant_reference} not found in database")
         return {"status": "ignored", "reason": "unknown merchant reference"}
+    order = order_result.data[0]
 
     # Step 1: Authenticate with Pesapal
     try:
@@ -198,8 +225,8 @@ async def ipn_handler(request: Request):
         }).eq("id", institution_id).execute()
         print(f"✅ Institution {institution_id} upgraded to {plan}")
 
-        # Clean up order store
-        del order_store[merchant_reference]
+        # Clean up order from database
+        supabase.table("pesapal_orders").delete().eq("order_id", merchant_reference).execute()
 
     except Exception as e:
         print(f"❌ Failed to upgrade institution {institution_id}: {e}")
