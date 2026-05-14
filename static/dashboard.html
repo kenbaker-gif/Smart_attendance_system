@@ -1575,127 +1575,118 @@ function showLoginError(msg) {
 async function initDashboard(session) {
   currentToken = session.access_token;
 
+  // 1. Fire non-blocking analytics asynchronously
+  fetch(`${DAZZLING_URL}/auth/log-login`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ source: 'dashboard'}),
+  }).catch(e => console.warn('log-login failed:', e));
+
   try {
-    await fetch(`${DAZZLING_URL}/auth/log-login`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ source: 'dashboard'}),
-    });
-  } catch (e) { console.warn('log-login failed:', e); }
+    // 2. Resolve critical profile architecture early
+    const { data: profile, error } = await client
+      .from('profiles')
+      .select('institution_id, is_super_admin, role')
+      .eq('id', session.user.id)
+      .single();
 
-  const { data: profile } = await client
-    .from('profiles')
-    .select('institution_id, is_super_admin, role')
-    .eq('id', session.user.id)
-    .single();
+    if (error) throw error;
 
-  currentInstitutionId = profile?.institution_id || null;
-  isSuperAdmin         = profile?.is_super_admin === true;
+    currentInstitutionId = profile?.institution_id || null;
+    isSuperAdmin         = profile?.is_super_admin === true;
 
-  document.getElementById('login-screen').style.display    = 'none';
-  document.getElementById('dashboard-screen').style.display = 'block';
-  document.getElementById('nav-user').textContent = session.user.email;
+    // 3. Clear existing dynamic items before building UI
+    const tabs = document.getElementById('tabs');
+    tabs.innerHTML = ''; 
 
-  if (isSuperAdmin) {
-    document.getElementById('nav-superadmin').style.display = '';
-  }
-  if (currentInstitutionId) {
-    const navInst = document.getElementById('nav-inst');
-    navInst.textContent = currentInstitutionId;
-    navInst.style.display = '';
-  }
+    // Helper to generate tabs compliant with your strict CSP
+    const createSecureTab = (id, text, targetTab, classNames) => {
+      const btn = document.createElement('button');
+      btn.className = `tab-btn ${classNames}`;
+      btn.id = id;
+      btn.textContent = text;
+      btn.addEventListener('click', () => switchTab(targetTab));
+      return btn;
+    };
 
-  const tabs = document.getElementById('tabs');
+    // 4. Construct navigation structure dynamically
+    if (!isSuperAdmin && currentInstitutionId) {
+      tabs.appendChild(createSecureTab('tab-btn-units', '📚 Course Units', 'units', 'units-tab'));
+    }
 
-  if (!isSuperAdmin && currentInstitutionId) {
-    const unitsBtn = document.createElement('button');
-    unitsBtn.className   = 'tab-btn units-tab';
-    unitsBtn.id          = 'tab-btn-units';
-    unitsBtn.onclick     = () => switchTab('units');
-    unitsBtn.textContent = '📚 Course Units';
-    tabs.appendChild(unitsBtn);
-  }
-
-  {
-    const teamBtn = document.createElement('button');
-    teamBtn.className   = 'tab-btn';
-    teamBtn.id          = 'tab-btn-team';
-    teamBtn.onclick     = () => switchTab('team');
-    teamBtn.textContent = 'Team';
-    tabs.appendChild(teamBtn);
+    tabs.appendChild(createSecureTab('tab-btn-team', 'Team', 'team', ''));
 
     if (isSuperAdmin) {
       const teamInstFilter = document.getElementById('filter-team-inst');
       teamInstFilter.style.display = '';
       fetch(`${DAZZLING_URL}/admin/institutions`, {
         headers: { 'Authorization': `Bearer ${currentToken}` }
-      }).then(r => r.json()).then(data => {
+      })
+      .then(r => r.json())
+      .then(data => {
         const insts = data.institutions || [];
-        teamInstFilter.innerHTML =
-          '<option value="">All Institutions</option>' +
+        teamInstFilter.innerHTML = '<option value="">All Institutions</option>' +
           insts.map(i => `<option value="${i.id}">${i.id} — ${i.name}</option>`).join('');
       }).catch(() => {});
     }
+
+    if (!isSuperAdmin) {
+      tabs.appendChild(createSecureTab('tab-btn-billing', '💳 Billing', 'billing', 'billing-tab'));
+    }
+
+    tabs.appendChild(createSecureTab('tab-btn-apikeys', '⚙ API Keys', 'apikeys', 'dev-tab'));
+
+    if (isSuperAdmin) {
+      const adminTabBtn = document.createElement('button');
+      adminTabBtn.className = 'tab-btn superadmin-tab';
+      adminTabBtn.id = 'tab-btn-superadmin';
+      adminTabBtn.innerHTML = '🏢 Institutions <span class="pending-count" id="pending-count" style="display:none"></span>';
+      adminTabBtn.addEventListener('click', () => switchTab('superadmin'));
+      tabs.appendChild(adminTabBtn);
+
+      tabs.appendChild(createSecureTab('tab-btn-security', '🛡 Security', 'security', 'security-tab'));
+    }
+
+    tabs.appendChild(createSecureTab('tab-btn-audit', '📋 Audit Logs', 'audit', 'audit-tab'));
+
+    // 5. Pre-fetch essential local dataset caches
+    if (!isSuperAdmin && currentInstitutionId) {
+      const { data: units } = await client
+        .from('course_units')
+        .select('id, name, code')
+        .eq('institution_id', currentInstitutionId)
+        .order('created_at', { ascending: true });
+      courseUnitsCache = units || [];
+    }
+
+    // 6. Execute global async routines
+    await loadData();
+    if (isSuperAdmin) await fetchPendingCount();
+
+    // 7. Transition interface context only after complete initialization success
+    document.getElementById('nav-user').textContent = session.user.email;
+    document.getElementById('nav-superadmin').style.display = isSuperAdmin ? '' : 'none';
+    
+    const navInst = document.getElementById('nav-inst');
+    if (currentInstitutionId) {
+      navInst.textContent = currentInstitutionId;
+      navInst.style.display = '';
+    } else {
+      navInst.style.display = 'none';
+    }
+
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard-screen').style.display = 'block';
+
+  } catch (err) {
+    console.error('Critical initialization failure:', err);
+    alert('Failed to securely initialize your dashboard session. Please login again.');
   }
-
-  if (!isSuperAdmin) {
-    const billingBtn = document.createElement('button');
-    billingBtn.className   = 'tab-btn billing-tab';
-    billingBtn.id          = 'tab-btn-billing';
-    billingBtn.onclick     = () => switchTab('billing');
-    billingBtn.textContent = '💳 Billing';
-    tabs.appendChild(billingBtn);
-  }
-
-  {
-    const apiBtn = document.createElement('button');
-    apiBtn.className   = 'tab-btn dev-tab';
-    apiBtn.id          = 'tab-btn-apikeys';
-    apiBtn.onclick     = () => switchTab('apikeys');
-    apiBtn.textContent = '⚙ API Keys';
-    tabs.appendChild(apiBtn);
-  }
-
-  if (isSuperAdmin) {
-    const adminTabBtn = document.createElement('button');
-    adminTabBtn.className   = 'tab-btn superadmin-tab';
-    adminTabBtn.id          = 'tab-btn-superadmin';
-    adminTabBtn.onclick     = () => switchTab('superadmin');
-    adminTabBtn.innerHTML   = '🏢 Institutions <span class="pending-count" id="pending-count" style="display:none"></span>';
-    tabs.appendChild(adminTabBtn);
-
-    const secBtn = document.createElement('button');
-    secBtn.className   = 'tab-btn security-tab';
-    secBtn.id          = 'tab-btn-security';
-    secBtn.onclick     = () => switchTab('security');
-    secBtn.textContent = '🛡 Security';
-    tabs.appendChild(secBtn);
-  }
-
-  {
-    const auditBtn = document.createElement('button');
-    auditBtn.className   = 'tab-btn audit-tab';
-    auditBtn.id          = 'tab-btn-audit';
-    auditBtn.onclick     = () => switchTab('audit');
-    auditBtn.textContent = '📋 Audit Logs';
-    tabs.appendChild(auditBtn);
-  }
-
-  if (!isSuperAdmin && currentInstitutionId) {
-    const { data } = await client
-      .from('course_units')
-      .select('id, name, code')
-      .eq('institution_id', currentInstitutionId)
-      .order('created_at', { ascending: true });
-    courseUnitsCache = data || [];
-  }
-
-  await loadData();
-  if (isSuperAdmin) await fetchPendingCount();
 }
+
 
 // ── Pending count badge ────────────────────────────────────────────────────
 async function fetchPendingCount() {
