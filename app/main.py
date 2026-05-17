@@ -420,7 +420,7 @@ async def get_attendance_records(
             raise HTTPException(status_code=403, detail="Institution admin requires institution_id in profile")
 
         query = supabase_admin.table("attendance_records") \
-            .select("*") \
+            .select("*, course_units(name)") \
             .order("timestamp", desc=True) \
             .limit(limit)
 
@@ -431,11 +431,19 @@ async def get_attendance_records(
             query = query.eq("institution_id", user_institution_id)
 
         rows = query.execute().data or []
+
+        # Flatten course unit name into each record
+        for row in rows:
+            cu = row.pop("course_units", None)
+            row["course_unit_name"] = cu["name"] if cu else "N/A"
+
         return rows
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Attendance - summary
 
 @app.get("/admin/attendance_summary")
 async def get_summary(
@@ -456,7 +464,9 @@ async def get_summary(
         if not is_super and not user_institution_id:
             raise HTTPException(status_code=403, detail="Institution admin requires institution_id in profile")
 
-        query = supabase_admin.table("attendance_records").select("*")
+        query = supabase_admin.table("attendance_records") \
+            .select("student_id, verified")
+        
         if is_super:
             if institution_id:
                 query = query.eq("institution_id", institution_id)
@@ -480,7 +490,6 @@ async def get_summary(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # ── Coordinator invite ─────────────────────────────────────────────────────
 

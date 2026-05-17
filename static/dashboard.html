@@ -1572,18 +1572,20 @@ function showLoginError(msg) {
 }
 
 // ── Init dashboard ─────────────────────────────────────────────────────────
-async function initDashboard(session) {
+async function initDashboard(session, isFreshLogin = False) {
   currentToken = session.access_token;
 
-  // 1. Fire non-blocking analytics asynchronously
-  fetch(`${DAZZLING_URL}/auth/log-login`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ source: 'dashboard'}),
-  }).catch(e => console.warn('log-login failed:', e));
+// 1. Fire non-blocking analytics asynchronously
+  if (isFreshLogin) {
+    fetch(`${DAZZLING_URL}/auth/log-login`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ source: 'dashboard'}),
+    }).catch(e => console.warn('log-login failed:', e));
+  }
 
   try {
     // 2. Resolve critical profile architecture early
@@ -2810,10 +2812,9 @@ function renderTable(records) {
     const conf = r.confidence ? (r.confidence * 100).toFixed(1) + '%' : '—';
     const badge = r.verified === 'success' ? '<span class="badge badge-success">Success</span>' :
       r.verified === 'spoof' ? '<span class="badge badge-spoof">Spoof</span>' : '<span class="badge badge-failed">Failed</span>';
-    const unit = courseUnitsCache.find(u => u.id === r.course_unit_id);
-    const unitCell = unit
-      ? `<span style="color:var(--blue);font-size:0.78rem;">${unit.name}${unit.code ? ' (' + unit.code + ')' : ''}</span>`
-      : `<span style="color:var(--muted);font-size:0.78rem;">${r.course_unit_id ? r.course_unit_id.slice(0,8) + '…' : '—'}</span>`;
+    const unitCell = r.course_unit_name
+      ? `<span style="color:var(--blue);font-size:0.78rem;">${r.course_unit_name}</span>`
+      : `<span style="color:var(--muted);font-size:0.78rem;">—</span>`;
     return `<tr><td>${r.student_id || '—'}</td><td>${badge}</td><td>${conf}</td><td>${unitCell}</td><td>${r.institution_id || '—'}</td><td style="color:var(--muted)">${ts}</td></tr>`;
   }).join('');
   document.getElementById('table-wrap').innerHTML = `
@@ -2830,8 +2831,15 @@ function exportCSV() {
   let filtered = allRecords;
   if (inst)   filtered = filtered.filter(r => r.institution_id === inst);
   if (status) filtered = filtered.filter(r => r.verified === status);
-  const header = ['student_id', 'verified', 'confidence', 'institution_id', 'course_unit_id', 'timestamp'];
-  const rows   = filtered.map(r => header.map(k => r[k] ?? '').join(','));
+  const header = ['student_id', 'verified', 'confidence', 'institution_id', 'course_unit_name', 'timestamp_EAT'];
+  const rows = filtered.map(r => [
+    r.student_id ?? '',
+    r.verified ?? '',
+    r.confidence ?? '',
+    r.institution_id ?? '',
+    r.course_unit_name ?? 'N/A',
+    r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' }) : ''
+  ].join(','));
   const csv    = [header.join(','), ...rows].join('\n');
   const blob   = new Blob([csv], { type: 'text/csv' });
   const url    = URL.createObjectURL(blob);
