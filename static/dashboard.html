@@ -1572,7 +1572,7 @@ function showLoginError(msg) {
 }
 
 // ── Init dashboard ─────────────────────────────────────────────────────────
-async function initDashboard(session, isFreshLogin = False) {
+async function initDashboard(session, isFreshLogin = false) {
   currentToken = session.access_token;
 
 // 1. Fire non-blocking analytics asynchronously
