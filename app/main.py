@@ -993,7 +993,8 @@ async def ai_attendance_summary(
     scope: str = "institution",          # "institution" | "course_unit" | "student"
     scope_id: str = None,                # course_unit_id or student_id (optional)
     date_from: str = None,               # ISO date string e.g. "2025-01-01" (optional)
-    date_to: str = None,                 # ISO date string e.g. "2025-12-31" (optional)
+    date_to: str = None,
+    institution_id: str = None,                 
     user=Depends(check_admin),
 ):
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -1012,20 +1013,23 @@ async def ai_attendance_summary(
     if not is_super and not user_institution_id:
         raise HTTPException(status_code=403, detail="Admin not linked to an institution.")
 
-    effective_institution_id = user_institution_id if not is_super else user_institution_id
+    effective_institution_id = user_institution_id if not is_super else (institution_id or user_institution_id)
 
-    # ── 2. Fetch institution name ──────────────────────────────────────────
-    inst_resp = supabase_admin.table("institutions") \
-        .select("name") \
-        .eq("id", effective_institution_id).limit(1).execute()
-    institution_name = inst_resp.data[0]["name"] if inst_resp.data else effective_institution_id
+    # ── 2. Resolve institution name / global label for super admins ───────────
+    institution_name = "all institutions"
+    if effective_institution_id:
+        inst_resp = supabase_admin.table("institutions") \
+            .select("name") \
+            .eq("id", effective_institution_id).limit(1).execute()
+        institution_name = inst_resp.data[0]["name"] if inst_resp.data else effective_institution_id
 
     # ── 3. Build attendance query ──────────────────────────────────────────
     try:
         query = supabase_admin.table("attendance_records") \
-            .select("student_id, verified, timestamp, course_unit_id") \
-            .eq("institution_id", effective_institution_id) \
-            .order("timestamp", desc=True) \
+            .select("student_id, verified, timestamp, course_unit_id")
+        if effective_institution_id:
+            query = query.eq("institution_id", effective_institution_id)
+        query = query.order("timestamp", desc=True) \
             .limit(1000)
 
         if scope == "course_unit" and scope_id:
@@ -1145,7 +1149,7 @@ Be concise, professional, and specific. Do not add preamble or closing remarks."
                     "X-Title": "FaceAttend AI Summary",
                 },
                 json={
-                    "model": "deepseek/deepseek-chat-v3-5:free",
+                    "model": "deepseek/deepseek-chat",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 1000,
                     "temperature": 0.3,
