@@ -985,3 +985,189 @@ def check_trial(institution_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── AI Attendance Summary ──────────────────────────────────────────────────
+
+@app.get("/admin/ai-attendance-summary")
+async def ai_attendance_summary(
+    scope: str = "institution",          # "institution" | "course_unit" | "student"
+    scope_id: str = None,                # course_unit_id or student_id (optional)
+    date_from: str = None,               # ISO date string e.g. "2025-01-01" (optional)
+    date_to: str = None,                 # ISO date string e.g. "2025-12-31" (optional)
+    user=Depends(check_admin),
+):
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY is not configured.")
+
+    # ── 1. Resolve institution + permissions ───────────────────────────────
+    profile_resp = supabase_admin.table("profiles") \
+        .select("institution_id, is_super_admin, role") \
+        .eq("id", user.id).single().execute()
+
+    profile = profile_resp.data or {}
+    is_super = _bool_flag(profile.get("is_super_admin")) or profile.get("role", "") == "super_admin"
+    user_institution_id = profile.get("institution_id")
+
+    if not is_super and not user_institution_id:
+        raise HTTPException(status_code=403, detail="Admin not linked to an institution.")
+
+    effective_institution_id = user_institution_id if not is_super else user_institution_id
+
+    # ── 2. Fetch institution name ──────────────────────────────────────────
+    inst_resp = supabase_admin.table("institutions") \
+        .select("name") \
+        .eq("id", effective_institution_id).limit(1).execute()
+    institution_name = inst_resp.data[0]["name"] if inst_resp.data else effective_institution_id
+
+    # ── 3. Build attendance query ──────────────────────────────────────────
+    try:
+        query = supabase_admin.table("attendance_records") \
+            .select("student_id, verified, timestamp, course_unit_id") \
+            .eq("institution_id", effective_institution_id) \
+            .order("timestamp", desc=True) \
+            .limit(1000)
+
+        if scope == "course_unit" and scope_id:
+            query = query.eq("course_unit_id", scope_id)
+        elif scope == "student" and scope_id:
+            query = query.eq("student_id", scope_id)
+
+        if date_from:
+            query = query.gte("timestamp", date_from)
+        if date_to:
+            query = query.lte("timestamp", date_to + "T23:59:59")
+
+        records = query.execute().data or []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch attendance records: {str(e)}")
+
+    if not records:
+        raise HTTPException(status_code=404, detail="No attendance records found for the selected filters.")
+
+    # ── 4. Fetch student names ─────────────────────────────────────────────
+    student_ids = list({r["student_id"] for r in records if r.get("student_id")})
+    students_resp = supabase_admin.table("students") \
+        .select("id, name") \
+        .in_("id", student_ids).execute()
+    student_map = {s["id"]: s["name"] for s in (students_resp.data or [])}
+
+    # ── 5. Compute stats per student ───────────────────────────────────────
+    from collections import defaultdict
+    student_stats = defaultdict(lambda: {"present": 0, "absent": 0, "name": "Unknown"})
+
+    for r in records:
+        sid = r.get("student_id") or "unknown"
+        student_stats[sid]["name"] = student_map.get(sid, sid)
+        if r.get("verified") == "success":
+            student_stats[sid]["present"] += 1
+        else:
+            student_stats[sid]["absent"] += 1
+
+    total_sessions_per_student = {}
+    student_summary_rows = []
+    at_risk = []
+
+    for sid, data in student_stats.items():
+        total = data["present"] + data["absent"]
+        pct = round((data["present"] / total) * 100, 1) if total > 0 else 0
+        total_sessions_per_student[sid] = total
+        row = {
+            "student_id": sid,
+            "name": data["name"],
+            "present": data["present"],
+            "absent": data["absent"],
+            "total": total,
+            "attendance_pct": pct,
+        }
+        student_summary_rows.append(row)
+        if pct < 75:
+            at_risk.append({"name": data["name"], "attendance_pct": pct})
+
+    overall_present = sum(r["present"] for r in student_summary_rows)
+    overall_total   = sum(r["total"]   for r in student_summary_rows)
+    overall_pct     = round((overall_present / overall_total) * 100, 1) if overall_total > 0 else 0
+
+    stats = {
+        "total_students":  len(student_summary_rows),
+        "total_records":   len(records),
+        "overall_attendance_pct": overall_pct,
+        "at_risk_count":   len(at_risk),
+        "students":        sorted(student_summary_rows, key=lambda x: x["attendance_pct"]),
+    }
+
+    # ── 6. Build prompt ────────────────────────────────────────────────────
+    scope_label = {
+        "institution": f"all students at {institution_name}",
+        "course_unit": f"course unit {scope_id} at {institution_name}",
+        "student":     f"student {student_map.get(scope_id, scope_id)} at {institution_name}",
+    }.get(scope, institution_name)
+
+    date_range_label = ""
+    if date_from or date_to:
+        date_range_label = f" (from {date_from or 'start'} to {date_to or 'today'})"
+
+    student_lines = "\n".join(
+        f"- {r['name']}: {r['attendance_pct']}% ({r['present']}/{r['total']} sessions)"
+        for r in sorted(student_summary_rows, key=lambda x: x["attendance_pct"])
+    )
+
+    prompt = f"""You are an academic attendance analyst preparing a report for {institution_name}.
+
+Analyze the following attendance data for {scope_label}{date_range_label} and produce a structured report with these exact sections:
+
+1. OVERALL SUMMARY — one sentence conclusion
+2. KEY TRENDS — 3 to 5 bullet points about patterns you observe
+3. AT-RISK STUDENTS — list students below 75% attendance and briefly explain the concern
+4. RECOMMENDATIONS — 3 actionable recommendations for the institution or lecturer
+
+Data:
+\"\"\"
+Total students: {stats['total_students']}
+Overall attendance rate: {overall_pct}%
+At-risk students (below 75%): {len(at_risk)}
+
+Per-student breakdown:
+{student_lines}
+\"\"\"
+
+Be concise, professional, and specific. Do not add preamble or closing remarks."""
+
+    # ── 7. Call OpenRouter (DeepSeek V4 Flash) ────────────────────────────
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": APP_URL,
+                    "X-Title": "FaceAttend AI Summary",
+                },
+                json={
+                    "model": "deepseek/deepseek-chat-v3-5:free",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 1000,
+                    "temperature": 0.3,
+                },
+            )
+            response.raise_for_status()
+            result = response.json()
+            summary_text = result["choices"][0]["message"]["content"].strip()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"[AI_SUMMARY] OpenRouter HTTP error: {e.response.status_code} — {e.response.text}")
+        raise HTTPException(status_code=502, detail="AI service returned an error. Try again shortly.")
+    except Exception as e:
+        logger.error(f"[AI_SUMMARY] OpenRouter call failed: {repr(e)}")
+        raise HTTPException(status_code=502, detail="Failed to reach AI service.")
+
+    return {
+        "summary": summary_text,
+        "stats": stats,
+        "at_risk": at_risk,
+        "scope": scope,
+        "scope_id": scope_id,
+        "institution": institution_name,
+        "date_from": date_from,
+        "date_to": date_to,
+    }
